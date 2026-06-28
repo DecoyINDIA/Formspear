@@ -1,0 +1,26 @@
+{
+  "name": "formspear-feedbackos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FeedbackOS local SaaS prototype for forms, surveys, feedback, AI insights, alerts, analytics, billing, and admin operations.",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "worker": "node scripts/worker.js",
+    "dev": "node src/server.js",
+    "test": "node --test tests/*.test.js",
+    "check": "node --check src/server.js",
+    "migrations:check": "node scripts/verify-migrations.js",
+    "backup:smoke": "node scripts/backup-restore-smoke.js",
+    "visual:smoke": "node scripts/visual-smoke.js",
+    "performance:smoke": "node scripts/performance-smoke.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "bullmq": "^5.79.1",
+    "pg": "^8.22.0",
+    "write-excel-file": "^4.1.1"
+  }
+}
