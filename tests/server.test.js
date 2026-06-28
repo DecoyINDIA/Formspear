@@ -2224,8 +2224,68 @@ test('FeedbackOS core MVP and V1 loops work over HTTP', async (t) => {
   const adminWorkspaces = await admin.request('/api/admin/workspaces');
   assert.ok(adminWorkspaces.workspaces.length >= 2);
 
+  const customPlan = await admin.request('/api/admin/plans', {
+    method: 'POST',
+    body: {
+      id: 'clinic_growth_test',
+      name: 'Clinic Growth Test',
+      priceMonthlyInr: 12345,
+      setupFeeRange: 'INR 12,000-18,000',
+      limits: { surveys: 1, responsesPerMonth: 50, teamMembers: 3, aiCredits: 7 },
+      features: ['Clinic feedback', 'Complaint alerts']
+    }
+  });
+  assert.equal(customPlan.plan.id, 'clinic_growth_test');
+  assert.equal(customPlan.plan.limits.surveys, 1);
+  const adminPlans = await admin.request('/api/admin/plans');
+  assert.ok(adminPlans.plans.some((plan) => plan.id === 'clinic_growth_test'));
+  const activePlans = await admin.request('/api/plans');
+  assert.ok(activePlans.plans.some((plan) => plan.id === 'clinic_growth_test'));
+  const customSession = await admin.request('/api/session');
+  assert.ok(customSession.plans.some((plan) => plan.id === 'clinic_growth_test'));
+
+  const limitedWorkspaceId = otherSignup.workspaces[0].id;
+  const limitedWorkspace = await admin.request(`/api/admin/workspaces/${limitedWorkspaceId}`, {
+    method: 'PUT',
+    body: { planId: 'clinic_growth_test' }
+  });
+  assert.equal(limitedWorkspace.workspace.planId, 'clinic_growth_test');
+  const customBilling = await admin.request(`/api/billing?workspaceId=${limitedWorkspaceId}`);
+  assert.ok(customBilling.plans.some((plan) => plan.id === 'clinic_growth_test' && plan.priceMonthlyInr === 12345));
+  await admin.request('/api/surveys', {
+    method: 'POST',
+    body: { workspaceId: limitedWorkspaceId, title: 'Custom plan first survey' }
+  });
+  await assert.rejects(
+    () => admin.request('/api/surveys', { method: 'POST', body: { workspaceId: limitedWorkspaceId, title: 'Custom plan blocked survey' } }),
+    (error) => error.status === 402 && error.payload.error.code === 'plan_limit'
+  );
+  const updatedCustomPlan = await admin.request('/api/admin/plans/clinic_growth_test', {
+    method: 'PUT',
+    body: { limits: { surveys: 2, responsesPerMonth: 75, teamMembers: 4, aiCredits: 9 }, priceMonthlyInr: 15000 }
+  });
+  assert.equal(updatedCustomPlan.plan.limits.surveys, 2);
+  assert.equal(updatedCustomPlan.plan.priceMonthlyInr, 15000);
+  await admin.request('/api/surveys', {
+    method: 'POST',
+    body: { workspaceId: limitedWorkspaceId, title: 'Custom plan second survey' }
+  });
+  const archivedCustomPlan = await admin.request('/api/admin/plans/clinic_growth_test', { method: 'DELETE', body: {} });
+  assert.equal(archivedCustomPlan.plan.archived, true);
+  const activePlansAfterArchive = await admin.request('/api/plans');
+  assert.ok(!activePlansAfterArchive.plans.some((plan) => plan.id === 'clinic_growth_test'));
+
   const suspended = await admin.request(`/api/admin/workspaces/${otherSignup.workspaces[0].id}`, { method: 'PUT', body: { suspended: true } });
   assert.equal(suspended.workspace.suspended, true);
+  const deletedWorkspace = await admin.request(`/api/admin/workspaces/${limitedWorkspaceId}`, { method: 'DELETE', body: {} });
+  assert.equal(deletedWorkspace.ok, true);
+  assert.equal(deletedWorkspace.deletedWorkspaceId, limitedWorkspaceId);
+  assert.equal(deletedWorkspace.result.workspacesDeleted, 1);
+  assert.ok(deletedWorkspace.result.surveysDeleted >= 2);
+  const workspacesAfterDelete = await admin.request('/api/admin/workspaces');
+  assert.ok(!workspacesAfterDelete.workspaces.some((workspace) => workspace.id === limitedWorkspaceId));
+  const auditAfterDelete = await admin.request('/api/admin/audit-logs?action=admin.workspace_deleted&limit=5');
+  assert.ok(auditAfterDelete.auditLogs.some((log) => log.entityId === limitedWorkspaceId));
 
   const platformSettings = await admin.request('/api/admin/settings');
   assert.equal(platformSettings.settings.requireEmailVerification, false);
@@ -2273,7 +2333,8 @@ test('FeedbackOS core MVP and V1 loops work over HTTP', async (t) => {
   assert.equal(testFaultPayload.error.code, 'internal_error');
 
   const adminOverview = await admin.request('/api/admin/overview');
-  assert.ok(adminOverview.totals.workspaces >= 5);
+  assert.ok(adminOverview.totals.workspaces >= 4);
+  assert.ok(!adminOverview.topWorkspaces.some((workspace) => workspace.id === limitedWorkspaceId));
   assert.ok(adminOverview.topWorkspaces.some((workspace) => workspace.name === 'OAuth Workspace'));
   assert.equal(adminOverview.totals.responseVolume, 6);
   assert.ok(adminOverview.totals.errorLogs >= 1);

@@ -74,6 +74,26 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS oauth_auth_requests (
+  id text PRIMARY KEY,
+  provider text NOT NULL,
+  state_hash text NOT NULL,
+  code_verifier text NOT NULL,
+  mode text NOT NULL DEFAULT 'login',
+  response_mode text NOT NULL DEFAULT 'redirect',
+  name text NOT NULL DEFAULT '',
+  workspace_name text NOT NULL DEFAULT '',
+  industry text NOT NULL DEFAULT 'General services',
+  company_size text NOT NULL DEFAULT '1-10',
+  timezone text NOT NULL DEFAULT 'Asia/Kolkata',
+  accepted_terms boolean NOT NULL DEFAULT false,
+  status text NOT NULL DEFAULT 'pending',
+  last_error text NOT NULL DEFAULT '',
+  expires_at timestamptz NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz
+);
+
 CREATE TABLE IF NOT EXISTS workspaces (
   id text PRIMARY KEY,
   name text NOT NULL,
@@ -120,6 +140,33 @@ CREATE TABLE IF NOT EXISTS workspace_members (
   joined_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (workspace_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS sso_auth_requests (
+  id text PRIMARY KEY,
+  workspace_id text NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  email text NOT NULL DEFAULT '',
+  relay_state text NOT NULL,
+  status text NOT NULL DEFAULT 'pending',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL,
+  completed_at timestamptz
+);
+
+CREATE TABLE IF NOT EXISTS api_keys (
+  id text PRIMARY KEY,
+  workspace_id text NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  token_hash text NOT NULL UNIQUE,
+  token_preview text NOT NULL DEFAULT '',
+  scopes_json jsonb NOT NULL DEFAULT '[]'::jsonb,
+  rate_limit_per_minute integer NOT NULL DEFAULT 120,
+  created_by text REFERENCES users(id) ON DELETE SET NULL,
+  last_used_at timestamptz,
+  revoked_at timestamptz,
+  rotated_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS workspace_invites (
@@ -246,6 +293,7 @@ CREATE TABLE IF NOT EXISTS integrations (
   name text NOT NULL,
   config_encrypted text NOT NULL DEFAULT '',
   config_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  events_json jsonb NOT NULL DEFAULT '[]'::jsonb,
   status text NOT NULL DEFAULT 'active',
   created_by text REFERENCES users(id),
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -317,6 +365,21 @@ CREATE TABLE IF NOT EXISTS ai_jobs (
   completed_at timestamptz
 );
 
+CREATE TABLE IF NOT EXISTS ai_provider_logs (
+  id text PRIMARY KEY,
+  workspace_id text REFERENCES workspaces(id) ON DELETE SET NULL,
+  task text NOT NULL DEFAULT '',
+  provider text NOT NULL DEFAULT '',
+  model text NOT NULL DEFAULT '',
+  status text NOT NULL DEFAULT '',
+  duration_ms integer NOT NULL DEFAULT 0,
+  total_tokens integer NOT NULL DEFAULT 0,
+  prompt_tokens integer NOT NULL DEFAULT 0,
+  completion_tokens integer NOT NULL DEFAULT 0,
+  error text NOT NULL DEFAULT '',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS jobs (
   id text PRIMARY KEY,
   workspace_id text REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -366,8 +429,12 @@ CREATE TABLE IF NOT EXISTS campaign_events (
   id text PRIMARY KEY,
   workspace_id text NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   campaign_id text NOT NULL REFERENCES email_campaigns(id) ON DELETE CASCADE,
+  survey_id text REFERENCES surveys(id) ON DELETE SET NULL,
   event text NOT NULL,
   recipient_hash text NOT NULL DEFAULT '',
+  email text NOT NULL DEFAULT '',
+  user_agent text NOT NULL DEFAULT '',
+  ip_hash text NOT NULL DEFAULT '',
   metadata_json jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );
@@ -387,6 +454,7 @@ CREATE TABLE IF NOT EXISTS file_uploads (
   storage_bucket text NOT NULL DEFAULT '',
   storage_key text NOT NULL DEFAULT '',
   storage_url text NOT NULL DEFAULT '',
+  data_url text NOT NULL DEFAULT '',
   scan_status text NOT NULL DEFAULT 'pending',
   scan_provider text NOT NULL DEFAULT '',
   scan_signature text NOT NULL DEFAULT '',
@@ -469,11 +537,15 @@ CREATE TABLE IF NOT EXISTS custom_templates (
   scope text NOT NULL DEFAULT 'workspace',
   status text NOT NULL DEFAULT 'draft',
   name text NOT NULL,
+  type text NOT NULL DEFAULT 'feedback_form',
+  visibility text NOT NULL DEFAULT 'workspace',
   category text NOT NULL DEFAULT '',
   industry text NOT NULL DEFAULT '',
+  use_case text NOT NULL DEFAULT '',
   description text NOT NULL DEFAULT '',
   tags_json jsonb NOT NULL DEFAULT '[]'::jsonb,
   schema_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  source_survey_id text REFERENCES surveys(id) ON DELETE SET NULL,
   created_by text REFERENCES users(id),
   usage_count integer NOT NULL DEFAULT 0,
   published_at timestamptz,
@@ -499,6 +571,7 @@ CREATE TABLE IF NOT EXISTS notifications (
   user_id text REFERENCES users(id) ON DELETE SET NULL,
   title text NOT NULL,
   body text NOT NULL DEFAULT '',
+  read boolean NOT NULL DEFAULT false,
   read_at timestamptz,
   metadata_json jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
@@ -518,7 +591,13 @@ CREATE TABLE IF NOT EXISTS error_logs (
 
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_two_factor_challenges_user_expires ON two_factor_challenges(user_id, expires_at);
+CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_hash ON email_verification_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_hash ON password_reset_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_oauth_auth_requests_state ON oauth_auth_requests(provider, state_hash);
 CREATE INDEX IF NOT EXISTS idx_workspace_members_user_id ON workspace_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_sso_auth_requests_workspace_expires ON sso_auth_requests(workspace_id, expires_at);
+CREATE INDEX IF NOT EXISTS idx_api_keys_workspace_id ON api_keys(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_workspace_invites_workspace_email ON workspace_invites(workspace_id, email);
 CREATE INDEX IF NOT EXISTS idx_surveys_workspace_id ON surveys(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_surveys_workspace_status ON surveys(workspace_id, status);
@@ -541,6 +620,7 @@ CREATE INDEX IF NOT EXISTS idx_webhooks_workspace_id ON webhooks(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_webhook_logs_webhook_created_at ON webhook_logs(webhook_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_alerts_workspace_survey ON alerts(workspace_id, survey_id);
 CREATE INDEX IF NOT EXISTS idx_ai_jobs_workspace_created_at ON ai_jobs(workspace_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_ai_provider_logs_workspace_created_at ON ai_provider_logs(workspace_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_status_next_run_at ON jobs(status, next_run_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_workspace_type ON jobs(workspace_id, type);
 CREATE INDEX IF NOT EXISTS idx_email_logs_workspace_created_at ON email_logs(workspace_id, created_at);

@@ -12,6 +12,7 @@ const ROOT = path.resolve(__dirname, '..');
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const DEFAULT_DATA_FILE = process.env.FORMSPEAR_DATA_FILE || path.join(ROOT, 'data', 'formspear.db.json');
 const POSTGRES_RUNTIME_STATE_KEY = '__feedbackos_runtime_state__';
+const POSTGRES_PLATFORM_SETTINGS_KEY = '__feedbackos_platform_settings__';
 const BULLMQ_QUEUE_NAME = process.env.BULLMQ_QUEUE_NAME || 'feedbackos-jobs';
 const MAX_BODY_BYTES = Number(process.env.MAX_BODY_BYTES || 8 * 1024 * 1024);
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14;
@@ -587,7 +588,7 @@ async function handleApi(req, res, url, state) {
   }
 
   if (segments[0] === 'plans' && method === 'GET') {
-    sendJson(res, 200, { plans: PLANS });
+    sendJson(res, 200, { plans: billingPlans(db) });
     return;
   }
 
@@ -748,7 +749,7 @@ async function handleSignup(req, res, db, state) {
       emailVerificationRequired: true,
       verificationToken: verification.token,
       user: publicUser(user),
-      plans: PLANS
+      plans: billingPlans(db)
     });
     return;
   }
@@ -1435,13 +1436,13 @@ async function handleWorkspaces(req, res, url, segments, db, state, user) {
 
   if (segments[1] === 'subscription' && req.method === 'POST') {
     const body = await readJson(req);
-    const plan = PLANS.find((item) => item.id === body.planId);
+    const plan = findBillingPlan(db, body.planId);
     if (!plan) {
       sendJson(res, 400, { error: { code: 'invalid_plan', message: 'Unknown plan.' } });
       return;
     }
     const subscription = db.subscriptions.find((item) => item.workspaceId === workspaceId) || createSubscription(workspaceId, plan.id);
-    const previousPlan = PLANS.find((item) => item.id === subscription.planId) || null;
+    const previousPlan = findBillingPlan(db, subscription.planId) || null;
     const prorationInvoice = createPlanChangeProrationInvoice(workspaceId, previousPlan, plan, subscription, body);
     if (prorationInvoice) db.invoices.push(prorationInvoice);
     subscription.planId = plan.id;
@@ -2544,7 +2545,7 @@ async function handleBilling(req, res, url, segments, db, state, user) {
     const subscription = db.subscriptions.find((item) => item.workspaceId === workspaceId);
     const invoices = db.invoices.filter((invoice) => invoice.workspaceId === workspaceId).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     const usage = db.usageMeters.filter((meter) => meter.workspaceId === workspaceId).sort((a, b) => b.period.localeCompare(a.period));
-    sendJson(res, 200, { subscription, invoices, usage, plans: PLANS });
+    sendJson(res, 200, { subscription, invoices, usage, plans: billingPlans(db) });
     return;
   }
 
@@ -2560,7 +2561,7 @@ async function handleBilling(req, res, url, segments, db, state, user) {
 
   if (segments[1] === 'checkout' && req.method === 'POST') {
     const body = await readJson(req);
-    const plan = PLANS.find((item) => item.id === body.planId);
+    const plan = findBillingPlan(db, body.planId);
     if (!plan) {
       sendJson(res, 400, { error: { code: 'invalid_plan', message: 'Unknown plan.' } });
       return;
@@ -2708,7 +2709,7 @@ async function handleAdmin(req, res, url, segments, db, state, user) {
     }
     const body = await readJson(req);
     if (body.suspended !== undefined) workspace.suspended = Boolean(body.suspended);
-    if (body.planId && PLANS.some((plan) => plan.id === body.planId)) workspace.planId = body.planId;
+    if (body.planId && findBillingPlan(db, body.planId)) workspace.planId = cleanText(body.planId, 80);
     if (Object.prototype.hasOwnProperty.call(body, 'aiCreditLimitOverride')) {
       const parsed = parseOptionalLimit(body.aiCreditLimitOverride);
       if (!parsed.ok) {
@@ -2721,6 +2722,90 @@ async function handleAdmin(req, res, url, segments, db, state, user) {
     db.auditLogs.push(audit(workspace.id, user.id, 'admin.workspace_updated', 'workspace', workspace.id, { fields: Object.keys(body) }));
     await saveDb(state);
     sendJson(res, 200, { workspace: attachWorkspaceMeta(db, workspace, 'owner') });
+    return;
+  }
+
+  if (segments[0] === 'workspaces' && segments[1] && req.method === 'DELETE') {
+    const workspace = db.workspaces.find((item) => item.id === segments[1]);
+    if (!workspace) {
+      sendJson(res, 404, { error: { code: 'workspace_not_found', message: 'Workspace not found.' } });
+      return;
+    }
+    const result = deleteWorkspaceData(db, workspace.id);
+    db.auditLogs.push(audit(null, user.id, 'admin.workspace_deleted', 'workspace', workspace.id, result));
+    await saveDb(state);
+    sendJson(res, 200, { ok: true, deletedWorkspaceId: workspace.id, result });
+    return;
+  }
+
+  if (segments[0] === 'plans' && req.method === 'GET') {
+    sendJson(res, 200, { plans: billingPlans(db, { includeArchived: true }) });
+    return;
+  }
+
+  if (segments[0] === 'plans' && req.method === 'POST') {
+    const body = await readJson(req);
+    const plan = normalizeBillingPlan({
+      id: body.id || `custom_${crypto.randomBytes(5).toString('hex')}`,
+      ...body,
+      custom: true,
+      archived: false
+    }, null);
+    if (!plan.id) {
+      sendJson(res, 400, { error: { code: 'invalid_plan', message: 'Plan id is required.' } });
+      return;
+    }
+    if (billingPlans(db, { includeArchived: true }).some((item) => item.id === plan.id)) {
+      sendJson(res, 409, { error: { code: 'plan_exists', message: 'A plan with this id already exists.' } });
+      return;
+    }
+    const settings = platformSettings(db);
+    settings.plans.push(plan);
+    settings.updatedAt = new Date().toISOString();
+    settings.updatedBy = user.id;
+    db.auditLogs.push(audit(null, user.id, 'admin.plan_created', 'billing_plan', plan.id, { name: plan.name }));
+    await saveDb(state);
+    sendJson(res, 201, { plan, plans: billingPlans(db, { includeArchived: true }) });
+    return;
+  }
+
+  if (segments[0] === 'plans' && segments[1] && req.method === 'PUT') {
+    const existing = billingPlans(db, { includeArchived: true }).find((item) => item.id === segments[1]);
+    if (!existing) {
+      sendJson(res, 404, { error: { code: 'plan_not_found', message: 'Plan not found.' } });
+      return;
+    }
+    const body = await readJson(req);
+    const updated = normalizeBillingPlan({ ...existing, ...body, id: existing.id, custom: existing.custom || !PLANS.some((plan) => plan.id === existing.id) }, existing);
+    const settings = platformSettings(db);
+    settings.plans = settings.plans.filter((item) => item.id !== updated.id);
+    const defaultPlan = PLANS.find((item) => item.id === updated.id);
+    if (!defaultPlan || JSON.stringify(normalizeBillingPlan(updated, null)) !== JSON.stringify(normalizeBillingPlan(defaultPlan, null))) {
+      settings.plans.push(updated);
+    }
+    settings.updatedAt = new Date().toISOString();
+    settings.updatedBy = user.id;
+    db.auditLogs.push(audit(null, user.id, 'admin.plan_updated', 'billing_plan', updated.id, { fields: Object.keys(body) }));
+    await saveDb(state);
+    sendJson(res, 200, { plan: updated, plans: billingPlans(db, { includeArchived: true }) });
+    return;
+  }
+
+  if (segments[0] === 'plans' && segments[1] && req.method === 'DELETE') {
+    const existing = billingPlans(db, { includeArchived: true }).find((item) => item.id === segments[1]);
+    if (!existing) {
+      sendJson(res, 404, { error: { code: 'plan_not_found', message: 'Plan not found.' } });
+      return;
+    }
+    const archived = normalizeBillingPlan({ ...existing, archived: true }, existing);
+    const settings = platformSettings(db);
+    settings.plans = settings.plans.filter((item) => item.id !== archived.id);
+    settings.plans.push(archived);
+    settings.updatedAt = new Date().toISOString();
+    settings.updatedBy = user.id;
+    db.auditLogs.push(audit(null, user.id, 'admin.plan_archived', 'billing_plan', archived.id, {}));
+    await saveDb(state);
+    sendJson(res, 200, { plan: archived, plans: billingPlans(db, { includeArchived: true }) });
     return;
   }
 
@@ -3564,24 +3649,904 @@ async function saveJsonDb(state) {
 async function loadPostgresDb(state) {
   const pool = await ensurePostgresRuntime(state);
   const result = await pool.query('SELECT value_json FROM platform_settings WHERE key = $1', [POSTGRES_RUNTIME_STATE_KEY]);
-  if (!result.rows.length) {
+  const hasRelationalRows = await postgresHasRelationalRows(pool);
+  if (!result.rows.length && !hasRelationalRows) {
     const db = createEmptyDb();
     await savePostgresDb(state, db);
     return db;
   }
-  const value = result.rows[0].value_json;
-  return typeof value === 'string' ? JSON.parse(value) : value;
+  const value = result.rows[0]?.value_json || {};
+  const snapshot = typeof value === 'string' ? JSON.parse(value) : value;
+  const db = migrateDb({ ...createEmptyDb(), ...snapshot });
+  await loadPostgresPlatformSettings(pool, db);
+  if (hasRelationalRows) {
+    await loadPostgresRelationalCollections(pool, db);
+  }
+  return db;
 }
 
 async function savePostgresDb(state, db) {
   const pool = await ensurePostgresRuntime(state);
-  await pool.query(
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `INSERT INTO platform_settings(key, value_json, updated_at)
+       VALUES ($1, $2::jsonb, now())
+       ON CONFLICT (key)
+       DO UPDATE SET value_json = EXCLUDED.value_json, updated_at = now()`,
+      [POSTGRES_RUNTIME_STATE_KEY, JSON.stringify(db || createEmptyDb())]
+    );
+    await savePostgresPlatformSettings(client, db || createEmptyDb());
+    await savePostgresRelationalCollections(client, db || createEmptyDb());
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function loadPostgresPlatformSettings(pool, db) {
+  const result = await pool.query('SELECT value_json FROM platform_settings WHERE key = $1', [POSTGRES_PLATFORM_SETTINGS_KEY]);
+  if (!result.rows.length) return;
+  const value = result.rows[0]?.value_json || {};
+  db.platformSettings = normalizePlatformSettings(typeof value === 'string' ? JSON.parse(value) : value);
+}
+
+async function savePostgresPlatformSettings(client, db) {
+  await client.query(
     `INSERT INTO platform_settings(key, value_json, updated_at)
      VALUES ($1, $2::jsonb, now())
      ON CONFLICT (key)
      DO UPDATE SET value_json = EXCLUDED.value_json, updated_at = now()`,
-    [POSTGRES_RUNTIME_STATE_KEY, JSON.stringify(db || createEmptyDb())]
+    [POSTGRES_PLATFORM_SETTINGS_KEY, JSON.stringify(normalizePlatformSettings(db.platformSettings || {}))]
   );
+}
+
+const POSTGRES_RELATIONAL_COLLECTIONS = [
+  {
+    collection: 'users',
+    table: 'users',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      name: 'name',
+      email: 'email',
+      passwordHash: 'password_hash',
+      avatarUrl: 'avatar_url',
+      emailVerifiedAt: { column: 'email_verified_at', type: 'date' },
+      platformRole: 'platform_role',
+      timezone: 'timezone',
+      notificationPreferences: { column: 'notification_preferences', type: 'json', fallback: {} },
+      disabled: { column: 'disabled', type: 'boolean' },
+      twoFactorSecretHash: 'two_factor_secret_hash',
+      twoFactorEnabled: { column: 'two_factor_enabled', type: 'boolean' },
+      twoFactorRecoveryCodeHashes: { column: 'two_factor_recovery_codes', type: 'json', fallback: [] },
+      authProvider: 'auth_provider',
+      termsAcceptedAt: { column: 'terms_accepted_at', type: 'date' },
+      privacyAcceptedAt: { column: 'privacy_accepted_at', type: 'date' },
+      createdAt: { column: 'created_at', type: 'date' },
+      updatedAt: { column: 'updated_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'sessions',
+    table: 'sessions',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      userId: 'user_id',
+      remembered: { column: 'remembered', type: 'boolean' },
+      createdAt: { column: 'created_at', type: 'date' },
+      expiresAt: { column: 'expires_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'twoFactorChallenges',
+    table: 'two_factor_challenges',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      userId: 'user_id',
+      tokenHash: 'token_hash',
+      rememberMe: { column: 'remember_me', type: 'boolean' },
+      attempts: { column: 'attempts', type: 'integer' },
+      usedAt: { column: 'used_at', type: 'date' },
+      createdAt: { column: 'created_at', type: 'date' },
+      updatedAt: { column: 'updated_at', type: 'date' },
+      expiresAt: { column: 'expires_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'emailVerificationTokens',
+    table: 'email_verification_tokens',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      userId: 'user_id',
+      tokenHash: 'token_hash',
+      tokenPreview: 'token_preview',
+      expiresAt: { column: 'expires_at', type: 'date' },
+      usedAt: { column: 'used_at', type: 'date' },
+      createdAt: { column: 'created_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'passwordResetTokens',
+    table: 'password_reset_tokens',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      userId: 'user_id',
+      tokenHash: 'token_hash',
+      tokenPreview: 'token_preview',
+      expiresAt: { column: 'expires_at', type: 'date' },
+      usedAt: { column: 'used_at', type: 'date' },
+      createdAt: { column: 'created_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'oauthAuthRequests',
+    table: 'oauth_auth_requests',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      provider: 'provider',
+      stateHash: 'state_hash',
+      codeVerifier: 'code_verifier',
+      mode: 'mode',
+      responseMode: 'response_mode',
+      name: 'name',
+      workspaceName: 'workspace_name',
+      industry: 'industry',
+      companySize: 'company_size',
+      timezone: 'timezone',
+      acceptedTerms: { column: 'accepted_terms', type: 'boolean' },
+      status: 'status',
+      lastError: 'last_error',
+      expiresAt: { column: 'expires_at', type: 'date' },
+      createdAt: { column: 'created_at', type: 'date' },
+      completedAt: { column: 'completed_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'workspaces',
+    table: 'workspaces',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      name: 'name',
+      slug: 'slug',
+      logoUrl: 'logo_url',
+      brandColor: 'brand_color',
+      buttonColor: 'button_color',
+      timezone: 'timezone',
+      defaultLanguage: 'default_language',
+      ownerId: 'owner_id',
+      planId: 'plan_id',
+      aiCreditLimitOverride: { column: 'ai_credit_limit_override', type: 'integer' },
+      allowExternalAi: { column: 'allow_external_ai', type: 'boolean' },
+      industry: 'industry',
+      companySize: 'company_size',
+      customDomain: 'custom_domain',
+      customDomainStatus: 'custom_domain_status',
+      customDomainVerificationToken: 'custom_domain_verification_token',
+      customDomainVerifiedAt: { column: 'custom_domain_verified_at', type: 'date' },
+      customDomainSslStatus: 'custom_domain_ssl_status',
+      defaultSenderEmail: 'default_sender_email',
+      customCss: 'custom_css',
+      customFooterText: 'custom_footer_text',
+      sso: { column: 'sso_json', type: 'json', fallback: {} },
+      dataRetentionSettings: { column: 'data_retention_settings', type: 'json', fallback: {} },
+      privacyPolicyUrl: 'privacy_policy_url',
+      termsUrl: 'terms_url',
+      retentionDays: { column: 'retention_days', type: 'integer' },
+      retentionScheduleEnabled: { column: 'retention_schedule_enabled', type: 'boolean' },
+      retentionLastRunAt: { column: 'retention_last_run_at', type: 'date' },
+      retentionNextRunAt: { column: 'retention_next_run_at', type: 'date' },
+      suspended: { column: 'suspended', type: 'boolean' },
+      billingWarning: 'billing_warning',
+      createdAt: { column: 'created_at', type: 'date' },
+      updatedAt: { column: 'updated_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'workspaceMembers',
+    table: 'workspace_members',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: 'workspace_id',
+      userId: 'user_id',
+      role: 'role',
+      invitedBy: { column: 'invited_by', nullable: true },
+      joinedAt: { column: 'joined_at', type: 'date' },
+      createdAt: { column: 'created_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'ssoAuthRequests',
+    table: 'sso_auth_requests',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: 'workspace_id',
+      email: 'email',
+      relayState: 'relay_state',
+      status: 'status',
+      createdAt: { column: 'created_at', type: 'date' },
+      expiresAt: { column: 'expires_at', type: 'date' },
+      completedAt: { column: 'completed_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'apiKeys',
+    table: 'api_keys',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: 'workspace_id',
+      name: 'name',
+      tokenHash: 'token_hash',
+      tokenPreview: 'token_preview',
+      scopes: { column: 'scopes_json', type: 'json', fallback: [] },
+      rateLimitPerMinute: { column: 'rate_limit_per_minute', type: 'integer' },
+      createdBy: { column: 'created_by', nullable: true },
+      lastUsedAt: { column: 'last_used_at', type: 'date' },
+      revokedAt: { column: 'revoked_at', type: 'date' },
+      rotatedAt: { column: 'rotated_at', type: 'date' },
+      createdAt: { column: 'created_at', type: 'date' },
+      updatedAt: { column: 'updated_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'workspaceInvites',
+    table: 'workspace_invites',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: 'workspace_id',
+      email: 'email',
+      role: 'role',
+      tokenHash: 'token_hash',
+      tokenPreview: 'token_preview',
+      invitedBy: { column: 'invited_by', nullable: true },
+      acceptedAt: { column: 'accepted_at', type: 'date' },
+      expiresAt: { column: 'expires_at', type: 'date' },
+      createdAt: { column: 'created_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'surveys',
+    table: 'surveys',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: 'workspace_id',
+      title: 'title',
+      description: 'description',
+      internalName: 'internal_name',
+      type: 'type',
+      status: 'status',
+      slug: 'slug',
+      language: 'language',
+      settings: { column: 'settings_json', type: 'json', fallback: {} },
+      branding: { column: 'branding_json', type: 'json', fallback: {} },
+      schema: { column: 'schema_json', type: 'json', fallback: {} },
+      accessMode: 'access_mode',
+      accessRules: { column: 'access_rules_json', type: 'json', fallback: [] },
+      metrics: { column: 'metrics_json', type: 'json', fallback: {} },
+      createdBy: { column: 'created_by', nullable: true },
+      publishedAt: { column: 'published_at', type: 'date' },
+      archivedAt: { column: 'archived_at', type: 'date' },
+      createdAt: { column: 'created_at', type: 'date' },
+      updatedAt: { column: 'updated_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'surveyVersions',
+    table: 'survey_versions',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      surveyId: 'survey_id',
+      versionNumber: { column: 'version_number', type: 'integer' },
+      schemaJson: { column: 'schema_json', type: 'json', fallback: {} },
+      logicJson: { column: 'logic_json', type: 'json', fallback: [] },
+      createdBy: { column: 'created_by', nullable: true },
+      createdAt: { column: 'created_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'respondents',
+    table: 'respondents',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: 'workspace_id',
+      externalId: 'external_id',
+      email: 'email',
+      phone: 'phone',
+      name: 'name',
+      attributesJson: { column: 'attributes_json', type: 'json', fallback: {} },
+      createdAt: { column: 'created_at', type: 'date' },
+      updatedAt: { column: 'updated_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'responses',
+    table: 'responses',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: 'workspace_id',
+      surveyId: 'survey_id',
+      surveyVersionId: { column: 'survey_version_id', nullable: true },
+      respondentId: { column: 'respondent_id', nullable: true },
+      status: 'status',
+      answersJson: { column: 'answers_json', type: 'json', fallback: {} },
+      metadataJson: { column: 'metadata_json', type: 'json', fallback: {} },
+      tagsJson: { column: 'tags_json', type: 'json', fallback: [] },
+      sentiment: 'sentiment',
+      leadScore: { column: 'lead_score', type: 'integer' },
+      important: { column: 'important', type: 'boolean' },
+      internalNotes: { column: 'internal_notes_json', type: 'json', fallback: [] },
+      resumeTokenHash: 'resume_token_hash',
+      resumeExpiresAt: { column: 'resume_expires_at', type: 'date' },
+      startedAt: { column: 'started_at', type: 'date' },
+      submittedAt: { column: 'submitted_at', type: 'date' },
+      archivedAt: { column: 'archived_at', type: 'date' },
+      deletedAt: { column: 'deleted_at', type: 'date' },
+      createdAt: { column: 'created_at', type: 'date' },
+      updatedAt: { column: 'updated_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'contacts',
+    table: 'contacts',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: 'workspace_id',
+      name: 'name',
+      email: 'email',
+      phone: 'phone',
+      company: 'company',
+      source: 'source',
+      tagsJson: { column: 'tags_json', type: 'json', fallback: [] },
+      leadScore: { column: 'lead_score', type: 'integer' },
+      stage: 'stage',
+      ownerId: { column: 'owner_id', nullable: true },
+      nextFollowUpAt: { column: 'next_follow_up_at', type: 'date' },
+      pipelineUpdatedAt: { column: 'pipeline_updated_at', type: 'date' },
+      lastResponseAt: { column: 'last_response_at', type: 'date' },
+      createdAt: { column: 'created_at', type: 'date' },
+      updatedAt: { column: 'updated_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'integrations',
+    table: 'integrations',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: 'workspace_id',
+      type: 'type',
+      name: 'name',
+      configEncrypted: 'config_encrypted',
+      configJson: { column: 'config_json', type: 'json', fallback: {} },
+      events: { column: 'events_json', type: 'json', fallback: [] },
+      status: 'status',
+      createdBy: { column: 'created_by', nullable: true },
+      createdAt: { column: 'created_at', type: 'date' },
+      updatedAt: { column: 'updated_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'integrationLogs',
+    table: 'integration_logs',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: 'workspace_id',
+      integrationId: { column: 'integration_id', nullable: true },
+      type: 'type',
+      event: 'event',
+      payloadJson: { column: 'payload_json', type: 'json', fallback: {} },
+      provider: 'provider',
+      status: 'status',
+      responseStatus: 'response_status',
+      error: 'error',
+      jobId: { column: 'job_id', nullable: true },
+      createdAt: { column: 'created_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'webhooks',
+    table: 'webhooks',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: 'workspace_id',
+      url: 'url',
+      events: { column: 'events_json', type: 'json', fallback: [] },
+      secret: 'secret',
+      active: { column: 'active', type: 'boolean' },
+      createdAt: { column: 'created_at', type: 'date' },
+      updatedAt: { column: 'updated_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'webhookLogs',
+    table: 'webhook_logs',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: 'workspace_id',
+      webhookId: { column: 'webhook_id', nullable: true },
+      event: 'event',
+      payloadJson: { column: 'payload_json', type: 'json', fallback: {} },
+      responseStatus: 'response_status',
+      error: 'error',
+      deliveredAt: { column: 'delivered_at', type: 'date' },
+      createdAt: { column: 'created_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'alerts',
+    table: 'alerts',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: 'workspace_id',
+      surveyId: { column: 'survey_id', nullable: true },
+      name: 'name',
+      conditionsJson: { column: 'conditions_json', type: 'json', fallback: {} },
+      channelsJson: { column: 'channels_json', type: 'json', fallback: {} },
+      active: { column: 'active', type: 'boolean' },
+      createdAt: { column: 'created_at', type: 'date' },
+      updatedAt: { column: 'updated_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'aiJobs',
+    table: 'ai_jobs',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: 'workspace_id',
+      surveyId: { column: 'survey_id', nullable: true },
+      responseId: { column: 'response_id', nullable: true },
+      jobType: 'job_type',
+      status: 'status',
+      inputJson: { column: 'input_json', type: 'json', fallback: {} },
+      outputJson: { column: 'output_json', type: 'json', fallback: {} },
+      tokensUsed: { column: 'tokens_used', type: 'integer' },
+      error: 'error',
+      createdAt: { column: 'created_at', type: 'date' },
+      completedAt: { column: 'completed_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'aiProviderLogs',
+    table: 'ai_provider_logs',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: { column: 'workspace_id', nullable: true },
+      task: 'task',
+      provider: 'provider',
+      model: 'model',
+      status: 'status',
+      durationMs: { column: 'duration_ms', type: 'integer' },
+      totalTokens: { column: 'total_tokens', type: 'integer' },
+      promptTokens: { column: 'prompt_tokens', type: 'integer' },
+      completionTokens: { column: 'completion_tokens', type: 'integer' },
+      error: 'error',
+      createdAt: { column: 'created_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'subscriptions',
+    table: 'subscriptions',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: 'workspace_id',
+      planId: 'plan_id',
+      provider: 'provider',
+      providerSubscriptionId: 'provider_subscription_id',
+      providerCustomerId: 'provider_customer_id',
+      status: 'status',
+      currentPeriodStart: { column: 'current_period_start', type: 'date' },
+      currentPeriodEnd: { column: 'current_period_end', type: 'date' },
+      billingPolicy: { column: 'billing_policy_json', type: 'json', fallback: {} },
+      createdAt: { column: 'created_at', type: 'date' },
+      updatedAt: { column: 'updated_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'invoices',
+    table: 'invoices',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: 'workspace_id',
+      subscriptionId: { column: 'subscription_id', nullable: true },
+      provider: 'provider',
+      providerInvoiceId: 'provider_invoice_id',
+      status: 'status',
+      subtotalInr: { column: 'subtotal_inr', type: 'integer' },
+      taxInr: { column: 'tax_inr', type: 'integer' },
+      taxMode: 'tax_mode',
+      taxPercent: { column: 'tax_percent', type: 'number' },
+      prorationCreditInr: { column: 'proration_credit_inr', type: 'integer' },
+      amountDueInr: { column: 'amount_due_inr', type: 'integer' },
+      amountPaidInr: { column: 'amount_paid_inr', type: 'integer' },
+      lineItems: { column: 'line_items_json', type: 'json', fallback: [] },
+      billingPolicy: { column: 'billing_policy_json', type: 'json', fallback: {} },
+      dueAt: { column: 'due_at', type: 'date' },
+      paidAt: { column: 'paid_at', type: 'date' },
+      createdAt: { column: 'created_at', type: 'date' },
+      updatedAt: { column: 'updated_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'usageMeters',
+    table: 'usage_meters',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: 'workspace_id',
+      period: 'period',
+      responsesCount: { column: 'responses_count', type: 'integer' },
+      aiCreditsUsed: { column: 'ai_credits_used', type: 'integer' },
+      storageUsed: { column: 'storage_used', type: 'integer' },
+      teamMembersCount: { column: 'team_members_count', type: 'integer' },
+      createdAt: { column: 'created_at', type: 'date' },
+      updatedAt: { column: 'updated_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'customTemplates',
+    table: 'custom_templates',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: { column: 'workspace_id', nullable: true },
+      scope: 'scope',
+      status: 'status',
+      name: 'name',
+      type: 'type',
+      visibility: 'visibility',
+      category: 'category',
+      industry: 'industry',
+      useCase: 'use_case',
+      description: 'description',
+      tags: { column: 'tags_json', type: 'json', fallback: [] },
+      schema: { column: 'schema_json', type: 'json', fallback: {} },
+      sourceSurveyId: { column: 'source_survey_id', nullable: true },
+      createdBy: { column: 'created_by', nullable: true },
+      usageCount: { column: 'usage_count', type: 'integer' },
+      publishedAt: { column: 'published_at', type: 'date' },
+      archivedAt: { column: 'archived_at', type: 'date' },
+      createdAt: { column: 'created_at', type: 'date' },
+      updatedAt: { column: 'updated_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'jobs',
+    table: 'jobs',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: { column: 'workspace_id', nullable: true },
+      type: 'type',
+      status: 'status',
+      attempts: { column: 'attempts', type: 'integer' },
+      maxAttempts: { column: 'max_attempts', type: 'integer' },
+      nextRunAt: { column: 'next_run_at', type: 'date' },
+      payloadJson: { column: 'payload_json', type: 'json', fallback: {} },
+      lastError: 'last_error',
+      completedAt: { column: 'completed_at', type: 'date' },
+      createdAt: { column: 'created_at', type: 'date' },
+      updatedAt: { column: 'updated_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'emailLogs',
+    table: 'email_logs',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: { column: 'workspace_id', nullable: true },
+      to: 'recipient',
+      subject: 'subject',
+      bodyPreview: 'body_preview',
+      provider: 'provider',
+      status: 'status',
+      error: 'error',
+      jobId: { column: 'job_id', nullable: true },
+      createdAt: { column: 'created_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'emailCampaigns',
+    table: 'email_campaigns',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: 'workspace_id',
+      surveyId: { column: 'survey_id', nullable: true },
+      name: 'name',
+      subject: 'subject',
+      message: 'message',
+      contacts: { column: 'contacts_json', type: 'json', fallback: [] },
+      status: 'status',
+      sentCount: { column: 'sent_count', type: 'integer' },
+      openedCount: { column: 'opened_count', type: 'integer' },
+      clickedCount: { column: 'clicked_count', type: 'integer' },
+      scheduledAt: { column: 'scheduled_at', type: 'date' },
+      createdBy: { column: 'created_by', nullable: true },
+      createdAt: { column: 'created_at', type: 'date' },
+      updatedAt: { column: 'updated_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'campaignEvents',
+    table: 'campaign_events',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: 'workspace_id',
+      campaignId: 'campaign_id',
+      surveyId: { column: 'survey_id', nullable: true },
+      eventType: 'event',
+      recipientHash: 'recipient_hash',
+      email: 'email',
+      userAgent: 'user_agent',
+      ipHash: 'ip_hash',
+      metadataJson: { column: 'metadata_json', type: 'json', fallback: {} },
+      createdAt: { column: 'created_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'fileUploads',
+    table: 'file_uploads',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: 'workspace_id',
+      surveyId: { column: 'survey_id', nullable: true },
+      responseId: { column: 'response_id', nullable: true },
+      questionId: 'question_id',
+      name: 'name',
+      type: 'mime_type',
+      extension: 'extension',
+      size: { column: 'size_bytes', type: 'integer' },
+      sha256: 'sha256',
+      storageProvider: 'storage_provider',
+      storageBucket: 'storage_bucket',
+      storageKey: 'storage_key',
+      storageUrl: 'storage_url',
+      dataUrl: 'data_url',
+      scanStatus: 'scan_status',
+      scanProvider: 'scan_provider',
+      scanSignature: 'scan_signature',
+      scanMessage: 'scan_message',
+      scanCheckedAt: { column: 'scan_checked_at', type: 'date' },
+      quarantined: { column: 'quarantined', type: 'boolean' },
+      lifecycleStatus: 'lifecycle_status',
+      retentionExpiresAt: { column: 'retention_expires_at', type: 'date' },
+      deletedAt: { column: 'deleted_at', type: 'date' },
+      createdAt: { column: 'created_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'monthlyReports',
+    table: 'monthly_reports',
+    orderBy: 'created_at',
+    prepare: postgresPrepareMonthlyReport,
+    hydrate: postgresHydrateMonthlyReport,
+    fields: {
+      id: 'id',
+      workspaceId: 'workspace_id',
+      month: 'month',
+      title: 'title',
+      reportJson: { column: 'report_json', type: 'json', fallback: {} },
+      aiGenerated: { column: 'ai_generated', type: 'boolean' },
+      scheduled: { column: 'scheduled', type: 'boolean' },
+      jobId: { column: 'job_id', nullable: true },
+      pdfUrl: 'pdf_url',
+      generatedAt: { column: 'generated_at', type: 'date' },
+      createdAt: { column: 'created_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'auditLogs',
+    table: 'audit_logs',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: { column: 'workspace_id', nullable: true },
+      userId: { column: 'user_id', nullable: true },
+      action: 'action',
+      entityType: 'entity_type',
+      entityId: { column: 'entity_id', nullable: true },
+      metadataJson: { column: 'metadata_json', type: 'json', fallback: {} },
+      createdAt: { column: 'created_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'notifications',
+    table: 'notifications',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      workspaceId: 'workspace_id',
+      userId: { column: 'user_id', nullable: true },
+      title: 'title',
+      message: 'body',
+      read: { column: 'read', type: 'boolean' },
+      readAt: { column: 'read_at', type: 'date' },
+      metadataJson: { column: 'metadata_json', type: 'json', fallback: {} },
+      createdAt: { column: 'created_at', type: 'date' }
+    }
+  },
+  {
+    collection: 'errorLogs',
+    table: 'error_logs',
+    orderBy: 'created_at',
+    fields: {
+      id: 'id',
+      method: 'method',
+      path: 'path',
+      query: 'query',
+      name: 'name',
+      message: 'message',
+      stack: 'stack',
+      userAgent: 'user_agent',
+      createdAt: { column: 'created_at', type: 'date' }
+    }
+  }
+];
+
+async function postgresHasRelationalRows(pool) {
+  for (const config of POSTGRES_RELATIONAL_COLLECTIONS) {
+    const result = await pool.query(`SELECT EXISTS (SELECT 1 FROM ${config.table} LIMIT 1) AS has_rows`);
+    if (result.rows[0]?.has_rows) return true;
+  }
+  return false;
+}
+
+async function loadPostgresRelationalCollections(pool, db) {
+  for (const config of POSTGRES_RELATIONAL_COLLECTIONS) {
+    const result = await pool.query(`SELECT * FROM ${config.table} ORDER BY ${config.orderBy || 'id'} ASC`);
+    const snapshotById = new Map((db[config.collection] || []).map((item) => [item.id, item]));
+    db[config.collection] = result.rows.map((row) => {
+      const item = {
+        ...(snapshotById.get(row.id) || {}),
+        ...postgresRowToObject(config, row)
+      };
+      return config.hydrate ? config.hydrate(item, row) : item;
+    });
+  }
+}
+
+async function savePostgresRelationalCollections(client, db) {
+  for (const config of [...POSTGRES_RELATIONAL_COLLECTIONS].reverse()) {
+    await client.query(`DELETE FROM ${config.table}`);
+  }
+  for (const config of POSTGRES_RELATIONAL_COLLECTIONS) {
+    for (const item of db[config.collection] || []) {
+      const { columns, values } = postgresObjectToRow(config, config.prepare ? config.prepare(item) : item);
+      if (!columns.length) continue;
+      const placeholders = columns.map((_, index) => `$${index + 1}`).join(', ');
+      await client.query(
+        `INSERT INTO ${config.table} (${columns.join(', ')}) VALUES (${placeholders})`,
+        values
+      );
+    }
+  }
+}
+
+function postgresObjectToRow(config, item) {
+  const columns = [];
+  const values = [];
+  for (const [property, field] of Object.entries(config.fields)) {
+    const descriptor = postgresFieldDescriptor(field);
+    const value = item?.[property];
+    if (value === undefined) continue;
+    columns.push(descriptor.column);
+    values.push(postgresSerializeValue(descriptor, value));
+  }
+  return { columns, values };
+}
+
+function postgresRowToObject(config, row) {
+  const output = {};
+  for (const [property, field] of Object.entries(config.fields)) {
+    const descriptor = postgresFieldDescriptor(field);
+    if (!(descriptor.column in row)) continue;
+    output[property] = postgresDeserializeValue(descriptor, row[descriptor.column]);
+  }
+  return output;
+}
+
+function postgresFieldDescriptor(field) {
+  return typeof field === 'string' ? { column: field, type: 'text' } : field;
+}
+
+function postgresPrepareMonthlyReport(item = {}) {
+  return {
+    ...item,
+    reportJson: {
+      totalResponses: item.totalResponses || 0,
+      surveyCount: item.surveyCount || 0,
+      satisfactionScore: item.satisfactionScore || 0,
+      sentiment: item.sentiment || {},
+      trends: item.trends || [],
+      topIssues: item.topIssues || [],
+      topOpportunities: item.topOpportunities || [],
+      importantQuotes: item.importantQuotes || [],
+      recommendedActions: item.recommendedActions || [],
+      leadQualitySummary: item.leadQualitySummary || {},
+      provider: item.provider || '',
+      providerModel: item.providerModel || '',
+      providerUsage: item.providerUsage || {}
+    }
+  };
+}
+
+function postgresHydrateMonthlyReport(item = {}) {
+  const report = item.reportJson && typeof item.reportJson === 'object' && !Array.isArray(item.reportJson)
+    ? item.reportJson
+    : {};
+  return {
+    ...item,
+    totalResponses: Number(report.totalResponses || 0),
+    surveyCount: Number(report.surveyCount || 0),
+    satisfactionScore: Number(report.satisfactionScore || 0),
+    sentiment: report.sentiment || {},
+    trends: Array.isArray(report.trends) ? report.trends : [],
+    topIssues: Array.isArray(report.topIssues) ? report.topIssues : [],
+    topOpportunities: Array.isArray(report.topOpportunities) ? report.topOpportunities : [],
+    importantQuotes: Array.isArray(report.importantQuotes) ? report.importantQuotes : [],
+    recommendedActions: Array.isArray(report.recommendedActions) ? report.recommendedActions : [],
+    leadQualitySummary: report.leadQualitySummary || {},
+    provider: report.provider || item.provider || '',
+    providerModel: report.providerModel || item.providerModel || '',
+    providerUsage: report.providerUsage || item.providerUsage || {}
+  };
+}
+
+function postgresSerializeValue(descriptor, value) {
+  if (descriptor.type === 'json') return JSON.stringify(value ?? descriptor.fallback ?? null);
+  if (descriptor.type === 'date') return cleanFutureOrPastIso(value, '') || null;
+  if (descriptor.type === 'integer') {
+    if (value === null || value === '' || value === undefined) return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.round(number) : null;
+  }
+  if (descriptor.type === 'number') {
+    if (value === null || value === '' || value === undefined) return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+  if (descriptor.type === 'boolean') return Boolean(value);
+  if (descriptor.nullable && (value === null || value === undefined || value === '')) return null;
+  return value === null || value === undefined ? '' : String(value);
+}
+
+function postgresDeserializeValue(descriptor, value) {
+  if (descriptor.type === 'json') return value === null || value === undefined ? structuredCloneCompat(descriptor.fallback ?? null) : value;
+  if (descriptor.type === 'date') return value ? new Date(value).toISOString() : '';
+  if (descriptor.type === 'integer') return value === null || value === undefined ? null : Number(value);
+  if (descriptor.type === 'number') return value === null || value === undefined ? null : Number(value);
+  if (descriptor.type === 'boolean') return Boolean(value);
+  return value === null || value === undefined ? '' : String(value);
 }
 
 async function ensurePostgresRuntime(state) {
@@ -4317,7 +5282,7 @@ function createEmptyDb() {
 }
 
 function migrateDb(db) {
-  const collections = ['users', 'sessions', 'twoFactorChallenges', 'ssoAuthRequests', 'oauthAuthRequests', 'emailVerificationTokens', 'passwordResetTokens', 'workspaces', 'workspaceMembers', 'surveys', 'surveyVersions', 'responses', 'respondents', 'contacts', 'workspaceInvites', 'apiKeys', 'integrations', 'integrationLogs', 'webhooks', 'webhookLogs', 'alerts', 'aiJobs', 'jobs', 'emailLogs', 'emailCampaigns', 'fileUploads', 'monthlyReports', 'invoices', 'customTemplates', 'subscriptions', 'usageMeters', 'auditLogs', 'notifications', 'errorLogs', 'aiProviderLogs'];
+  const collections = ['users', 'sessions', 'twoFactorChallenges', 'ssoAuthRequests', 'oauthAuthRequests', 'emailVerificationTokens', 'passwordResetTokens', 'workspaces', 'workspaceMembers', 'surveys', 'surveyVersions', 'responses', 'respondents', 'contacts', 'workspaceInvites', 'apiKeys', 'integrations', 'integrationLogs', 'webhooks', 'webhookLogs', 'alerts', 'aiJobs', 'jobs', 'emailLogs', 'emailCampaigns', 'campaignEvents', 'fileUploads', 'monthlyReports', 'invoices', 'customTemplates', 'subscriptions', 'usageMeters', 'auditLogs', 'notifications', 'errorLogs', 'aiProviderLogs'];
   for (const key of collections) {
     if (!Array.isArray(db[key])) db[key] = [];
   }
@@ -4391,6 +5356,46 @@ function migrateDb(db) {
     invoice.prorationCreditInr = Number.isFinite(Number(invoice.prorationCreditInr)) ? Math.max(0, Math.round(Number(invoice.prorationCreditInr))) : 0;
   }
   return db;
+}
+
+function deleteWorkspaceData(db, workspaceId) {
+  const id = cleanText(workspaceId || '', 80);
+  const surveyIds = new Set(db.surveys.filter((item) => item.workspaceId === id).map((item) => item.id));
+  const responseIds = new Set(db.responses.filter((item) => item.workspaceId === id || surveyIds.has(item.surveyId)).map((item) => item.id));
+  const respondentIds = new Set(db.respondents.filter((item) => item.workspaceId === id).map((item) => item.id));
+  const webhookIds = new Set(db.webhooks.filter((item) => item.workspaceId === id).map((item) => item.id));
+  const campaignIds = new Set(db.emailCampaigns.filter((item) => item.workspaceId === id).map((item) => item.id));
+  const before = Object.fromEntries(['workspaces', 'workspaceMembers', 'workspaceInvites', 'apiKeys', 'surveys', 'surveyVersions', 'responses', 'respondents', 'contacts', 'integrations', 'integrationLogs', 'webhooks', 'webhookLogs', 'alerts', 'aiJobs', 'jobs', 'emailLogs', 'emailCampaigns', 'campaignEvents', 'fileUploads', 'monthlyReports', 'invoices', 'customTemplates', 'subscriptions', 'usageMeters', 'notifications', 'auditLogs'].map((key) => [key, db[key].length]));
+
+  db.workspaces = db.workspaces.filter((item) => item.id !== id);
+  db.workspaceMembers = db.workspaceMembers.filter((item) => item.workspaceId !== id);
+  db.workspaceInvites = db.workspaceInvites.filter((item) => item.workspaceId !== id);
+  db.apiKeys = db.apiKeys.filter((item) => item.workspaceId !== id);
+  db.surveys = db.surveys.filter((item) => item.workspaceId !== id);
+  db.surveyVersions = db.surveyVersions.filter((item) => !surveyIds.has(item.surveyId));
+  db.responses = db.responses.filter((item) => item.workspaceId !== id && !surveyIds.has(item.surveyId));
+  db.respondents = db.respondents.filter((item) => item.workspaceId !== id && !respondentIds.has(item.id));
+  db.contacts = db.contacts.filter((item) => item.workspaceId !== id);
+  db.integrations = db.integrations.filter((item) => item.workspaceId !== id);
+  db.integrationLogs = db.integrationLogs.filter((item) => item.workspaceId !== id);
+  db.webhooks = db.webhooks.filter((item) => item.workspaceId !== id);
+  db.webhookLogs = db.webhookLogs.filter((item) => !webhookIds.has(item.webhookId));
+  db.alerts = db.alerts.filter((item) => item.workspaceId !== id);
+  db.aiJobs = db.aiJobs.filter((item) => item.workspaceId !== id);
+  db.jobs = db.jobs.filter((item) => item.workspaceId !== id);
+  db.emailLogs = db.emailLogs.filter((item) => item.workspaceId !== id);
+  db.emailCampaigns = db.emailCampaigns.filter((item) => item.workspaceId !== id);
+  db.campaignEvents = db.campaignEvents.filter((item) => !campaignIds.has(item.campaignId));
+  db.fileUploads = db.fileUploads.filter((item) => item.workspaceId !== id && !responseIds.has(item.responseId));
+  db.monthlyReports = db.monthlyReports.filter((item) => item.workspaceId !== id);
+  db.invoices = db.invoices.filter((item) => item.workspaceId !== id);
+  db.customTemplates = db.customTemplates.filter((item) => item.workspaceId !== id && !surveyIds.has(item.sourceSurveyId));
+  db.subscriptions = db.subscriptions.filter((item) => item.workspaceId !== id);
+  db.usageMeters = db.usageMeters.filter((item) => item.workspaceId !== id);
+  db.notifications = db.notifications.filter((item) => item.workspaceId !== id);
+  db.auditLogs = db.auditLogs.filter((item) => item.workspaceId !== id);
+
+  return Object.fromEntries(Object.entries(before).map(([key, count]) => [`${key}Deleted`, count - db[key].length]));
 }
 
 function parseBoolean(value) {
@@ -5716,7 +6721,7 @@ function evaluateCondition(actual, operator, expected) {
 function publicSurveyPayload(db, survey, language = '') {
   const workspace = db.workspaces.find((item) => item.id === survey.workspaceId);
   const version = db.surveyVersions.find((item) => item.id === survey.publishedVersionId);
-  const plan = PLANS.find((item) => item.id === (workspace?.planId || 'starter')) || PLANS[0];
+  const plan = findBillingPlan(db, workspace?.planId || 'starter', { includeArchived: true }) || billingPlans(db)[0];
   const requestedLanguage = cleanText(language || '', 20).toLowerCase();
   const baseSchema = version ? version.schemaJson : survey.schema;
   const schema = applySurveyLanguage(baseSchema, requestedLanguage || survey.language);
@@ -6223,7 +7228,7 @@ function buildAgencyOverview(db, user, agencyWorkspaceId) {
 
 function buildAgencyWorkspaceProfile(db, workspace) {
   const planId = workspacePlanId(db, workspace);
-  const plan = PLANS.find((item) => item.id === planId) || PLANS[0];
+  const plan = findBillingPlan(db, planId, { includeArchived: true }) || billingPlans(db)[0];
   return {
     id: workspace.id,
     name: workspace.name,
@@ -6237,7 +7242,7 @@ function buildAgencyWorkspaceProfile(db, workspace) {
 
 function buildAgencyClientSummary(db, workspace) {
   const planId = workspacePlanId(db, workspace);
-  const plan = PLANS.find((item) => item.id === planId) || PLANS[0];
+  const plan = findBillingPlan(db, planId, { includeArchived: true }) || billingPlans(db)[0];
   const subscription = workspace.subscription || db.subscriptions.find((item) => item.workspaceId === workspace.id) || createSubscription(workspace.id, planId);
   const usage = workspace.usage || db.usageMeters.find((item) => item.workspaceId === workspace.id && item.period === new Date().toISOString().slice(0, 7)) || createUsageMeter(workspace.id);
   const surveys = db.surveys.filter((survey) => survey.workspaceId === workspace.id && survey.status !== 'archived');
@@ -7924,7 +8929,7 @@ function applyRazorpayBillingEvent(db, event) {
 
 function applyProviderSubscription(db, workspaceId, planId, provider, providerSubscriptionId, status, providerCustomerId = '', policyInput = {}) {
   const workspace = db.workspaces.find((item) => item.id === workspaceId);
-  const plan = PLANS.find((item) => item.id === planId);
+  const plan = findBillingPlan(db, planId);
   if (!workspace || !plan) return null;
   const subscription = db.subscriptions.find((item) => item.workspaceId === workspaceId) || createSubscription(workspaceId, plan.id);
   subscription.planId = plan.id;
@@ -9016,7 +10021,7 @@ function buildAdminOverview(db) {
   const recentErrorLogs = db.errorLogs.slice(-25).reverse();
   const recentAiProviderLogs = (db.aiProviderLogs || []).slice(-25).reverse();
   const mrr = activeSubscriptions.reduce((sum, subscription) => {
-    const plan = PLANS.find((item) => item.id === subscription.planId);
+    const plan = findBillingPlan(db, subscription.planId, { includeArchived: true });
     return sum + (plan?.priceMonthlyInr || 0);
   }, 0);
   return {
@@ -9095,7 +10100,7 @@ function buildReadinessReport(db, state) {
   const checks = [
     readinessCheck('health', 'Health endpoint', 'pass', '/api/health is available.'),
     readinessCheck('migration', 'PostgreSQL migration baseline', hasMigration ? 'pass' : 'fail', hasMigration ? 'Baseline migration file exists.' : 'Missing migrations/0001_initial_postgres.sql.'),
-    readinessCheck('database', 'PostgreSQL runtime store', providers.database.configured ? 'pass' : 'fail', providers.database.configured ? 'DATABASE_URL is configured and the runtime can use the PostgreSQL JSONB state adapter after migrations are applied.' : 'Set DATABASE_URL and apply the PostgreSQL baseline migration.'),
+    readinessCheck('database', 'PostgreSQL runtime store', providers.database.configured ? 'pass' : 'fail', providers.database.configured ? 'DATABASE_URL is configured and the runtime can use relational core tables plus a compatibility snapshot after migrations are applied.' : 'Set DATABASE_URL and apply the PostgreSQL baseline migration.'),
     readinessCheck('queue', 'Redis/BullMQ queue', providers.queue.configured ? 'pass' : 'fail', providers.queue.configured ? `REDIS_URL is configured; run ${providers.queue.workerCommand} for BullMQ workers on ${providers.queue.queueName}.` : 'Set REDIS_URL and run the BullMQ worker for a durable production queue.'),
     readinessCheck('email', 'SMTP/email provider', providers.email.configured ? 'pass' : 'fail', providers.email.configured ? 'SMTP provider variables are configured.' : 'Set SMTP_HOST, SMTP_USER, and SMTP_PASSWORD.'),
     readinessCheck('ai', 'LLM provider', providers.ai.configured ? 'pass' : 'fail', providers.ai.configured ? `OPENAI_API_KEY is configured, model ${providers.ai.model || 'default'} is allowed, and provider DPA acceptance is recorded.` : 'Set OPENAI_API_KEY, use an allowed OpenAI-compatible model, and set AI_PROVIDER_DPA_ACCEPTED after legal review.'),
@@ -9124,7 +10129,7 @@ function buildReadinessReport(db, state) {
     },
     runtime: {
       node: process.version,
-      dataStore: state.databaseUrl ? 'postgres_jsonb_runtime' : 'local_json',
+      dataStore: state.databaseUrl ? 'postgres_relational_core_with_snapshot' : 'local_json',
       dataFile: state.dataFile ? path.relative(ROOT, state.dataFile) : '',
       jobPollIntervalMs: JOB_POLL_INTERVAL_MS,
       queueMode: providers.queue.mode,
@@ -9649,13 +10654,14 @@ function buildSessionPayload(db, user) {
   return {
     user: publicUser(user),
     workspaces: visibleWorkspaces(db, user),
-    plans: PLANS
+    plans: billingPlans(db)
   };
 }
 
 function normalizePlatformSettings(input = {}) {
   return {
     requireEmailVerification: parseBoolean(input.requireEmailVerification),
+    plans: Array.isArray(input.plans) ? input.plans.map((plan) => normalizeBillingPlan(plan, null)).filter((plan) => plan.id) : [],
     updatedAt: cleanFutureOrPastIso(input.updatedAt, ''),
     updatedBy: cleanText(input.updatedBy || '', 80)
   };
@@ -9668,6 +10674,62 @@ function platformSettings(db) {
 
 function emailVerificationRequiredForUser(db, user) {
   return Boolean(platformSettings(db).requireEmailVerification && user && !user.emailVerifiedAt);
+}
+
+function billingPlans(db, options = {}) {
+  const settings = platformSettings(db);
+  const byId = new Map(PLANS.map((plan) => [plan.id, normalizeBillingPlan(plan, null)]));
+  for (const override of settings.plans || []) {
+    const normalized = normalizeBillingPlan(override, byId.get(override.id) || null);
+    if (normalized.id) byId.set(normalized.id, normalized);
+  }
+  const plans = [...byId.values()].sort((a, b) => (a.order || 0) - (b.order || 0) || a.priceMonthlyInr - b.priceMonthlyInr || a.name.localeCompare(b.name));
+  return options.includeArchived ? plans : plans.filter((plan) => !plan.archived);
+}
+
+function findBillingPlan(db, planId, options = {}) {
+  return billingPlans(db, options).find((plan) => plan.id === cleanText(planId || '', 80)) || null;
+}
+
+function normalizeBillingPlan(input = {}, fallback = {}) {
+  const source = input && typeof input === 'object' ? input : {};
+  const base = fallback && typeof fallback === 'object' ? fallback : {};
+  const id = cleanText(source.id || base.id || '', 80).toLowerCase().replace(/[^a-z0-9_-]/g, '_').replace(/^_+|_+$/g, '').slice(0, 60);
+  const price = Number(source.priceMonthlyInr ?? base.priceMonthlyInr ?? 0);
+  const order = Number(source.order ?? base.order ?? 0);
+  return {
+    id,
+    name: cleanText(source.name || base.name || id || 'Custom plan', 80),
+    priceMonthlyInr: Number.isFinite(price) ? Math.max(0, Math.round(price)) : 0,
+    setupFeeRange: cleanText(source.setupFeeRange || base.setupFeeRange || 'Custom', 80),
+    limits: normalizePlanLimits(source.limits || base.limits || {}),
+    features: normalizePlanFeatures(source.features || base.features || []),
+    custom: parseBoolean(source.custom ?? base.custom),
+    archived: parseBoolean(source.archived ?? base.archived),
+    order: Number.isFinite(order) ? Math.round(order) : 0
+  };
+}
+
+function normalizePlanLimits(input = {}) {
+  const source = input && typeof input === 'object' ? input : {};
+  return {
+    surveys: normalizePlanLimitNumber(source.surveys, -1),
+    responsesPerMonth: normalizePlanLimitNumber(source.responsesPerMonth, 0),
+    teamMembers: normalizePlanLimitNumber(source.teamMembers, 1),
+    aiCredits: normalizePlanLimitNumber(source.aiCredits, 0)
+  };
+}
+
+function normalizePlanLimitNumber(value, fallback) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  if (number < 0) return -1;
+  return Math.round(number);
+}
+
+function normalizePlanFeatures(features) {
+  const list = Array.isArray(features) ? features : String(features || '').split(/\r?\n|,/);
+  return [...new Set(list.map((item) => cleanText(item, 140)).filter(Boolean))].slice(0, 20);
 }
 
 function createEmailVerificationToken(db, user) {
@@ -9789,7 +10851,7 @@ function normalizeOptionalLimit(value) {
 
 function workspaceAiCreditLimit(db, workspaceId) {
   const workspace = db.workspaces.find((item) => item.id === workspaceId);
-  const plan = PLANS.find((item) => item.id === (workspace?.planId || 'starter')) || PLANS[0];
+  const plan = findBillingPlan(db, workspace?.planId || 'starter', { includeArchived: true }) || billingPlans(db)[0];
   const override = normalizeOptionalLimit(workspace?.aiCreditLimitOverride);
   return override === null ? plan.limits.aiCredits : override;
 }
@@ -9832,7 +10894,7 @@ function sendAiCreditLimitError(res, check) {
 
 function checkPlanLimit(db, workspaceId, limitName) {
   const workspace = db.workspaces.find((item) => item.id === workspaceId);
-  const plan = PLANS.find((item) => item.id === (workspace?.planId || 'starter')) || PLANS[0];
+  const plan = findBillingPlan(db, workspace?.planId || 'starter', { includeArchived: true }) || billingPlans(db)[0];
   const limit = plan.limits[limitName];
   if (limitName === 'aiCredits') return checkAiCreditLimit(db, workspaceId, 1);
   if (limit === -1 || limit === undefined) return { ok: true };

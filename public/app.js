@@ -7,6 +7,7 @@ const state = {
   plans: [],
   templates: [],
   adminTemplates: [],
+  adminPlans: [],
   adminWorkspaces: [],
   adminReadiness: null,
   surveys: [],
@@ -1455,6 +1456,7 @@ function renderAdmin() {
       <section class="section"><div class="page-title"><div><h2>Audit logs</h2><p>Recent platform events with exportable compliance history.</p></div><div class="button-row"><a class="btn" href="/api/admin/audit-logs?limit=100">Open logs</a><a class="btn" href="/api/admin/audit-logs/export.json">Export JSON</a></div></div>${overview.recentAuditLogs.map((item) => `<div class="card compact"><strong>${escapeHtml(item.action)}</strong><p class="muted">${escapeHtml(item.entityType)} · ${escapeHtml(item.entityId || '')} · ${dateLabel(item.createdAt)}</p></div>`).join('')}</section>
       ${renderReadiness(state.adminReadiness)}
       ${renderAdminSettings(adminSettings, state.adminWorkspaces || [])}
+      ${renderAdminPlanManagement(state.adminPlans || [])}
       ${renderAdminTemplateManagement(adminTemplates)}
     ` : empty('Loading admin overview...')}
   `;
@@ -1488,7 +1490,65 @@ function renderAdminSettings(settings, workspaces = []) {
     <p class="muted">${selectedWorkspace ? `Used ${selectedWorkspace.usage?.aiCreditsUsed || 0} of ${selectedWorkspace.aiCreditLimit === -1 ? 'unlimited' : selectedWorkspace.aiCreditLimit} AI credits this month.` : 'No workspaces yet.'}</p>
     <p class="muted">Updated ${dateLabel(settings.updatedAt)}.</p>
     <button class="btn primary" type="submit">Save settings</button>
+    ${selectedWorkspace ? `<button class="btn danger" type="button" data-action="delete-admin-workspace" data-workspace-id="${escapeAttr(selectedId)}">Delete selected workspace</button>` : ''}
   </form>`;
+}
+
+function renderAdminPlanManagement(plans = []) {
+  return `<section class="section">
+    <h2>Billing plan management</h2>
+    <div class="grid two">
+      <form class="card" data-form="admin-plan">
+        <h3>Create plan</h3>
+        <div class="grid two">
+          <div class="field"><label>Plan ID</label><input name="id" value="clinic_growth" /></div>
+          <div class="field"><label>Name</label><input name="name" value="Clinic Growth" /></div>
+          <div class="field"><label>Monthly INR</label><input name="priceMonthlyInr" type="number" min="0" value="12999" /></div>
+          <div class="field"><label>Setup fee</label><input name="setupFeeRange" value="INR 24,999-49,999" /></div>
+          <div class="field"><label>Surveys</label><input name="surveys" type="number" value="20" /></div>
+          <div class="field"><label>Responses/month</label><input name="responsesPerMonth" type="number" value="5000" /></div>
+          <div class="field"><label>Team members</label><input name="teamMembers" type="number" value="8" /></div>
+          <div class="field"><label>AI credits</label><input name="aiCredits" type="number" value="250" /></div>
+        </div>
+        <div class="field"><label>Features</label><textarea name="features">Website embed
+Conditional logic
+AI summaries
+Custom branding</textarea></div>
+        <button class="btn primary" type="submit">Create plan</button>
+      </form>
+      <section class="section">
+        <h2>Plans</h2>
+        ${plans.length ? plans.map(renderAdminPlanRow).join('') : empty('No plans loaded.')}
+      </section>
+    </div>
+  </section>`;
+}
+
+function renderAdminPlanRow(plan) {
+  const limits = plan.limits || {};
+  return `<div class="card compact">
+    <div class="pill-row">
+      <span class="pill ${plan.archived ? 'danger' : 'good'}">${plan.archived ? 'archived' : 'active'}</span>
+      <span class="pill">${plan.custom ? 'custom' : 'default'}</span>
+    </div>
+    <div class="grid two">
+      <div class="field"><label>Name</label><input data-admin-plan-id="${escapeAttr(plan.id)}" data-admin-plan-field="name" value="${escapeAttr(plan.name)}" /></div>
+      <div class="field"><label>Monthly INR</label><input data-admin-plan-id="${escapeAttr(plan.id)}" data-admin-plan-field="priceMonthlyInr" type="number" min="0" value="${escapeAttr(plan.priceMonthlyInr)}" /></div>
+      <div class="field"><label>Setup fee</label><input data-admin-plan-id="${escapeAttr(plan.id)}" data-admin-plan-field="setupFeeRange" value="${escapeAttr(plan.setupFeeRange || '')}" /></div>
+      <div class="field"><label>Order</label><input data-admin-plan-id="${escapeAttr(plan.id)}" data-admin-plan-field="order" type="number" value="${escapeAttr(plan.order || 0)}" /></div>
+      <div class="field"><label>Surveys</label><input data-admin-plan-id="${escapeAttr(plan.id)}" data-admin-plan-limit="surveys" type="number" value="${escapeAttr(limits.surveys ?? 0)}" /></div>
+      <div class="field"><label>Responses/month</label><input data-admin-plan-id="${escapeAttr(plan.id)}" data-admin-plan-limit="responsesPerMonth" type="number" value="${escapeAttr(limits.responsesPerMonth ?? 0)}" /></div>
+      <div class="field"><label>Team members</label><input data-admin-plan-id="${escapeAttr(plan.id)}" data-admin-plan-limit="teamMembers" type="number" value="${escapeAttr(limits.teamMembers ?? 1)}" /></div>
+      <div class="field"><label>AI credits</label><input data-admin-plan-id="${escapeAttr(plan.id)}" data-admin-plan-limit="aiCredits" type="number" value="${escapeAttr(limits.aiCredits ?? 0)}" /></div>
+    </div>
+    <div class="field"><label>Features</label><textarea data-admin-plan-id="${escapeAttr(plan.id)}" data-admin-plan-field="features">${escapeHtml((plan.features || []).join('\n'))}</textarea></div>
+    <div class="button-row">
+      <button class="btn" data-action="save-admin-plan" data-plan-id="${escapeAttr(plan.id)}">Save</button>
+      ${plan.archived
+        ? `<button class="btn primary" data-action="restore-admin-plan" data-plan-id="${escapeAttr(plan.id)}">Restore</button>`
+        : `<button class="btn danger" data-action="archive-admin-plan" data-plan-id="${escapeAttr(plan.id)}">Archive</button>`}
+    </div>
+  </div>`;
 }
 
 function renderAdminTemplateManagement(adminTemplates) {
@@ -1921,6 +1981,10 @@ document.addEventListener('click', async (event) => {
     if (action === 'remove-member') await removeMember(target.dataset.memberId);
     if (action === 'save-admin-template') await saveAdminTemplate(target.dataset.templateId);
     if (action === 'set-admin-template-status') await setAdminTemplateStatus(target.dataset.templateId, target.dataset.status);
+    if (action === 'save-admin-plan') await saveAdminPlan(target.dataset.planId);
+    if (action === 'archive-admin-plan') await setAdminPlanArchived(target.dataset.planId, true);
+    if (action === 'restore-admin-plan') await setAdminPlanArchived(target.dataset.planId, false);
+    if (action === 'delete-admin-workspace') await deleteAdminWorkspace(target.dataset.workspaceId);
     if (action === 'start-two-factor-setup') await startTwoFactorSetup();
     if (action === 'disable-two-factor') await disableTwoFactor();
     if (action === 'generate-monthly-report') await generateMonthlyReport();
@@ -1980,6 +2044,7 @@ document.addEventListener('submit', async (event) => {
     if (type === 'campaign') await submitCampaign(form);
     if (type === 'invoice') await submitInvoice(form);
     if (type === 'admin-template') await submitAdminTemplate(form);
+    if (type === 'admin-plan') await submitAdminPlan(form);
     if (type === 'admin-settings') await submitAdminSettings(form);
     if (type === 'profile') await submitProfile(form);
     if (type === 'password') await submitPassword(form);
@@ -2314,18 +2379,20 @@ async function queueLoadAgencyOverview() {
 async function queueLoadAdmin() {
   if ((state.adminOverview && state.adminTemplatesLoaded) || state.loadingAdmin) return;
   state.loadingAdmin = true;
-  const [overview, templates, settings, workspaces, readiness] = await Promise.all([
+  const [overview, templates, settings, workspaces, readiness, plans] = await Promise.all([
     api('/api/admin/overview'),
     api('/api/admin/templates').catch(() => ({ templates: [] })),
     api('/api/admin/settings').catch(() => ({ settings: {} })),
     api('/api/admin/workspaces').catch(() => ({ workspaces: [] })),
-    api('/api/admin/readiness').catch(() => null)
+    api('/api/admin/readiness').catch(() => null),
+    api('/api/admin/plans').catch(() => ({ plans: [] }))
   ]);
   state.adminOverview = overview;
   state.adminTemplates = templates.templates || [];
   state.adminSettings = settings.settings || {};
   state.adminWorkspaces = workspaces.workspaces || [];
   state.adminReadiness = readiness;
+  state.adminPlans = plans.plans || [];
   state.adminTemplatesLoaded = true;
   state.loadingAdmin = false;
   if (state.view === 'admin') render();
@@ -2371,6 +2438,81 @@ async function submitAdminSettings(form) {
   }
   await reloadAdmin();
   toast('Platform settings saved.');
+  render();
+}
+
+function planPayloadFromValues(values) {
+  return {
+    id: values.id,
+    name: values.name,
+    priceMonthlyInr: Number(values.priceMonthlyInr || 0),
+    setupFeeRange: values.setupFeeRange || '',
+    limits: {
+      surveys: Number(values.surveys || 0),
+      responsesPerMonth: Number(values.responsesPerMonth || 0),
+      teamMembers: Number(values.teamMembers || 1),
+      aiCredits: Number(values.aiCredits || 0)
+    },
+    features: String(values.features || '').split(/\r?\n|,/).map((item) => item.trim()).filter(Boolean)
+  };
+}
+
+async function submitAdminPlan(form) {
+  await api('/api/admin/plans', {
+    method: 'POST',
+    body: planPayloadFromValues(formValues(form))
+  });
+  await refreshSession();
+  await reloadAdmin();
+  await loadWorkspaceData();
+  toast('Plan created.');
+  render();
+}
+
+async function saveAdminPlan(planId) {
+  const fields = [...document.querySelectorAll('[data-admin-plan-id]')]
+    .filter((field) => field.dataset.adminPlanId === planId);
+  const body = { limits: {} };
+  for (const field of fields) {
+    if (field.dataset.adminPlanField === 'features') {
+      body.features = String(field.value || '').split(/\r?\n|,/).map((item) => item.trim()).filter(Boolean);
+    } else if (field.dataset.adminPlanField) {
+      body[field.dataset.adminPlanField] = field.type === 'number' ? Number(field.value || 0) : field.value;
+    } else if (field.dataset.adminPlanLimit) {
+      body.limits[field.dataset.adminPlanLimit] = Number(field.value || 0);
+    }
+  }
+  await api(`/api/admin/plans/${encodeURIComponent(planId)}`, { method: 'PUT', body });
+  await refreshSession();
+  await reloadAdmin();
+  await loadWorkspaceData();
+  toast('Plan saved.');
+  render();
+}
+
+async function setAdminPlanArchived(planId, archived) {
+  if (archived) {
+    await api(`/api/admin/plans/${encodeURIComponent(planId)}`, { method: 'DELETE', body: {} });
+  } else {
+    await api(`/api/admin/plans/${encodeURIComponent(planId)}`, { method: 'PUT', body: { archived: false } });
+  }
+  await refreshSession();
+  await reloadAdmin();
+  await loadWorkspaceData();
+  toast(archived ? 'Plan archived.' : 'Plan restored.');
+  render();
+}
+
+async function deleteAdminWorkspace(workspaceId) {
+  if (!workspaceId) return;
+  if (!confirm('Delete this workspace and its product data?')) return;
+  await api(`/api/admin/workspaces/${encodeURIComponent(workspaceId)}`, { method: 'DELETE', body: {} });
+  if (state.workspaceId === workspaceId) state.workspaceId = '';
+  await refreshSession();
+  state.workspaceId = state.workspaceId || state.workspaces[0]?.id || '';
+  await reloadAdmin();
+  await loadWorkspaceData();
+  toast('Workspace deleted.');
   render();
 }
 

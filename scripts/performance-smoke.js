@@ -11,14 +11,14 @@ const { performance } = require('node:perf_hooks');
 const { createServer } = require('../src/server');
 
 const CONCURRENT_SUBMISSIONS = Number(process.env.PERF_SMOKE_CONCURRENCY || 100);
-const LARGE_RESPONSE_COUNT = Number(process.env.PERF_SMOKE_LARGE_RESPONSES || 10000);
+const LARGE_RESPONSE_COUNT = Number(process.env.PERF_SMOKE_LARGE_RESPONSES || 100000);
 const DASHBOARD_MAX_MS = Number(process.env.PERF_SMOKE_DASHBOARD_MAX_MS || 3000);
 const SUBMISSION_P95_MAX_MS = Number(process.env.PERF_SMOKE_SUBMISSION_P95_MAX_MS || 500);
 const OUTPUT_DIR = path.join(__dirname, '..', 'artifacts', 'performance-smoke');
 
 async function main() {
   assert.ok(CONCURRENT_SUBMISSIONS >= 100, 'Performance smoke must exercise at least 100 concurrent submissions.');
-  assert.ok(LARGE_RESPONSE_COUNT >= 10000, 'Performance smoke must exercise at least 10,000 responses.');
+  assert.ok(LARGE_RESPONSE_COUNT >= 100000, 'Performance smoke must exercise at least 100,000 responses.');
 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'formspear-perf-'));
   const server = createServer({ dataFile: path.join(dir, 'db.json'), disableWorker: true });
@@ -50,9 +50,9 @@ async function main() {
     const dashboardStart = performance.now();
     const largeDashboard = await client.request(`/api/surveys/${survey.id}/responses?limit=100&sort=submitted_desc`);
     const dashboardMs = Math.round(performance.now() - dashboardStart);
-    assert.equal(largeDashboard.total, LARGE_RESPONSE_COUNT, 'Large dashboard total must include the seeded 10,000-response set.');
+    assert.equal(largeDashboard.total, LARGE_RESPONSE_COUNT, 'Large dashboard total must include the seeded 100,000-response set.');
     assert.equal(largeDashboard.responses.length, 100, 'Dashboard pagination must keep the first page bounded.');
-    assert.ok(dashboardMs <= DASHBOARD_MAX_MS, `Dashboard 10,000-response query ${dashboardMs}ms exceeded ${DASHBOARD_MAX_MS}ms.`);
+    assert.ok(dashboardMs <= DASHBOARD_MAX_MS, `Dashboard 100,000-response query ${dashboardMs}ms exceeded ${DASHBOARD_MAX_MS}ms.`);
 
     const manifest = {
       ok: true,

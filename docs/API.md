@@ -653,6 +653,11 @@ GET /api/admin/users
 PUT /api/admin/users/{userId}
 GET /api/admin/workspaces
 PUT /api/admin/workspaces/{workspaceId}
+DELETE /api/admin/workspaces/{workspaceId}
+GET /api/admin/plans
+POST /api/admin/plans
+PUT /api/admin/plans/{planId}
+DELETE /api/admin/plans/{planId}
 GET /api/admin/audit-logs
 GET /api/admin/audit-logs/export.json
 GET /api/admin/templates
@@ -664,7 +669,9 @@ PUT /api/admin/templates/{templateId}
 
 `GET /api/admin/readiness` returns a protected production-readiness report with no secret values. It reports migration presence, local/runtime mode, provider-variable booleans for PostgreSQL, Redis, SMTP, Google OAuth, LLM, billing, S3/R2, monitoring telemetry, uptime checks, and alert routing, plus pass/warn/fail checks for launch blockers.
 
-`PUT /api/admin/workspaces/{workspaceId}` supports `suspended`, `planId`, and `aiCreditLimitOverride`. Set `aiCreditLimitOverride` to a non-negative integer to override the plan AI-credit limit for that workspace, or `null`/blank to return to the plan default. AI endpoints return `402` with `error.code = "ai_credit_limit"` when the current month is exhausted.
+`PUT /api/admin/workspaces/{workspaceId}` supports `suspended`, `planId`, and `aiCreditLimitOverride`. Set `aiCreditLimitOverride` to a non-negative integer to override the plan AI-credit limit for that workspace, or `null`/blank to return to the plan default. AI endpoints return `402` with `error.code = "ai_credit_limit"` when the current month is exhausted. `DELETE /api/admin/workspaces/{workspaceId}` removes the workspace and its tenant-scoped product data, then writes a platform-level `admin.workspace_deleted` audit event with deletion counts.
+
+Super admins can manage commercial plans through `/api/admin/plans`. Created or updated plans support `name`, `priceMonthlyInr`, `setupFeeRange`, `features`, and `limits` for `surveys`, `responsesPerMonth`, `teamMembers`, and `aiCredits`. `DELETE /api/admin/plans/{planId}` archives a plan so it no longer appears in active `/api/plans` or new plan-change selections, while existing workspace subscriptions can still render historical plan metadata.
 
 Super admins can create, edit, publish, unpublish, or archive global custom templates. Published global templates appear in `GET /api/templates?workspaceId=...`; draft or archived global templates stay out of the workspace marketplace.
 

@@ -12,6 +12,8 @@
     "check": "node --check src/server.js",
     "migrations:check": "node scripts/verify-migrations.js",
     "backup:smoke": "node scripts/backup-restore-smoke.js",
+    "postgres:backfill:drill": "node scripts/postgres-backfill-drill.js",
+    "postgres:relational:smoke": "node scripts/postgres-relational-smoke.js",
     "visual:smoke": "node scripts/visual-smoke.js",
     "performance:smoke": "node scripts/performance-smoke.js"
   },

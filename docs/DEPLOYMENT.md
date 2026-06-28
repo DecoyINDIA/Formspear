@@ -31,7 +31,7 @@ Recommended Railway services from the PRD:
 - Cron service: production trigger for retention/report scheduling, replacing the local in-process scheduler
 - Object storage: production target for file-upload answers
 
-Current local persistence is JSON-backed by default. The repo includes `migrations/0001_initial_postgres.sql` as the PostgreSQL baseline schema, `npm.cmd run migrations:check` as a static migration gate, and a `DATABASE_URL` runtime adapter that stores the current app state in `platform_settings.value_json` under a JSONB state key after the baseline migration is applied. Before paid launch, keep `DATABASE_URL` enabled and replace the JSONB snapshot adapter with fully relational PostgreSQL reads/writes for the core tables.
+Current local persistence is JSON-backed by default. The repo includes `migrations/0001_initial_postgres.sql` as the PostgreSQL baseline schema, `npm.cmd run migrations:check` as a static migration gate, and a `DATABASE_URL` runtime adapter that writes migration-backed collections into relational tables, including auth/security tokens, API keys, platform settings, AI provider logs, rich JSON/report/event/template fields, while retaining `platform_settings.value_json` as a compatibility snapshot safety net. Before paid launch, keep `DATABASE_URL` enabled, run the relational smoke against the target database, and retire the compatibility snapshot only after live migration and restore drills pass.
 File uploads use local JSON records by default and S3/R2-compatible object storage when the S3 variables are configured. Before paid launch, keep remote payloads in object storage only and keep scan/lifecycle metadata in the database.
 
 ## Required Environment
@@ -128,8 +128,34 @@ Production application order:
 1. Provision Railway PostgreSQL and set `DATABASE_URL`.
 2. Apply `migrations/0001_initial_postgres.sql` inside one transaction.
 3. Confirm `schema_migrations` contains version `0001`.
-4. Start the app with `DATABASE_URL` set; the runtime will create or update the JSONB state row in `platform_settings`.
-5. Run app smoke tests against the PostgreSQL-backed runtime before paid traffic.
+4. Start the app with `DATABASE_URL` set; the runtime writes the migration-backed collections to relational tables and also updates the compatibility snapshot for rollback/backfill safety.
+5. Run app smoke tests against the PostgreSQL-backed runtime before paid traffic. Locally, `npm.cmd run postgres:relational:smoke` starts a disposable Docker PostgreSQL container, applies the migration, signs up a workspace, creates API key/password-reset/email-verification/survey/response/alert/webhook/integration/campaign/template/notification/invoice/report/platform-settings/AI-provider-log records, and asserts relational table row counts, auth/security columns, rich JSON columns, event/template columns, report JSON, platform-settings row, AI provider log row, plus the compatibility snapshot.
+
+When Docker is not available, or when validating a Railway disposable database, run the same smoke against an explicitly disposable external PostgreSQL target:
+
+```powershell
+$env:POSTGRES_RELATIONAL_SMOKE_DATABASE_URL="<disposable-postgres-url>"
+$env:POSTGRES_RELATIONAL_SMOKE_CONFIRM="I_UNDERSTAND_THIS_RESETS_THE_DATABASE"
+npm.cmd run postgres:relational:smoke
+```
+
+Do not point this smoke at production or customer data. The script applies the baseline migration and exercises runtime saves that replace migration-backed relational collections as part of the persistence check.
+
+To prove the compatibility snapshot can backfill the relational tables before retiring it, run:
+
+```powershell
+npm.cmd run postgres:backfill:drill
+```
+
+The drill creates a JSON-mode app snapshot, writes only that snapshot to disposable PostgreSQL, starts the app with `DATABASE_URL`, triggers a normal authenticated save, and asserts that users, sessions, workspaces, surveys, responses, contacts, audit logs, platform settings, and the runtime snapshot are present in PostgreSQL. It uses Docker by default. For a disposable external database:
+
+```powershell
+$env:POSTGRES_BACKFILL_DRILL_DATABASE_URL="<disposable-postgres-url>"
+$env:POSTGRES_BACKFILL_DRILL_CONFIRM="I_UNDERSTAND_THIS_RESETS_THE_DATABASE"
+npm.cmd run postgres:backfill:drill
+```
+
+Do not run the backfill drill against production or customer data; it truncates the migration-backed tables before inserting the seed snapshot.
 
 ## Worker Jobs
 
@@ -190,7 +216,7 @@ WhatsApp delivery requires `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_ACCESS_TOKEN`, 
 
 ## Billing Provider
 
-Plan checkout uses Stripe when `STRIPE_SECRET_KEY` is configured, otherwise Razorpay when `RAZORPAY_KEY_ID` and `RAZORPAY_SECRET` are configured. Signed provider webhooks at `/api/billing/webhook/stripe` and `/api/billing/webhook/razorpay` require `STRIPE_WEBHOOK_SECRET` or `RAZORPAY_WEBHOOK_SECRET`; these webhooks activate subscriptions, create paid invoices, and apply graceful Starter downgrades on payment failure. Stripe-backed workspaces can create customer portal sessions through `POST /api/billing/{workspaceId}/portal`; `STRIPE_PORTAL_CONFIGURATION_ID` is optional. `STRIPE_BASE_URL` and `RAZORPAY_BASE_URL` are available for non-production gateways and local fake-provider tests.
+Plan checkout uses Stripe when `STRIPE_SECRET_KEY` is configured, otherwise Razorpay when `RAZORPAY_KEY_ID` and `RAZORPAY_SECRET` are configured. Super admins can create, edit, and archive local commercial plans through `/api/admin/plans`; active plans drive workspace assignment, usage gates, checkout amounts, MRR, and the billing UI. Signed provider webhooks at `/api/billing/webhook/stripe` and `/api/billing/webhook/razorpay` require `STRIPE_WEBHOOK_SECRET` or `RAZORPAY_WEBHOOK_SECRET`; these webhooks activate subscriptions, create paid invoices, and apply graceful Starter downgrades on payment failure. Stripe-backed workspaces can create customer portal sessions through `POST /api/billing/{workspaceId}/portal`; `STRIPE_PORTAL_CONFIGURATION_ID` is optional. `STRIPE_BASE_URL` and `RAZORPAY_BASE_URL` are available for non-production gateways and local fake-provider tests.
 
 Configure `BILLING_TAX_MODE` as `none`, `exclusive`, or `inclusive`, set `BILLING_TAX_PERCENT`, and choose `BILLING_PRORATION_POLICY` as `none`, `create_prorations`, or `always_invoice`. Stripe checkout can also enable `STRIPE_AUTOMATIC_TAX` and `STRIPE_TAX_ID_COLLECTION`. Local invoices, local plan changes, checkout sessions, subscriptions, and provider-paid invoices store the policy snapshot so tax and proration decisions are auditable.
 
@@ -219,7 +245,7 @@ npm.cmd run performance:smoke
 npm.cmd run visual:smoke
 ```
 
-`npm.cmd run performance:smoke` starts a disposable local server, verifies at least 100 concurrent public submissions against the configured rate limit, checks CSV/dashboard count consistency, seeds a 10,000-response set, and asserts the paginated dashboard API returns within the configured threshold. Tuning knobs are `PUBLIC_RATE_LIMIT_MAX`, `DB_SAVE_BATCH_DELAY_MS`, `PERF_SMOKE_CONCURRENCY`, `PERF_SMOKE_LARGE_RESPONSES`, `PERF_SMOKE_SUBMISSION_P95_MAX_MS`, and `PERF_SMOKE_DASHBOARD_MAX_MS`.
+`npm.cmd run performance:smoke` starts a disposable local server, verifies at least 100 concurrent public submissions against the configured rate limit, checks CSV/dashboard count consistency, seeds a 100,000-response set, and asserts the paginated dashboard API returns within the configured threshold. Tuning knobs are `PUBLIC_RATE_LIMIT_MAX`, `DB_SAVE_BATCH_DELAY_MS`, `PERF_SMOKE_CONCURRENCY`, `PERF_SMOKE_LARGE_RESPONSES`, `PERF_SMOKE_SUBMISSION_P95_MAX_MS`, and `PERF_SMOKE_DASHBOARD_MAX_MS`.
 
 After signing in as a super admin, review `GET /api/admin/readiness`. It intentionally reports missing provider variables as launch blockers instead of treating simulated local services as production-ready.
 

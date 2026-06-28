@@ -74,7 +74,7 @@ The product is intentionally broad. It covers the full feedback lifecycle: build
 - Analytics for completions, completion rate, average rating, NPS, sentiment, lead scores, source, device, branch, location, and question-level stats.
 - Funnel conversion, channel conversion, and question drop-off analysis.
 - Date-range comparison and cross-survey benchmarking.
-- Verified performance smoke for 100 concurrent public submissions and 10,000-response dashboard pagination.
+- Verified performance smoke for 100 concurrent public submissions and 100,000-response dashboard pagination.
 
 ### AI Insights And Reports
 
@@ -100,7 +100,7 @@ The product is intentionally broad. It covers the full feedback lifecycle: build
 
 ### Billing And Commercial Controls
 
-- Starter, Growth, Pro, and Agency plans.
+- Starter, Growth, Pro, and Agency plans, plus super-admin custom plan create/edit/archive controls.
 - Survey, response, team-seat, and AI-credit usage meters.
 - Plan switching with local fallback.
 - Stripe checkout session creation when configured.
@@ -109,13 +109,13 @@ The product is intentionally broad. It covers the full feedback lifecycle: build
 - Signed Stripe and Razorpay billing webhooks.
 - Tax-aware invoices, provider-paid invoices, proration policy snapshots, and local proration invoices.
 - Payment-failure handling with graceful Starter downgrade.
-- Super-admin workspace suspension, plan controls, and AI-credit limit overrides.
+- Super-admin workspace suspension/deletion, custom billing-plan controls, and AI-credit limit overrides.
 
 ### Admin, Security, And Operations
 
-- Super-admin overview with users, workspaces, plans, responses, jobs, errors, alerts, templates, and readiness signals.
+- Super-admin overview with users, workspaces, editable plans, responses, jobs, errors, alerts, templates, and readiness signals.
 - User disable and role controls.
-- Workspace suspension and plan controls.
+- Workspace suspension, deletion, and plan assignment controls.
 - Global template create, edit, publish, unpublish, and archive controls.
 - Filterable workspace and platform audit logs with secret-looking metadata redaction.
 - Hashed API keys with scopes, revocation, rotation, one-time raw token display, rate limiting, and documented `/api/v1` endpoints.
@@ -145,7 +145,7 @@ public/privacy.html                   First-party privacy page
 public/terms.html                     First-party terms page
 tests/server.test.js                  End-to-end HTTP coverage for the product loop
 scripts/worker.js                     Optional worker process
-scripts/performance-smoke.js          Concurrent submission and 10,000-response pagination smoke
+scripts/performance-smoke.js          Concurrent submission and 100,000-response pagination smoke
 scripts/visual-smoke.js               Chrome DevTools visual smoke for app shell and public survey
 scripts/backup-data.ps1               Local JSON backup with manifest
 scripts/restore-data.ps1              Manifest-aware local JSON restore
@@ -267,7 +267,9 @@ Current production-oriented support:
 
 - Railway config and Procfile.
 - PostgreSQL baseline migration.
-- `DATABASE_URL` adapter that persists runtime state through PostgreSQL JSONB.
+- `DATABASE_URL` adapter that persists migration-backed runtime collections into relational PostgreSQL tables, including auth/security tokens, API keys, platform settings, AI provider logs, rich JSON/report/event/template fields, while retaining a compatibility JSONB snapshot as a rollback/backfill safety net.
+- `postgres:relational:smoke` for disposable Docker PostgreSQL by default, with a guarded `POSTGRES_RELATIONAL_SMOKE_DATABASE_URL` mode for disposable Railway/PostgreSQL verification when Docker is unavailable.
+- `postgres:backfill:drill` for proving that a compatibility snapshot can repopulate the relational tables on a disposable PostgreSQL target before the snapshot is retired.
 - Optional Redis/BullMQ worker mode.
 - SMTP, AI provider, billing provider, object storage, file scan, monitoring, custom-domain SSL, and integration hooks.
 - Protected readiness report that exposes missing production configuration without leaking secrets.
@@ -275,7 +277,7 @@ Current production-oriented support:
 
 Remaining hardening before paid traffic:
 
-- Replace the PostgreSQL JSONB snapshot adapter with fully relational repositories for core tables.
+- Run the guarded relational smoke and backfill drill against a disposable live PostgreSQL target, then retire the compatibility snapshot after the relational tables and restore path are proven.
 - Verify the app against a live Railway project with Postgres, Redis, SMTP, object storage, monitoring, billing, AI, backups, cron, and custom-domain SSL automation.
 - Certify SSO against the selected live IdP.
 - Confirm legal approval for AI provider DPA and data retention.
