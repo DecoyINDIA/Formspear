@@ -84,6 +84,15 @@ async function main() {
   pool = new Pool({ connectionString: databaseUrl });
   const migration = fs.readFileSync(path.join(root, 'migrations', '0001_initial_postgres.sql'), 'utf8');
   await pool.query(migration);
+  // Seed both the runtime-state and platform-settings rows so the server loads our
+  // settings instead of taking the empty-db branch (which would overwrite them with defaults).
+  await pool.query(
+    `INSERT INTO platform_settings(key, value_json, updated_at) VALUES ($1, $2::jsonb, now()), ($3, $4::jsonb, now())`,
+    [
+      '__feedbackos_runtime_state__', JSON.stringify({}),
+      '__feedbackos_platform_settings__', JSON.stringify({ requireEmailVerification: true })
+    ]
+  );
 
   server = createServer({ databaseUrl, disableWorker: true });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -100,7 +109,17 @@ async function main() {
       acceptTerms: true
     }
   });
-  const workspaceId = signup.workspaces[0].id;
+  // Email verification is required, so signup returns a verification token and no session.
+  assert.ok(signup.emailVerificationRequired, 'Signup should require email verification.');
+  await client.request('/api/auth/email-verification/confirm', {
+    method: 'POST',
+    body: { token: signup.verificationToken }
+  });
+  const session = await client.request('/api/auth/login', {
+    method: 'POST',
+    body: { email: 'relational@example.test', password: 'FeedbackOS123' }
+  });
+  const workspaceId = session.workspaces[0].id;
   await client.request(`/api/workspaces/${workspaceId}/api-keys`, {
     method: 'POST',
     body: {

@@ -3238,6 +3238,7 @@ async function handleApiV1(req, res, url, segments, db, state) {
       const payloadJson = { apiKeyId: apiKey.id, test: true };
       const log = {
         id: makeId('whlog'),
+        workspaceId,
         webhookId: webhook.id,
         event: 'webhook.test',
         payloadJson,
@@ -3714,7 +3715,7 @@ const POSTGRES_RELATIONAL_COLLECTIONS = [
       id: 'id',
       name: 'name',
       email: 'email',
-      passwordHash: 'password_hash',
+      password: 'password_hash',
       avatarUrl: 'avatar_url',
       emailVerifiedAt: { column: 'email_verified_at', type: 'date' },
       platformRole: 'platform_role',
@@ -9756,6 +9757,7 @@ function processWebhooks(db, survey, response) {
     const payloadJson = { surveyId: survey.id, responseId: response.id, sentiment: response.sentiment, leadScore: response.leadScore };
     const log = {
       id: makeId('whlog'),
+      workspaceId: survey.workspaceId,
       webhookId: hook.id,
       event: 'response.completed',
       payloadJson,
