@@ -39,6 +39,26 @@ function makeClient(baseUrl) {
   };
 }
 
+function getVerificationToken(dataFile, email) {
+  const dbData = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
+  const jobs = dbData.jobs.filter((job) => job.type === 'email_delivery' && job.payloadJson.message.to === email);
+  if (jobs.length === 0) return null;
+  jobs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const body = jobs[0].payloadJson.message.body;
+  const match = body.match(/fo_verify_[a-f0-9]+/);
+  return match ? match[0] : null;
+}
+
+function getPasswordResetToken(dataFile, email) {
+  const dbData = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
+  const jobs = dbData.jobs.filter((job) => job.type === 'email_delivery' && job.payloadJson.message.to === email);
+  if (jobs.length === 0) return null;
+  jobs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const body = jobs[0].payloadJson.message.body;
+  const match = body.match(/fo_reset_[a-f0-9]+/);
+  return match ? match[0] : null;
+}
+
 async function makeWebhookReceiver(t) {
   const deliveries = [];
   const server = http.createServer((req, res) => {
@@ -1181,11 +1201,13 @@ test('FeedbackOS core MVP and V1 loops work over HTTP', async (t) => {
     method: 'POST',
     body: { email: 'analyst@example.test' }
   });
-  assert.match(resetRequest.resetToken, /^fo_reset_/);
+  assert.equal(resetRequest.resetToken, undefined);
+  const resetToken = getPasswordResetToken(dataFile, 'analyst@example.test');
+  assert.match(resetToken, /^fo_reset_/);
 
   await admin.request('/api/auth/password-reset/confirm', {
     method: 'POST',
-    body: { token: resetRequest.resetToken, password: 'NewFeedbackOS123' }
+    body: { token: resetToken, password: 'NewFeedbackOS123' }
   });
 
   const apiKeyResult = await admin.request(`/api/workspaces/${workspaceId}/api-keys`, {
@@ -2303,20 +2325,29 @@ test('FeedbackOS core MVP and V1 loops work over HTTP', async (t) => {
   });
   assert.equal(needsVerification.emailVerificationRequired, true);
   assert.equal(needsVerification.user.emailVerifiedAt, null);
-  assert.match(needsVerification.verificationToken, /^fo_verify_/);
+  assert.equal(needsVerification.verificationToken, undefined);
+  const verifyToken1 = getVerificationToken(dataFile, 'verify-me@example.test');
+  assert.match(verifyToken1, /^fo_verify_/);
   await assert.rejects(
     () => verificationClient.request('/api/session'),
     (error) => error.status === 401
   );
   await assert.rejects(
     () => verificationClient.request('/api/auth/login', { method: 'POST', body: { email: 'verify-me@example.test', password: 'FeedbackOS123' } }),
-    (error) => error.status === 403 && error.payload.error.code === 'email_verification_required' && /^fo_verify_/.test(error.payload.verificationToken)
+    (error) => {
+      assert.equal(error.status, 403);
+      assert.equal(error.payload.error.code, 'email_verification_required');
+      assert.equal(error.payload.verificationToken, undefined);
+      return true;
+    }
   );
   const resentVerification = await verificationClient.request('/api/auth/email-verification/request', { method: 'POST', body: { email: 'verify-me@example.test' } });
-  assert.match(resentVerification.verificationToken, /^fo_verify_/);
+  assert.equal(resentVerification.verificationToken, undefined);
+  const verifyToken2 = getVerificationToken(dataFile, 'verify-me@example.test');
+  assert.match(verifyToken2, /^fo_verify_/);
   const verifiedEmail = await verificationClient.request('/api/auth/email-verification/confirm', {
     method: 'POST',
-    body: { token: resentVerification.verificationToken }
+    body: { token: verifyToken2 }
   });
   assert.ok(verifiedEmail.user.emailVerifiedAt);
   const verifiedLogin = await verificationClient.request('/api/auth/login', {
@@ -2387,4 +2418,80 @@ test('FeedbackOS core MVP and V1 loops work over HTTP', async (t) => {
   const adminAuditExport = await admin.request(`/api/admin/audit-logs/export.json?workspaceId=${workspaceId}&limit=25`);
   assert.ok(adminAuditExport.auditLogs.every((log) => log.workspaceId === workspaceId));
   assert.ok(adminAuditExport.auditLogs.every((log) => !JSON.stringify(log.metadataJson).match(/fo_live_|FeedbackOS123/)));
+
+  // Timezone validation test
+  const invalidTzWorkspace = await admin.request('/api/workspaces', {
+    method: 'POST',
+    body: {
+      name: 'Invalid Timezone Workspace',
+      industry: 'General services',
+      companySize: '1-10',
+      timezone: 'Not/A/Valid/Timezone'
+    }
+  });
+  assert.equal(invalidTzWorkspace.workspace.timezone, 'Asia/Kolkata');
+
+  const validTzWorkspace = await admin.request('/api/workspaces', {
+    method: 'POST',
+    body: {
+      name: 'Valid Timezone Workspace',
+      industry: 'General services',
+      companySize: '1-10',
+      timezone: 'Europe/Paris'
+    }
+  });
+  assert.equal(validTzWorkspace.workspace.timezone, 'Europe/Paris');
+
+  const invalidTzProfile = await admin.request('/api/profile', {
+    method: 'PUT',
+    body: {
+      timezone: 'Bad/Timezone'
+    }
+  });
+  assert.equal(invalidTzProfile.user.timezone, 'Asia/Kolkata'); // User's original timezone was Asia/Kolkata
+
+  // SSO Dev Login Production Guard test
+  const originalNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  try {
+    await assert.rejects(
+      () => admin.request('/api/auth/sso/dev-login', {
+        method: 'POST',
+        body: { requestId: 'some-id', relayState: '' }
+      }),
+      (error) => error.status === 404
+    );
+  } finally {
+    process.env.NODE_ENV = originalNodeEnv;
+  }
+
+  // Webhook Secret Encryption test
+  const newWebhookRes = await admin.request('/api/integrations', {
+    method: 'POST',
+    body: {
+      workspaceId,
+      type: 'webhook',
+      url: 'https://example.test/webhook',
+      events: ['response.completed']
+    }
+  });
+  assert.equal(newWebhookRes.webhook.secret, '[hidden]');
+  const dbDataAfterWebhook = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
+  const savedWebhook = dbDataAfterWebhook.webhooks.find((w) => w.id === newWebhookRes.webhook.id);
+  assert.ok(savedWebhook.secretEncrypted);
+  assert.equal(savedWebhook.secret, undefined);
+
+  // Weak default ENCRYPTION_KEY fallback check in production
+  process.env.NODE_ENV = 'production';
+  const originalKey = process.env.ENCRYPTION_KEY;
+  process.env.ENCRYPTION_KEY = 'replace-with-32-byte-secret';
+  try {
+    assert.throws(() => {
+      const { encryptConfig } = require('../src/server');
+      encryptConfig({ test: 123 });
+    }, /ENCRYPTION_KEY must be set to a strong secret in production/);
+  } finally {
+    process.env.ENCRYPTION_KEY = originalKey;
+    process.env.NODE_ENV = originalNodeEnv;
+  }
 });

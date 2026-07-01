@@ -53,7 +53,7 @@ const SECURITY_HEADERS = {
   'x-frame-options': 'SAMEORIGIN',
   'referrer-policy': 'strict-origin-when-cross-origin',
   'permissions-policy': 'camera=(), microphone=(), geolocation=()',
-  'content-security-policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+  'content-security-policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
 };
 
 const QUESTION_TYPES = [
@@ -324,6 +324,7 @@ function normalizeTemplateTags(value) {
 
 const publicBuckets = new Map();
 const apiBuckets = new Map();
+const authBuckets = new Map();
 
 function question(type, title, required = false, settings = {}) {
   return {
@@ -683,6 +684,11 @@ async function handleSignup(req, res, db, state) {
   const body = await readJson(req);
   const name = cleanText(body.name, 120);
   const email = cleanEmail(body.email);
+  const rlKey = `${req.socket.remoteAddress || 'unknown'}:${email}`;
+  if (!authRateAllowed(rlKey)) {
+    sendJson(res, 429, { error: { code: 'rate_limited', message: 'Too many attempts. Try again later.' } });
+    return;
+  }
   const password = String(body.password || '');
   const workspaceName = cleanText(body.workspaceName || `${name || 'My'} Workspace`, 120);
   const acceptedTerms = body.acceptTerms === true || body.acceptTerms === 'true' || body.acceptTerms === 'on';
@@ -710,7 +716,7 @@ async function handleSignup(req, res, db, state) {
     password: hashPassword(password),
     emailVerifiedAt: platformSettings(db).requireEmailVerification ? null : new Date().toISOString(),
     platformRole: db.users.length === 0 ? 'super_admin' : 'user',
-    timezone: body.timezone || 'Asia/Kolkata',
+    timezone: cleanTimezone(body.timezone, 'Asia/Kolkata'),
     notificationPreferences: { emailAlerts: true, weeklyDigest: true },
     termsAcceptedAt: new Date().toISOString(),
     privacyAcceptedAt: new Date().toISOString(),
@@ -747,7 +753,6 @@ async function handleSignup(req, res, db, state) {
     await saveDb(state);
     sendJson(res, 201, {
       emailVerificationRequired: true,
-      verificationToken: verification.token,
       user: publicUser(user),
       plans: billingPlans(db)
     });
@@ -764,6 +769,11 @@ async function handleSignup(req, res, db, state) {
 async function handleLogin(req, res, db, state) {
   const body = await readJson(req);
   const email = cleanEmail(body.email);
+  const rlKey = `${req.socket.remoteAddress || 'unknown'}:${email}`;
+  if (!authRateAllowed(rlKey)) {
+    sendJson(res, 429, { error: { code: 'rate_limited', message: 'Too many attempts. Try again later.' } });
+    return;
+  }
   const password = String(body.password || '');
   const rememberMe = parseBoolean(body.rememberMe || body.remember);
   const user = db.users.find((item) => item.email === email);
@@ -779,7 +789,6 @@ async function handleLogin(req, res, db, state) {
     await saveDb(state);
     sendJson(res, 403, {
       error: { code: 'email_verification_required', message: 'Verify your email before signing in.' },
-      verificationToken: verification.token,
       email: user.email
     });
     return;
@@ -876,7 +885,7 @@ async function handleGoogleOAuthStart(req, res, url, db, state) {
     workspaceName: cleanText(body.workspaceName || '', 120),
     industry: cleanText(body.industry || 'General services', 80),
     companySize: cleanText(body.companySize || '1-10', 40),
-    timezone: cleanText(body.timezone || 'Asia/Kolkata', 60),
+    timezone: cleanTimezone(body.timezone, 'Asia/Kolkata'),
     acceptedTerms,
     status: 'pending',
     expiresAt: new Date(Date.now() + 1000 * 60 * 10).toISOString(),
@@ -969,6 +978,10 @@ async function handleSsoStart(req, res, url, db, state) {
 }
 
 async function handleSsoDevLogin(req, res, db, state) {
+  if (process.env.NODE_ENV === 'production') {
+    sendJson(res, 404, { error: { code: 'not_found', message: 'Not found.' } });
+    return;
+  }
   const body = await readJson(req);
   const requestId = cleanText(body.requestId || '', 80);
   const relayState = cleanText(body.relayState || '', 120);
@@ -1107,7 +1120,7 @@ async function handleInviteSignup(req, res, db, state) {
       password: hashPassword(password),
       emailVerifiedAt: new Date().toISOString(),
       platformRole: 'user',
-      timezone: body.timezone || 'Asia/Kolkata',
+      timezone: cleanTimezone(body.timezone, 'Asia/Kolkata'),
       notificationPreferences: { emailAlerts: true, weeklyDigest: true },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -1142,6 +1155,11 @@ async function handleInviteSignup(req, res, db, state) {
 async function handlePasswordResetRequest(req, res, db, state) {
   const body = await readJson(req);
   const email = cleanEmail(body.email);
+  const rlKey = `${req.socket.remoteAddress || 'unknown'}:${email}`;
+  if (!authRateAllowed(rlKey)) {
+    sendJson(res, 429, { error: { code: 'rate_limited', message: 'Too many attempts. Try again later.' } });
+    return;
+  }
   const user = db.users.find((item) => item.email === email);
   if (user) {
     const token = `fo_reset_${crypto.randomBytes(24).toString('hex')}`;
@@ -1163,7 +1181,7 @@ async function handlePasswordResetRequest(req, res, db, state) {
     }, { resetId: reset.id });
     db.auditLogs.push(audit(null, user.id, 'auth.password_reset_requested', 'user', user.id, {}));
     await saveDb(state);
-    sendJson(res, 200, { ok: true, resetToken: token });
+    sendJson(res, 200, { ok: true });
     return;
   }
   await saveDb(state);
@@ -1205,7 +1223,7 @@ async function handleEmailVerificationRequest(req, res, db, state) {
     const verification = createEmailVerificationToken(db, user);
     db.auditLogs.push(audit(null, user.id, 'auth.email_verification_requested', 'user', user.id, {}));
     await saveDb(state);
-    sendJson(res, 200, { ok: true, verificationToken: verification.token });
+    sendJson(res, 200, { ok: true });
     return;
   }
   await saveDb(state);
@@ -1242,7 +1260,7 @@ async function handleProfile(req, res, segments, db, state, user) {
     const body = await readJson(req);
     user.name = cleanText(body.name ?? user.name, 120);
     user.avatarUrl = cleanUrl(body.avatarUrl ?? user.avatarUrl);
-    user.timezone = cleanText(body.timezone ?? user.timezone, 80);
+    user.timezone = cleanTimezone(body.timezone, user.timezone);
     user.notificationPreferences = {
       ...user.notificationPreferences,
       ...(body.notificationPreferences && typeof body.notificationPreferences === 'object' ? body.notificationPreferences : {})
@@ -1367,7 +1385,7 @@ async function handleWorkspaces(req, res, url, segments, db, state, user) {
       ownerId: user.id,
       industry: cleanText(body.industry || 'General services', 80),
       companySize: cleanText(body.companySize || '1-10', 40),
-      timezone: body.timezone || 'Asia/Kolkata'
+      timezone: cleanTimezone(body.timezone, 'Asia/Kolkata')
     });
 
     if (!workspace.name) {
@@ -1406,7 +1424,7 @@ async function handleWorkspaces(req, res, url, segments, db, state, user) {
       name: cleanText(body.name ?? workspace.name, 120),
       industry: cleanText(body.industry ?? workspace.industry, 80),
       companySize: cleanText(body.companySize ?? workspace.companySize, 40),
-      timezone: cleanText(body.timezone ?? workspace.timezone, 60),
+      timezone: cleanTimezone(body.timezone, workspace.timezone),
       defaultLanguage: cleanText(body.defaultLanguage ?? workspace.defaultLanguage, 20),
       logoUrl: cleanUrl(body.logoUrl ?? workspace.logoUrl),
       brandColor: cleanColor(body.brandColor ?? workspace.brandColor),
@@ -2198,7 +2216,7 @@ async function handleIntegrations(req, res, url, segments, db, state, user) {
     const integrations = db.integrations
       .filter((item) => item.workspaceId === workspaceId)
       .map((item) => ({ ...item, configEncrypted: item.configEncrypted ? '[encrypted]' : '' }));
-    const webhooks = db.webhooks.filter((item) => item.workspaceId === workspaceId).map((item) => ({ ...item, secret: '[hidden]' }));
+    const webhooks = db.webhooks.filter((item) => item.workspaceId === workspaceId).map(publicWebhook);
     const webhookLogs = db.webhookLogs.filter((item) => webhooks.some((hook) => hook.id === item.webhookId)).slice(-25).reverse();
     const integrationLogs = db.integrationLogs.filter((item) => item.workspaceId === workspaceId).slice(-50).reverse();
     sendJson(res, 200, { integrations, webhooks, webhookLogs, integrationLogs });
@@ -2210,12 +2228,13 @@ async function handleIntegrations(req, res, url, segments, db, state, user) {
     const workspaceId = body.workspaceId;
     if (!requireWorkspace(res, db, user, workspaceId, 'admin')) return;
     if (body.type === 'webhook') {
+      const rawSecret = crypto.randomBytes(24).toString('hex');
       const webhook = {
         id: makeId('wh'),
         workspaceId,
         url: cleanUrl(body.url),
         events: Array.isArray(body.events) ? body.events.slice(0, 20) : ['response.completed'],
-        secret: crypto.randomBytes(24).toString('hex'),
+        secretEncrypted: encryptConfig({ secret: rawSecret }),
         active: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -2227,7 +2246,7 @@ async function handleIntegrations(req, res, url, segments, db, state, user) {
       db.webhooks.push(webhook);
       db.auditLogs.push(audit(workspaceId, user.id, 'webhook.created', 'webhook', webhook.id, { url: webhook.url }));
       await saveDb(state);
-      sendJson(res, 201, { webhook: { ...webhook, secret: '[hidden]' } });
+      sendJson(res, 201, { webhook: publicWebhook(webhook) });
       return;
     }
 
@@ -3198,19 +3217,20 @@ async function handleApiV1(req, res, url, segments, db, state) {
   if (segments[0] === 'webhooks' && segments.length === 1 && req.method === 'GET') {
     if (!requireApiScope(res, apiKey, 'webhooks:read')) return;
     await saveDb(state);
-    sendJson(res, 200, { webhooks: db.webhooks.filter((item) => item.workspaceId === workspaceId).map((item) => ({ ...item, secret: '[hidden]' })) });
+    sendJson(res, 200, { webhooks: db.webhooks.filter((item) => item.workspaceId === workspaceId).map(publicWebhook) });
     return;
   }
 
   if (segments[0] === 'webhooks' && segments.length === 1 && req.method === 'POST') {
     if (!requireApiScope(res, apiKey, 'webhooks:write')) return;
     const body = await readJson(req);
+    const rawSecret = crypto.randomBytes(24).toString('hex');
     const webhook = {
       id: makeId('wh'),
       workspaceId,
       url: cleanUrl(body.url),
       events: Array.isArray(body.events) ? body.events.map((item) => cleanText(item, 80)).filter(Boolean).slice(0, 20) : ['response.completed'],
-      secret: crypto.randomBytes(24).toString('hex'),
+      secretEncrypted: encryptConfig({ secret: rawSecret }),
       active: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -3222,7 +3242,7 @@ async function handleApiV1(req, res, url, segments, db, state) {
     db.webhooks.push(webhook);
     db.auditLogs.push(audit(workspaceId, apiKey.createdBy, 'api.webhook_created', 'webhook', webhook.id, { apiKeyId: apiKey.id, url: webhook.url }));
     await saveDb(state);
-    sendJson(res, 201, { webhook: { ...webhook, secret: '[hidden]' } });
+    sendJson(res, 201, { webhook: publicWebhook(webhook) });
     return;
   }
 
@@ -3611,6 +3631,9 @@ function delay(ms) {
 }
 
 function saveDb(state) {
+  if (state.db && Array.isArray(state.db.auditLogs) && state.db.auditLogs.length > 1000) {
+    state.db.auditLogs = state.db.auditLogs.slice(-1000);
+  }
   state.saveDirty = true;
   if (state.saveBatchPromise) return state.saveBatchPromise;
   state.saveBatchPromise = state.writeQueue.then(async () => {
@@ -4760,6 +4783,7 @@ async function runWebhookJob(db, job) {
   const hook = db.webhooks.find((item) => item.id === webhookId && item.active);
   const log = db.webhookLogs.find((item) => item.id === webhookLogId);
   if (!hook) throw new Error('Webhook no longer exists or is inactive.');
+  const hookSecret = hook.secretEncrypted ? (decryptConfig(hook.secretEncrypted).secret || '') : (hook.secret || '');
   const body = JSON.stringify({
     event,
     workspaceId: hook.workspaceId,
@@ -4774,7 +4798,7 @@ async function runWebhookJob(db, job) {
       headers: {
         'content-type': 'application/json',
         'x-feedbackos-event': event,
-        'x-feedbackos-signature': signPayload(body, hook.secret)
+        'x-feedbackos-signature': signPayload(body, hookSecret)
       },
       body,
       signal: controller.signal
@@ -7019,7 +7043,7 @@ function buildWorkspaceExport(db, workspaceId) {
     alerts: db.alerts.filter((item) => item.workspaceId === workspaceId),
     integrations: db.integrations.filter((item) => item.workspaceId === workspaceId).map((item) => ({ ...item, configEncrypted: '[encrypted]' })),
     integrationLogs: db.integrationLogs.filter((item) => item.workspaceId === workspaceId),
-    webhooks: db.webhooks.filter((item) => item.workspaceId === workspaceId).map((item) => ({ ...item, secret: '[hidden]' })),
+    webhooks: db.webhooks.filter((item) => item.workspaceId === workspaceId).map(publicWebhook),
     webhookLogs: db.webhookLogs.filter((item) => webhookIds.includes(item.webhookId)),
     fileUploads: db.fileUploads.filter((item) => item.workspaceId === workspaceId).map((item) => ({ ...item, dataUrl: item.dataUrl ? '[stored]' : '' })),
     emailCampaigns: db.emailCampaigns.filter((item) => item.workspaceId === workspaceId),
@@ -11276,6 +11300,20 @@ function publicRateAllowed(req, slug) {
   return bucket.count <= PUBLIC_RATE_LIMIT_MAX;
 }
 
+const AUTH_RATE_WINDOW_MS = 15 * 60 * 1000;
+const AUTH_RATE_MAX = 10;
+function authRateAllowed(key) {
+  const now = Date.now();
+  const bucket = authBuckets.get(key) || { count: 0, resetAt: now + AUTH_RATE_WINDOW_MS };
+  if (now > bucket.resetAt) {
+    bucket.count = 0;
+    bucket.resetAt = now + AUTH_RATE_WINDOW_MS;
+  }
+  bucket.count += 1;
+  authBuckets.set(key, bucket);
+  return bucket.count <= AUTH_RATE_MAX;
+}
+
 function apiRateAllowed(apiKey) {
   const now = Date.now();
   const bucket = apiBuckets.get(apiKey.id) || { count: 0, resetAt: now + 60 * 1000 };
@@ -11288,8 +11326,18 @@ function apiRateAllowed(apiKey) {
   return bucket.count <= apiKey.rateLimitPerMinute;
 }
 
+function encryptionKey() {
+  const raw = process.env.ENCRYPTION_KEY;
+  if (!raw || raw === 'replace-with-32-byte-secret') {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('ENCRYPTION_KEY must be set to a strong secret in production.');
+    }
+  }
+  return crypto.createHash('sha256').update(raw || 'formspear-local-dev-key').digest();
+}
+
 function encryptConfig(config) {
-  const key = crypto.createHash('sha256').update(process.env.ENCRYPTION_KEY || 'formspear-local-dev-key').digest();
+  const key = encryptionKey();
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
   const encrypted = Buffer.concat([cipher.update(JSON.stringify(config), 'utf8'), cipher.final()]);
@@ -11302,7 +11350,7 @@ function decryptConfig(encrypted) {
   try {
     const [ivHex, tagHex, encryptedHex] = String(encrypted).split(':');
     if (!ivHex || !tagHex || !encryptedHex) return {};
-    const key = crypto.createHash('sha256').update(process.env.ENCRYPTION_KEY || 'formspear-local-dev-key').digest();
+    const key = encryptionKey();
     const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'));
     decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
     const decrypted = Buffer.concat([decipher.update(Buffer.from(encryptedHex, 'hex')), decipher.final()]).toString('utf8');
@@ -11310,6 +11358,30 @@ function decryptConfig(encrypted) {
   } catch {
     return {};
   }
+}
+
+function publicWebhook(webhook) {
+  if (!webhook) return webhook;
+  const copy = { ...webhook };
+  delete copy.secret;
+  delete copy.secretEncrypted;
+  copy.secret = '[hidden]';
+  return copy;
+}
+
+function isValidTimezone(tz) {
+  if (!tz || typeof tz !== 'string') return false;
+  try {
+    return Intl.supportedValuesOf('timeZone').includes(tz);
+  } catch {
+    return false;
+  }
+}
+
+function cleanTimezone(tz, fallback = 'Asia/Kolkata') {
+  if (!tz) return fallback;
+  const cleaned = cleanText(tz, 80);
+  return isValidTimezone(cleaned) ? cleaned : fallback;
 }
 
 function hashToken(token) {
@@ -11615,7 +11687,7 @@ function escapeRegExp(value) {
 }
 
 function structuredCloneCompat(value) {
-  return JSON.parse(JSON.stringify(value));
+  return structuredClone(value);
 }
 
 if (require.main === module) {
@@ -11638,5 +11710,6 @@ module.exports = {
   buildAiSummary,
   validateSurveyForPublish,
   validateAnswers,
-  visibleQuestions
+  visibleQuestions,
+  encryptConfig
 };
