@@ -1,4 +1,16 @@
 const app = document.getElementById('app');
+let generatedControlId = 0;
+const accessibilityObserver = new MutationObserver(() => enhanceFieldLabels());
+accessibilityObserver.observe(app, { childList: true, subtree: true });
+
+function enhanceFieldLabels() {
+  for (const label of app.querySelectorAll('.field > label:not([for])')) {
+    const field = label.parentElement?.querySelector('input:not([type="hidden"]), select, textarea');
+    if (!field) continue;
+    if (!field.id) field.id = `formspear-control-${++generatedControlId}`;
+    label.htmlFor = field.id;
+  }
+}
 
 const state = {
   session: null,
@@ -28,7 +40,6 @@ const state = {
   agencyOverview: null,
   agencyOverviewLoadedFor: '',
   generatedQuestion: null,
-  resetToken: '',
   notifications: [],
   selectedSurveyId: '',
   selectedResponseDetail: null,
@@ -36,6 +47,10 @@ const state = {
   revealedInviteToken: '',
   view: 'dashboard',
   editingSurvey: null,
+  builderHistory: new FormspearBuilderHistory.BuilderHistory(50),
+  builderAutosaveTimer: null,
+  builderAutosaveStatus: '',
+  builderRevision: 0,
   selectedQuestionId: '',
   responses: [],
   responseMeta: null,
@@ -204,6 +219,11 @@ async function loadWorkspaceData() {
   if (!state.selectedSurveyId || !state.surveys.some((survey) => survey.id === state.selectedSurveyId)) {
     state.selectedSurveyId = state.surveys[0]?.id || '';
   }
+  state.aiSummary = null;
+  if (state.selectedSurveyId) {
+    const latestInsight = await api(`/api/surveys/${state.selectedSurveyId}/ai-summary`).catch(() => ({ summary: null }));
+    state.aiSummary = latestInsight.summary || null;
+  }
   state.editingSurvey = null;
   state.responses = [];
   state.analytics = null;
@@ -248,13 +268,13 @@ function renderSignupForm() {
     <form data-form="signup">
       <h2>Create your first workspace</h2>
       <p>First account becomes the platform super admin for this local install.</p>
-      <div class="field"><label>Name</label><input name="name" required value="FeedbackOS Admin" /></div>
-      <div class="field"><label>Email</label><input name="email" type="email" required value="admin@feedbackos.local" /></div>
-      <div class="field"><label>Password</label><input name="password" type="password" required value="FeedbackOS123" /></div>
-      <div class="field"><label>Workspace name</label><input name="workspaceName" required value="Demo Feedback Workspace" /></div>
+      <div class="field"><label for="signup-name">Name</label><input id="signup-name" name="name" autocomplete="name" required value="FeedbackOS Admin" /></div>
+      <div class="field"><label for="signup-email">Email</label><input id="signup-email" name="email" type="email" autocomplete="email" required value="admin@feedbackos.local" /></div>
+      <div class="field"><label for="signup-password">Password</label><input id="signup-password" name="password" type="password" autocomplete="new-password" required value="FeedbackOS123" /></div>
+      <div class="field"><label for="signup-workspace">Workspace name</label><input id="signup-workspace" name="workspaceName" required value="Demo Feedback Workspace" /></div>
       <div class="grid two">
-        <div class="field"><label>Industry</label><select name="industry"><option>Clinics</option><option>Coaching Center</option><option>Real Estate</option><option>SaaS</option><option>Agency</option></select></div>
-        <div class="field"><label>Company size</label><select name="companySize"><option>1-10</option><option>11-50</option><option>51-200</option><option>200+</option></select></div>
+        <div class="field"><label for="signup-industry">Industry</label><select id="signup-industry" name="industry"><option>Clinics</option><option>Coaching Center</option><option>Real Estate</option><option>SaaS</option><option>Agency</option></select></div>
+        <div class="field"><label for="signup-company-size">Company size</label><select id="signup-company-size" name="companySize"><option>1-10</option><option>11-50</option><option>51-200</option><option>200+</option></select></div>
       </div>
       <label class="choice"><input name="acceptTerms" type="checkbox" required checked /> I accept the <a href="/terms" target="_blank" rel="noreferrer">Terms</a> and <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</label>
       <button class="btn" type="button" data-action="oauth-google" data-mode="signup">Continue with Google</button>
@@ -290,8 +310,8 @@ function renderEmailVerificationForm() {
   return `
     <form data-form="email-verification">
       <h2>Verify email</h2>
-      <p>Enter the verification token for ${escapeHtml(state.emailVerification.email || 'your account')}.</p>
-      <div class="field"><label>Verification token</label><input name="token" required value="${escapeAttr(state.emailVerification.verificationToken || '')}" /></div>
+      <p>Enter the verification token sent to ${escapeHtml(state.emailVerification.email || 'your email address')}.</p>
+      <div class="field"><label>Verification token</label><input name="token" required autocomplete="one-time-code" /></div>
       <button class="btn primary" type="submit">Verify email</button>
       <button class="btn" type="button" data-action="resend-email-verification">Resend token</button>
       <button class="btn" type="button" data-action="cancel-email-verification">Back to sign in</button>
@@ -398,8 +418,11 @@ function renderView() {
 function renderDashboard() {
   const workspace = currentWorkspace();
   const published = state.surveys.filter((survey) => survey.status === 'published').length;
+  const firstPublished = state.surveys.find((survey) => survey.status === 'published');
   const responses = state.surveys.reduce((sum, survey) => sum + (survey.metrics?.completions || 0), 0);
   const usage = workspace?.usage || {};
+  const activationSteps = [state.surveys.length > 0, published > 0, responses > 0, Boolean(state.aiSummary)];
+  const activationDone = activationSteps.filter(Boolean).length;
   return `
     <div class="page-title">
       <div><h1>Command center</h1><p>Track workspaces, surveys, responses, alerts, and monetization readiness.</p></div>
@@ -411,6 +434,16 @@ function renderDashboard() {
       ${metric('AI credits used', usage.aiCreditsUsed || 0, 'local summaries')}
       ${metric('Open alerts', state.notifications.filter((item) => !item.read).length, 'in-app notifications')}
     </div>
+    <section class="card activation-card">
+      <div class="page-title"><div><span class="pill good">First insight path</span><h2>${activationDone}/4 activation steps complete</h2><p>Use a template, publish, submit one representative response, and review evidence-backed themes.</p></div><progress value="${activationDone}" max="4">${activationDone}/4</progress></div>
+      <div class="grid four">
+        ${activationStep('1', 'Create from template', activationSteps[0], activationSteps[0] ? 'Survey created' : 'Start with a proven survey structure.', '<button class="btn" data-action="nav" data-view="surveys">Choose template</button>')}
+        ${activationStep('2', 'Publish', activationSteps[1], activationSteps[1] ? 'Public link ready' : 'Validate and publish the draft.', state.surveys[0] ? `<button class="btn" data-action="publish-survey" data-survey-id="${escapeAttr(state.surveys[0].id)}">Publish survey</button>` : '')}
+        ${activationStep('3', 'Collect response', activationSteps[2], activationSteps[2] ? `${responses} response(s) collected` : 'Open the public form and submit realistic feedback.', firstPublished ? `<a class="btn" href="/s/${escapeAttr(firstPublished.slug)}" target="_blank" rel="noreferrer">Open public form</a>` : '')}
+        ${activationStep('4', 'Review insight', activationSteps[3], activationSteps[3] ? 'Evidence-backed insight ready' : 'Generate themes after the first response.', responses ? '<button class="btn" data-action="generate-ai">Generate insight</button>' : '')}
+      </div>
+    </section>
+    ${state.aiSummary ? `<section class="card insight-hero"><div><span class="pill good">Latest AI insight</span><h2>${escapeHtml(state.aiSummary.headline)}</h2><p class="muted">Generated ${dateLabel(state.aiSummary.generatedAt)} · evidence-backed themes</p></div><div>${renderThemeEvidence((state.aiSummary.themeEvidence || []).slice(0, 3))}</div><button class="btn" data-action="nav" data-view="ai">Open AI insights</button></section>` : ''}
     <div class="grid two">
       <section class="section">
         <h2>Recent surveys</h2>
@@ -433,6 +466,10 @@ function renderDashboard() {
       </div>
     </section>
   `;
+}
+
+function activationStep(number, title, complete, description, action) {
+  return `<div class="card compact"><span class="pill ${complete ? 'good' : ''}">${complete ? 'Done' : `Step ${number}`}</span><h3>${escapeHtml(title)}</h3><p class="muted">${escapeHtml(description)}</p>${complete ? '' : action}</div>`;
 }
 
 function renderAgency() {
@@ -556,6 +593,9 @@ function renderBuilder() {
       <div><h1>Survey builder</h1><p>Left question list, center editor, right settings and distribution, matching the PRD layout.</p></div>
       <div class="toolbar">
         ${renderApprovalToolbar(survey)}
+        <button class="btn" data-action="builder-undo" ${state.builderHistory.canUndo ? '' : 'disabled'}>Undo</button>
+        <button class="btn" data-action="builder-redo" ${state.builderHistory.canRedo ? '' : 'disabled'}>Redo</button>
+        <span class="muted" data-builder-autosave-status>${escapeHtml(state.builderAutosaveStatus || 'All changes saved')}</span>
         <button class="btn" data-action="save-survey">Save draft</button>
         <button class="btn primary" data-action="publish-survey" data-survey-id="${survey.id}">Publish</button>
       </div>
@@ -778,11 +818,11 @@ function renderSurveyPreview(survey) {
 function renderInputPreview(question) {
   if (choiceQuestion(question)) return `<div class="choice-list">${(question.settings.options || []).map((option) => `<label class="choice"><input type="${question.type === 'multiple_choice' ? 'checkbox' : 'radio'}" disabled /> ${escapeHtml(option)}</label>`).join('')}</div>`;
   if (scaleQuestion(question)) return `<div class="scale">${Array.from({ length: Number(question.settings.scale || 5) }, (_, index) => `<label>${index + 1}</label>`).join('')}</div>`;
-  if (question.type === 'long_text') return '<textarea disabled placeholder="Long answer"></textarea>';
-  if (question.type === 'file_upload') return `<input type="file" disabled /><p class="muted">Allows ${(question.settings.allowedFileTypes || []).join(', ') || 'configured'} up to ${Number(question.settings.maxSizeMB || 5)} MB.</p>`;
+  if (question.type === 'long_text') return `<textarea disabled aria-label="Preview: ${escapeAttr(question.title)}" placeholder="Long answer"></textarea>`;
+  if (question.type === 'file_upload') return `<input type="file" disabled aria-label="Preview: ${escapeAttr(question.title)}" /><p class="muted">Allows ${(question.settings.allowedFileTypes || []).join(', ') || 'configured'} up to ${Number(question.settings.maxSizeMB || 5)} MB.</p>`;
   if (question.type === 'consent') return `<label class="choice"><input type="checkbox" disabled /> ${escapeHtml(question.settings.consentText || 'I agree.')}</label>`;
   if (question.type === 'statement' || question.type === 'section') return '<p class="muted">Instruction block</p>';
-  return `<input disabled placeholder="${escapeAttr(question.settings.placeholder || 'Answer')}" />`;
+  return `<input disabled aria-label="Preview: ${escapeAttr(question.title)}" placeholder="${escapeAttr(question.settings.placeholder || 'Answer')}" />`;
 }
 
 function renderResponses() {
@@ -1044,7 +1084,7 @@ function renderAi() {
     ${summary ? `<div class="grid two">
       <div class="card"><span class="pill good">AI-generated</span><h3>${escapeHtml(summary.headline)}</h3><p class="muted">${escapeHtml(summary.method)} · ${dateLabel(summary.generatedAt)}</p></div>
       <div class="card"><h3>Recommended actions</h3><ul>${summary.recommendedActions.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>
-      <div class="card"><h3>Key themes</h3><div class="pill-row">${summary.keyThemes.map((item) => `<span class="pill">${escapeHtml(item)}</span>`).join('')}</div></div>
+      <div class="card"><h3>Key themes</h3><div class="pill-row">${summary.keyThemes.map((item) => `<span class="pill">${escapeHtml(item)}</span>`).join('')}</div>${renderThemeEvidence(summary.themeEvidence || [])}</div>
       <div class="card"><h3>Lead quality</h3>${renderBars(objectToBars(summary.leadQualitySummary))}</div>
       <div class="card"><h3>Intent mix</h3>${renderBars(objectToBars(summary.intentSummary || {}))}</div>
       <div class="card"><h3>Complaint clusters</h3>${renderBars(summary.complaintClusters || [])}</div>
@@ -1053,6 +1093,15 @@ function renderAi() {
       <div class="card"><h3>Urgent responses</h3>${summary.urgentResponses.length ? summary.urgentResponses.map((item) => `<p><strong>${escapeHtml(item.sentiment)}</strong> · lead ${item.leadScore}<br>${escapeHtml(item.excerpt)}</p>`).join('') : '<p class="muted">No urgent responses detected.</p>'}</div>
     </div>` : empty('Generate an AI-style summary after collecting responses.')}
   `;
+}
+
+function renderThemeEvidence(items) {
+  if (!items.length) return '<p class="muted">Evidence links appear when responses contain the detected themes.</p>';
+  return `<div class="theme-evidence">${items.map((item) => `
+    <details>
+      <summary>${escapeHtml(item.theme)} · ${Number(item.responseCount || item.evidence?.length || 0)} supporting response(s)</summary>
+      ${(item.evidence || []).map((entry) => `<div class="card compact"><p>${escapeHtml(entry.excerpt)}</p><div class="button-row"><span class="pill">${escapeHtml(entry.sentiment || 'neutral')}</span><button class="btn" data-action="open-evidence-response" data-response-id="${escapeAttr(entry.responseId)}">Open response</button></div></div>`).join('')}
+    </details>`).join('')}</div>`;
 }
 
 function renderAlerts() {
@@ -1652,8 +1701,7 @@ function renderProfile() {
       <h2>Password reset</h2>
       <form class="card" data-form="password-reset">
         <div class="field"><label>Email</label><input name="email" type="email" value="${escapeAttr(user.email)}" /></div>
-        <button class="btn" type="submit">Create reset token</button>
-        ${state.resetToken ? `<div class="field"><label>Reset token</label><div class="code">${escapeHtml(state.resetToken)}</div></div>` : ''}
+        <button class="btn" type="submit">Send password reset email</button>
       </form>
     </section>
   `;
@@ -1707,9 +1755,9 @@ function renderPublicSurvey() {
 function renderPublicResumeEmailControl() {
   return `<div class="card compact public-resume-email">
     <div class="field">
-      <label>Resume on another device</label>
+      <label for="public-resume-email">Resume on another device</label>
       <div class="inline-row">
-        <input data-public-resume-email type="email" placeholder="you@example.com" />
+        <input id="public-resume-email" data-public-resume-email type="email" autocomplete="email" placeholder="you@example.com" />
         <button class="btn" type="button" data-action="send-public-resume">Email link</button>
       </div>
     </div>
@@ -1813,7 +1861,7 @@ function publicBrandFooter(brand) {
 function renderPublicQuestion(question) {
   return `
     <section class="public-question" data-public-question="${question.id}">
-      <label><strong>${escapeHtml(question.title)} ${question.required ? '<span class="pill danger">Required</span>' : ''}</strong></label>
+      <div id="public-question-label-${escapeAttr(question.id)}"><strong>${escapeHtml(question.title)} ${question.required ? '<span class="pill danger">Required</span>' : ''}</strong></div>
       ${question.description ? `<p class="muted">${escapeHtml(question.description)}</p>` : ''}
       ${renderPublicInput(question)}
     </section>
@@ -1822,14 +1870,15 @@ function renderPublicQuestion(question) {
 
 function renderPublicInput(question) {
   const name = `answer-${question.id}`;
+  const labelledBy = `public-question-label-${question.id}`;
   const answer = state.publicAnswers[question.id];
-  if (question.type === 'long_text') return `<textarea data-public-answer="${question.id}" placeholder="${escapeAttr(question.settings.placeholder || '')}">${escapeHtml(answer || '')}</textarea>`;
+  if (question.type === 'long_text') return `<textarea aria-labelledby="${escapeAttr(labelledBy)}" data-public-answer="${question.id}" placeholder="${escapeAttr(question.settings.placeholder || '')}">${escapeHtml(answer || '')}</textarea>`;
   if (['short_text', 'email', 'phone', 'url', 'number', 'date', 'time'].includes(question.type)) {
     const type = question.type === 'short_text' ? 'text' : question.type === 'phone' ? 'tel' : question.type;
-    return `<input type="${type}" data-public-answer="${question.id}" placeholder="${escapeAttr(question.settings.placeholder || '')}" value="${escapeAttr(answer || '')}" />`;
+    return `<input type="${type}" aria-labelledby="${escapeAttr(labelledBy)}" data-public-answer="${question.id}" placeholder="${escapeAttr(question.settings.placeholder || '')}" value="${escapeAttr(answer || '')}" />`;
   }
   if (['single_choice', 'dropdown', 'yes_no'].includes(question.type)) {
-    if (question.type === 'dropdown') return `<select data-public-answer="${question.id}"><option value="">Select one</option>${(question.settings.options || []).map((option) => `<option ${answer === option ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}</select>`;
+    if (question.type === 'dropdown') return `<select aria-labelledby="${escapeAttr(labelledBy)}" data-public-answer="${question.id}"><option value="">Select one</option>${(question.settings.options || []).map((option) => `<option ${answer === option ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}</select>`;
     return `<div class="choice-list">${(question.settings.options || []).map((option) => `<label class="choice"><input type="radio" name="${name}" data-public-answer="${question.id}" value="${escapeAttr(option)}" ${answer === option ? 'checked' : ''}/> ${escapeHtml(option)}</label>`).join('')}</div>`;
   }
   if (question.type === 'multiple_choice') return `<div class="choice-list">${(question.settings.options || []).map((option) => `<label class="choice"><input type="checkbox" data-public-answer="${question.id}" value="${escapeAttr(option)}" ${Array.isArray(answer) && answer.includes(option) ? 'checked' : ''}/> ${escapeHtml(option)}</label>`).join('')}</div>`;
@@ -1839,11 +1888,11 @@ function renderPublicInput(question) {
   }
   if (question.type === 'file_upload') {
     const allowed = (question.settings.allowedFileTypes || []).map((item) => `.${String(item).replace(/^\./, '')}`).join(',');
-    return `<input type="file" data-public-answer="${question.id}" accept="${escapeAttr(allowed)}" />`;
+    return `<input type="file" aria-labelledby="${escapeAttr(labelledBy)}" data-public-answer="${question.id}" accept="${escapeAttr(allowed)}" />`;
   }
   if (question.type === 'consent') return `<label class="choice"><input type="checkbox" data-public-answer="${question.id}" ${answer === true ? 'checked' : ''}/> ${escapeHtml(question.settings.consentText || 'I agree.')}</label>`;
   if (question.type === 'statement' || question.type === 'section') return '<p class="muted">Please continue.</p>';
-  return `<input data-public-answer="${question.id}" />`;
+  return `<input aria-labelledby="${escapeAttr(labelledBy)}" data-public-answer="${question.id}" />`;
 }
 
 document.addEventListener('click', async (event) => {
@@ -1882,6 +1931,7 @@ document.addEventListener('click', async (event) => {
     if (action === 'create-template') await createSurvey(target.dataset.templateId);
     if (action === 'save-as-template') await saveSurveyAsTemplate(target.dataset.surveyId);
     if (action === 'select-survey') {
+      resetBuilderSession();
       state.selectedSurveyId = target.dataset.surveyId;
       state.editingSurvey = null;
       state.responses = [];
@@ -1892,6 +1942,7 @@ document.addEventListener('click', async (event) => {
       render();
     }
     if (action === 'edit-survey') {
+      if (state.selectedSurveyId !== target.dataset.surveyId) resetBuilderSession();
       state.selectedSurveyId = target.dataset.surveyId;
       state.view = 'builder';
       location.hash = 'builder';
@@ -1906,25 +1957,35 @@ document.addEventListener('click', async (event) => {
     if (action === 'approve-survey') await reviewSurveyApproval(target.dataset.surveyId || state.editingSurvey?.id, 'approve');
     if (action === 'reject-survey') await reviewSurveyApproval(target.dataset.surveyId || state.editingSurvey?.id, 'reject');
     if (action === 'save-survey') await saveSurvey();
+    if (action === 'builder-undo') undoBuilderChange();
+    if (action === 'builder-redo') redoBuilderChange();
     if (action === 'generate-translation') await generateTranslationDraft(target.dataset.surveyId || state.editingSurvey?.id);
     if (action === 'select-question') {
       state.selectedQuestionId = target.dataset.questionId;
       render();
     }
     if (action === 'add-question') {
+      rememberBuilderState();
       addQuestion(target.dataset.type);
+      scheduleBuilderAutosave();
       render();
     }
     if (action === 'delete-question') {
+      rememberBuilderState();
       deleteQuestion();
+      scheduleBuilderAutosave();
       render();
     }
     if (action === 'duplicate-question') {
+      rememberBuilderState();
       duplicateQuestion();
+      scheduleBuilderAutosave();
       render();
     }
     if (action === 'move-question') {
+      rememberBuilderState();
       moveQuestion(Number(target.dataset.direction));
+      scheduleBuilderAutosave();
       render();
     }
     if (action === 'add-logic') {
@@ -1948,6 +2009,11 @@ document.addEventListener('click', async (event) => {
     if (action === 'new-workspace') await newWorkspace();
     if (action === 'open-client-workspace') await openClientWorkspace(target.dataset.workspaceId);
     if (action === 'open-response') await openResponse(target.dataset.responseId);
+    if (action === 'open-evidence-response') {
+      state.view = 'responses';
+      location.hash = 'responses';
+      await openResponse(target.dataset.responseId);
+    }
     if (action === 'toggle-important') await patchResponse(target.dataset.responseId, { important: target.dataset.important === 'true' });
     if (action === 'tag-response') {
       const tag = prompt('Tag name');
@@ -2009,13 +2075,17 @@ document.addEventListener('change', async (event) => {
     render();
     return;
   }
-  handleEditInput(event);
+  if (handleEditInput(event)) scheduleBuilderAutosave();
   handlePublicInput(event);
 });
 
 document.addEventListener('input', (event) => {
-  handleEditInput(event);
+  if (handleEditInput(event)) scheduleBuilderAutosave();
   handlePublicInput(event);
+});
+
+document.addEventListener('focusin', (event) => {
+  if (event.target.matches('[data-edit]')) rememberBuilderState();
 });
 
 document.addEventListener('submit', async (event) => {
@@ -2063,8 +2133,7 @@ async function submitSignup(form) {
   if (payload.emailVerificationRequired) {
     state.authMode = 'login';
     state.emailVerification = {
-      email: payload.user?.email || formValues(form).email,
-      verificationToken: payload.verificationToken || ''
+      email: payload.user?.email || formValues(form).email
     };
     toast('Verify your email before signing in.');
     renderAuth();
@@ -2101,23 +2170,13 @@ async function submitLogin(form) {
   } catch (error) {
     if (error.code === 'email_verification_required') {
       state.emailVerification = {
-        email: error.payload?.email || formValues(form).email,
-        verificationToken: error.payload?.verificationToken || ''
+        email: error.payload?.email || formValues(form).email
       };
       toast('Verify your email before signing in.');
       renderAuth();
       return;
     }
     throw error;
-  }
-  if (payload.verificationToken) {
-    state.emailVerification = {
-      email: payload.email || formValues(form).email,
-      verificationToken: payload.verificationToken || ''
-    };
-    toast('Verify your email before signing in.');
-    renderAuth();
-    return;
   }
   if (payload.requiresTwoFactor) {
     state.twoFactorChallenge = {
@@ -2151,8 +2210,7 @@ async function submitEmailVerification(form) {
 async function resendEmailVerification() {
   const email = state.emailVerification?.email || '';
   if (!email) return;
-  const payload = await api('/api/auth/email-verification/request', { method: 'POST', body: { email } });
-  state.emailVerification.verificationToken = payload.verificationToken || state.emailVerification.verificationToken || '';
+  await api('/api/auth/email-verification/request', { method: 'POST', body: { email } });
   toast('Verification token sent.');
   renderAuth();
 }
@@ -2284,29 +2342,95 @@ async function reviewSurveyApproval(id, decision) {
   render();
 }
 
+function surveyUpdateBody(survey) {
+  return {
+    title: survey.title,
+    slug: survey.slug,
+    description: survey.description,
+    type: survey.type,
+    language: survey.language,
+    accessMode: survey.accessMode || 'workspace',
+    accessRules: survey.accessRules || [],
+    settings: survey.settings,
+    branding: survey.branding,
+    schema: survey.schema
+  };
+}
+
+function rememberBuilderState() {
+  if (!state.editingSurvey) return;
+  const remembered = state.builderHistory.remember({ survey: state.editingSurvey, selectedQuestionId: state.selectedQuestionId });
+  if (!remembered) return;
+  const undo = document.querySelector('[data-action="builder-undo"]');
+  if (undo) undo.disabled = false;
+}
+
+function restoreBuilderSnapshot(snapshot) {
+  state.editingSurvey = snapshot.survey;
+  state.selectedQuestionId = snapshot.selectedQuestionId || snapshot.survey.schema.questions[0]?.id || '';
+  state.builderRevision += 1;
+  scheduleBuilderAutosave();
+  render();
+}
+
+function undoBuilderChange() {
+  if (!state.editingSurvey) return;
+  const snapshot = state.builderHistory.undo({ survey: state.editingSurvey, selectedQuestionId: state.selectedQuestionId });
+  if (snapshot) restoreBuilderSnapshot(snapshot);
+}
+
+function redoBuilderChange() {
+  if (!state.editingSurvey) return;
+  const snapshot = state.builderHistory.redo({ survey: state.editingSurvey, selectedQuestionId: state.selectedQuestionId });
+  if (snapshot) restoreBuilderSnapshot(snapshot);
+}
+
+function setBuilderAutosaveStatus(status) {
+  state.builderAutosaveStatus = status;
+  const target = document.querySelector('[data-builder-autosave-status]');
+  if (target) target.textContent = status;
+}
+
+function scheduleBuilderAutosave() {
+  if (!state.editingSurvey) return;
+  state.builderRevision += 1;
+  clearTimeout(state.builderAutosaveTimer);
+  setBuilderAutosaveStatus('Unsaved changes');
+  state.builderAutosaveTimer = setTimeout(() => autosaveBuilder().catch((error) => {
+    setBuilderAutosaveStatus('Autosave failed');
+    toast(error.message || 'Autosave failed.');
+  }), 900);
+}
+
+async function autosaveBuilder() {
+  const survey = state.editingSurvey ? structuredClone(state.editingSurvey) : null;
+  if (!survey) return;
+  const revision = state.builderRevision;
+  setBuilderAutosaveStatus('Saving…');
+  const payload = await api(`/api/surveys/${survey.id}`, { method: 'PUT', body: surveyUpdateBody(survey) });
+  const index = state.surveys.findIndex((item) => item.id === payload.survey.id);
+  if (index >= 0) state.surveys[index] = structuredClone(payload.survey);
+  if (revision === state.builderRevision) {
+    state.editingSurvey = structuredClone(payload.survey);
+    setBuilderAutosaveStatus('All changes saved');
+  } else {
+    scheduleBuilderAutosave();
+  }
+}
+
 async function saveSurvey(showToast = true) {
   const survey = state.editingSurvey;
   if (!survey) return;
   const payload = await api(`/api/surveys/${survey.id}`, {
     method: 'PUT',
-      body: {
-        title: survey.title,
-        slug: survey.slug,
-        description: survey.description,
-        type: survey.type,
-        language: survey.language,
-        accessMode: survey.accessMode || 'workspace',
-        accessRules: survey.accessRules || [],
-        settings: survey.settings,
-      branding: survey.branding,
-      schema: survey.schema
-    }
+    body: surveyUpdateBody(survey)
   });
   state.selectedSurveyId = payload.survey.id;
   await loadWorkspaceData();
   state.selectedSurveyId = payload.survey.id;
   state.editingSurvey = structuredClone(payload.survey);
   state.selectedQuestionId = state.editingSurvey.schema.questions[0]?.id || '';
+  setBuilderAutosaveStatus('All changes saved');
   if (showToast) toast('Draft saved.');
 }
 
@@ -2829,9 +2953,8 @@ async function disableTwoFactor() {
 
 async function submitPasswordReset(form) {
   const values = formValues(form);
-  const payload = await api('/api/auth/password-reset/request', { method: 'POST', body: { email: values.email } });
-  state.resetToken = payload.resetToken || '';
-  toast('Password reset token created.');
+  await api('/api/auth/password-reset/request', { method: 'POST', body: { email: values.email } });
+  toast('If that account exists, a password reset email has been sent.');
   render();
 }
 
@@ -3171,7 +3294,7 @@ async function submitPublicResponse() {
 
 function handleEditInput(event) {
   const field = event.target.dataset.edit;
-  if (!field || !state.editingSurvey) return;
+  if (!field || !state.editingSurvey) return false;
   const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
   const survey = state.editingSurvey;
   if (field === 'survey.title') {
@@ -3191,7 +3314,7 @@ function handleEditInput(event) {
     try {
       survey.schema.translations = value.trim() ? JSON.parse(value) : {};
     } catch {
-      return;
+      return false;
     }
   }
   if (field.startsWith('settings.')) {
@@ -3203,7 +3326,7 @@ function handleEditInput(event) {
   if (field.startsWith('branding.')) setPath(survey.branding, field.replace('branding.', ''), value);
   if (field.startsWith('question.')) {
     const question = selectedQuestion(survey);
-    if (!question) return;
+    if (!question) return false;
     const path = field.replace('question.', '');
     if (path === 'settings.options') setPath(question, path, String(value).split('\n').map((item) => item.trim()).filter(Boolean));
     else if (path === 'settings.allowedFileTypes') setPath(question, path, String(value).split(',').map((item) => item.trim().replace(/^\./, '')).filter(Boolean));
@@ -3212,6 +3335,7 @@ function handleEditInput(event) {
     else if (path === 'settings.maxSizeMB') setPath(question, path, Number(value || 5));
     else setPath(question, path, value);
   }
+  return true;
 }
 
 async function handlePublicInput(event) {
@@ -3302,11 +3426,20 @@ function missingRequiredOnPublicPage(questions) {
 function ensureEditingSurvey() {
   if (!state.selectedSurveyId && state.surveys[0]) state.selectedSurveyId = state.surveys[0].id;
   if (!state.editingSurvey || state.editingSurvey.id !== state.selectedSurveyId) {
+    resetBuilderSession();
     const survey = selectedSurvey();
     state.editingSurvey = survey ? structuredClone(survey) : null;
     state.selectedQuestionId = state.editingSurvey?.schema.questions[0]?.id || '';
   }
   return state.editingSurvey;
+}
+
+function resetBuilderSession() {
+  clearTimeout(state.builderAutosaveTimer);
+  state.builderAutosaveTimer = null;
+  state.builderHistory.reset();
+  state.builderAutosaveStatus = '';
+  state.builderRevision = 0;
 }
 
 function selectedSurvey() {

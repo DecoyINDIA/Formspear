@@ -222,7 +222,9 @@ Additional local gates:
 
 ```powershell
 npm.cmd run backup:smoke
+npm.cmd run performance:budget
 npm.cmd run performance:smoke
+npm.cmd run redis:worker:smoke
 npm.cmd run visual:smoke
 ```
 
@@ -255,6 +257,8 @@ Core API surfaces include:
 - Workspace branding, privacy, retention, team, SSO, API keys, and audit logs
 - Billing checkout, portal, invoices, payment-failure handling, and signed provider webhooks
 - AI summaries, survey generation, question improvement, and monthly reports
+- Evidence-backed AI themes with direct supporting-response links and proactive dashboard insights
+- Builder autosave, undo/redo, live preview, and browser-regression verification
 - Super-admin users, workspaces, settings, readiness, audit logs, and global templates
 
 See `docs/API.md` for route details and request examples.
@@ -263,11 +267,14 @@ See `docs/API.md` for route details and request examples.
 
 Formspear is a working local SaaS foundation, not a finished production SaaS deployment. The repo includes serious production scaffolding, but paid launch still needs live provider setup and verification.
 
+> [!IMPORTANT]
+> **Single-Writer Posture**: Formspear currently runs a single writer instance. Do not scale `web` replicas above 1 until the row-level persistence refactor (documented in `docs/REVIEW_REMEDIATION_PLAN.md` ITEM-8 / future epic) lands. Horizontal read-replica scaling is not yet supported.
+
 Current production-oriented support:
 
 - Railway config and Procfile.
 - PostgreSQL baseline migration.
-- `DATABASE_URL` adapter that persists migration-backed runtime collections into relational PostgreSQL tables, including auth/security tokens, API keys, platform settings, AI provider logs, rich JSON/report/event/template fields, while retaining a compatibility JSONB snapshot as a rollback/backfill safety net.
+- `DATABASE_URL` adapter that persists migration-backed runtime collections into relational PostgreSQL tables. Development can retain a compatibility JSONB snapshot for backfill drills; production disables and removes it.
 - `postgres:relational:smoke` for disposable Docker PostgreSQL by default, with a guarded `POSTGRES_RELATIONAL_SMOKE_DATABASE_URL` mode for disposable Railway/PostgreSQL verification when Docker is unavailable.
 - `postgres:backfill:drill` for proving that a compatibility snapshot can repopulate the relational tables on a disposable PostgreSQL target before the snapshot is retired.
 - Optional Redis/BullMQ worker mode.
@@ -275,9 +282,9 @@ Current production-oriented support:
 - Protected readiness report that exposes missing production configuration without leaking secrets.
 - Backup and restore scripts for the local JSON store.
 
-Remaining hardening before paid traffic:
+Remaining external verification before paid traffic:
 
-- Run the guarded relational smoke and backfill drill against a disposable live PostgreSQL target, then retire the compatibility snapshot after the relational tables and restore path are proven.
+- Run the guarded relational smoke and backfill drill against a disposable database on the selected managed PostgreSQL provider, then complete an isolated managed-backup restore drill.
 - Verify the app against a live Railway project with Postgres, Redis, SMTP, object storage, monitoring, billing, AI, backups, cron, and custom-domain SSL automation.
 - Certify SSO against the selected live IdP.
 - Confirm legal approval for AI provider DPA and data retention.
@@ -290,6 +297,11 @@ Remaining hardening before paid traffic:
 - `docs/DEPLOYMENT.md`: local, Railway, providers, worker, cron, monitoring, backups, and pre-launch checks.
 - `docs/PRD_IMPLEMENTATION_AUDIT.md`: implemented coverage, verification evidence, and remaining production gaps.
 - `docs/VISUAL_SMOKE.md`: automated visual-smoke workflow and latest local result.
+- `docs/SHIP_PLAN.md`: active path from prototype breadth to a focused production product.
+- `docs/ARCHITECTURE.md`: current module boundaries and incremental route-extraction convention.
+- `docs/LAUNCH_CHECKLIST.md`: automated, provider, and human launch gates.
+- `docs/OPERATIONS_RUNBOOK.md`: deployment, rollback, incident, backup, and routine operations.
+- `docs/SECURITY_AND_PRIVACY.md`: implemented controls, deletion boundary, and approval requirements.
 
 ## License
 

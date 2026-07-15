@@ -4,6 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
+    "numReplicas": 1,
     "startCommand": "npm start",
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 30,

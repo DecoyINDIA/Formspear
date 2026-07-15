@@ -569,9 +569,9 @@ POST /api/auth/sso/dev-login
 GET /api/auth/sso/metadata/{workspaceId}
 ```
 
-The local development response includes the reset token because email delivery is simulated. In production, send only via the email provider.
+Password-reset and email-verification tokens are never returned by HTTP. Development and production flows both deliver them through the configured or simulated email job path.
 
-Email verification can be required with the super-admin platform setting. When enabled, new password signups return `emailVerificationRequired` and a local `verificationToken` instead of a session. Confirm it with `POST /api/auth/email-verification/confirm`; unverified password login returns `email_verification_required` and a local resend token in development.
+Email verification can be required with the super-admin platform setting. When enabled, new password signups return `emailVerificationRequired` instead of a session and queue the token for email delivery. Confirm it with `POST /api/auth/email-verification/confirm`; unverified password login returns `email_verification_required` without exposing the token in the HTTP response.
 
 Password login accepts `rememberMe: true` to issue an extended remembered session. `GET /api/sessions` returns `remembered`, `createdAt`, `expiresAt`, and `current` for device/session management.
 
@@ -593,6 +593,7 @@ SSO settings include `enabled`, `providerName`, `entityId`, `ssoUrl`, `x509Certi
 ## AI Tools
 
 ```http
+GET /api/surveys/{surveyId}/ai-summary
 POST /api/surveys/{surveyId}/ai-summary
 POST /api/ai/generate-survey
 POST /api/ai/improve-question

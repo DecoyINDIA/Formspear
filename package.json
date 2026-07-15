@@ -11,11 +11,14 @@
     "test": "node --test tests/*.test.js",
     "check": "node --check src/server.js",
     "migrations:check": "node scripts/verify-migrations.js",
+    "production:check": "node scripts/verify-production-config.js",
     "backup:smoke": "node scripts/backup-restore-smoke.js",
     "postgres:backfill:drill": "node scripts/postgres-backfill-drill.js",
     "postgres:relational:smoke": "node scripts/postgres-relational-smoke.js",
+    "redis:worker:smoke": "node scripts/redis-worker-smoke.js",
     "visual:smoke": "node scripts/visual-smoke.js",
-    "performance:smoke": "node scripts/performance-smoke.js"
+    "performance:smoke": "node scripts/performance-smoke.js",
+    "performance:budget": "node scripts/performance-budget.js"
   },
   "engines": {
     "node": ">=20"

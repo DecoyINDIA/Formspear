@@ -1,6 +1,6 @@
 # FeedbackOS PRD Implementation Audit
 
-Date: 2026-06-28
+Date: 2026-07-11
 
 Source: pasted PRD for "FeedbackOS - Forms, Surveys, Feedback & AI Insights Platform".
 
@@ -15,12 +15,13 @@ This audit does not claim the full PRD is production-complete. It separates impl
 | PRD area | Evidence | Status |
 | --- | --- | --- |
 | User signup/login | `POST /api/auth/signup`, terms/privacy consent, optional Google/OIDC OAuth start/callback with state and PKCE, platform-required email verification, `POST /api/auth/login`, remember-me sessions, session cookies in `src/server.js` | Implemented locally |
-| Email verification and password reset | `POST /api/auth/email-verification/request`, `POST /api/auth/email-verification/confirm`, super-admin `requireEmailVerification` setting, `POST /api/auth/password-reset/request`, `POST /api/auth/password-reset/confirm`, expiring token records | Implemented locally |
+| Email verification and password reset | Extracted `src/routes/auth-credentials.js`, rate-limited requests, email-job-only credential delivery, confirmation routes, super-admin verification policy, expiring token records, and password-reset session revocation | Implemented locally |
 | Profile/session management | `GET/PUT /api/profile`, `POST /api/profile/password`, optional TOTP-style 2FA setup/verify/disable, recovery codes, remembered-session metadata, `GET/DELETE /api/sessions` | Implemented locally |
 | Workspace creation | `POST /api/workspaces`, onboarding signup workspace, switcher in `public/app.js` | Implemented locally |
 | Role model | Workspace roles and `requireWorkspace` authorization checks | Basic implemented |
 | Basic dashboard shell | `renderDashboard()` with metrics, checklist, notifications | Implemented |
-| Database schema and runtime persistence | JSON-backed local collections, `migrations/0001_initial_postgres.sql` PostgreSQL baseline for users, auth/security tokens, API keys, platform settings, AI provider logs, workspaces, surveys, responses, integrations, jobs, billing, audit logs, operational logs, and indexes, plus a `DATABASE_URL` runtime adapter that writes migration-backed collections to relational tables, preserves rich JSON/report/event/template fields in first-class columns, and retains `platform_settings.value_json` as a rollback/backfill safety snapshot | Implemented with PostgreSQL relational core plus compatibility snapshot |
+| Activation onboarding | Dashboard first-insight path tracks template/create, publish, representative response, and evidence-backed insight with direct next actions | Implemented locally |
+| Database schema and runtime persistence | JSON-backed development collections, `migrations/0001_initial_postgres.sql`, relational runtime mappings, guarded relational/backfill drills, production-only PostgreSQL enforcement, and automatic removal of the development compatibility snapshot in production | Implemented locally; managed-provider verification pending |
 | Survey CRUD | `GET/POST/PUT/DELETE /api/surveys` | Implemented |
 | Question builder | Builder UI and schema normalization for many question types | Implemented |
 | Draft/publish flow | Draft save, publish validation, immutable `survey_versions` snapshots | Implemented |
@@ -37,7 +38,7 @@ This audit does not claim the full PRD is production-complete. It separates impl
 | NPS/CSAT calculations | NPS formula and rating averages in `buildQuestionStat()` | Implemented |
 | Email alerts | Alert rules create in-app notifications plus retryable email delivery jobs, SMTP provider delivery when configured, and email logs | Implemented with local fallback |
 | Survey status management | Draft, published, paused, archived | Implemented |
-| AI response summary, clustering, and intent | `POST /api/surveys/:id/ai-summary`, marked AI-generated, OpenAI-compatible provider when configured, workspace external-AI opt-out, model allowlist, explicit provider DPA/data-retention acceptance gate, bounded response excerpts, provider attempt logs, local intent classification, response clustering, and complaint clustering | Implemented with local fallback |
+| AI response summary, clustering, intent, and provenance | `GET/POST /api/surveys/:id/ai-summary`, marked AI-generated, OpenAI-compatible provider when configured, evidence links constrained to real response IDs, proactive latest-insight dashboard card, workspace external-AI opt-out, model allowlist, DPA/data-retention gate, provider logs, local intent classification, and clustering | Implemented with local fallback |
 | AI survey generator | `POST /api/ai/generate-survey` creates a draft survey from goal/audience/industry/count through provider when available | Implemented with local fallback |
 | AI question improvement | `POST /api/ai/improve-question` suggests cleaner wording/type/options through provider when available | Implemented with local fallback |
 | AI monthly report | `POST /api/ai/monthly-report`, scheduled monthly report jobs, `GET /api/ai/monthly-reports/:workspaceId`, designed PDF download endpoint, provider-backed report content when configured | Implemented with local fallback and designed PDF export |
@@ -77,10 +78,11 @@ This audit does not claim the full PRD is production-complete. It separates impl
 | Workspace privacy export/delete | Workspace JSON export, privacy deletion/anonymization request endpoint, answer-level PII redaction, and anonymous survey exports with personal answer/metadata redaction | Implemented locally |
 | Compliance exports | Workspace and platform audit-log JSON exports with filters and secret-looking metadata redaction | Implemented locally |
 | Data retention jobs | Immediate retention sweep endpoint, retryable retention job type, workspace next-run settings, local worker scheduled retention enqueueing, and `CRON_SECRET`-protected managed cron trigger | Implemented locally |
-| Redis/BullMQ queue transport | Optional `REDIS_URL` BullMQ transport, `npm.cmd run worker` worker process, persisted job records mirrored into Redis, readiness reporting for queue mode/name, and local Docker Redis smoke | Implemented, production Redis verification pending |
+| Redis/BullMQ queue transport | Production-required `REDIS_URL` BullMQ transport, dedicated `npm.cmd run worker` process, persisted job mirroring, readiness reporting, and repeatable `npm.cmd run redis:worker:smoke` against disposable Redis | Implemented locally; managed Redis verification pending |
 | Security headers, CSRF baseline, error logs, and monitoring readiness | Security headers on JSON/static/export routes, same-origin checks for cookie-auth writes, local captured server exception logs, Sentry/PostHog error emission when configured, and protected readiness report for monitoring telemetry, uptime checks, alert routing, and provider cutover state | Basic implemented |
 | Privacy and terms pages | `/privacy` and `/terms` first-party pages plus signup consent capture | Implemented locally |
 | Automated visual smoke | `npm.cmd run visual:smoke` seeds a temporary workspace/survey, drives Chrome through DevTools Protocol, captures desktop/mobile screenshots, and fails on console errors, viewport mismatch, small screenshots, or horizontal overflow | Implemented locally |
+| Builder resilience | Debounced autosave, visible save state, undo/redo history, revision-safe concurrent edits, live preview, and browser verification that edit/autosave/undo persists correctly | Implemented locally |
 | Performance and concurrency smoke | `npm.cmd run performance:smoke` verifies 100 concurrent public submissions, CSV/dashboard count consistency, and 100,000-response dashboard pagination under configured thresholds | Implemented locally |
 | Railway deployment support | `railway.json`, `Procfile`, `.env.example`, deployment docs, PostgreSQL migration baseline, and `npm run migrations:check` | Scaffolded |
 | Backup and restore plan | `scripts/backup-data.ps1` writes local JSON backups with checksum manifests, `scripts/restore-data.ps1` validates/restores backups with pre-restore safety copies, `npm.cmd run backup:smoke` verifies the procedure, and Railway/PostgreSQL backup notes cover managed backup cutover | Implemented locally; managed production backups pending |
@@ -109,7 +111,7 @@ The PRD calls for Railway, PostgreSQL, Redis/BullMQ, worker, cron/scheduler, obj
 Current implementation:
 
 - Uses a JSON file store at `data/formspear.db.json` by default.
-- Includes a PostgreSQL baseline migration, static migration verifier, and `DATABASE_URL` runtime adapter that writes migration-backed collections into relational tables, including auth/security tokens, API keys, platform settings, AI provider logs, rich JSON/report/event/template fields, while retaining `platform_settings.value_json` as a rollback/backfill safety snapshot. Retiring that snapshot after a live migration drill remains future production hardening.
+- Includes a PostgreSQL baseline migration, static migration verifier, and `DATABASE_URL` runtime adapter that writes migration-backed collections into relational tables. The compatibility snapshot remains available for development backfill drills; production disables it by default, deletes the compatibility row after a successful relational save, and rejects `POSTGRES_COMPATIBILITY_SNAPSHOT=true`.
 - Runs as one Node HTTP process.
 - Has an in-process persistent job worker, managed cron trigger, PostgreSQL baseline migration, PostgreSQL relational core plus compatibility snapshot runtime adapter, and optional Redis/BullMQ transport through `npm.cmd run worker`; local Docker Redis smoke passed, but Railway/production Redis verification remains.
 - Stores file-upload payloads in S3/R2-compatible object storage when configured and falls back to JSON-backed local records otherwise; upload payloads are scanned before storage by local policy and optional external scan provider hooks.
@@ -169,14 +171,15 @@ Result:
 - `npm.cmd run backup:smoke` passed: a disposable JSON data file was backed up with a manifest, SHA-256 checksum was verified, the data file was mutated, `scripts/restore-data.ps1` restored the original content, and a pre-restore safety copy was created.
 - The `pg` runtime dependency loaded successfully for the `DATABASE_URL` adapter.
 - Earlier local Docker PostgreSQL smoke passed for the baseline migration and `DATABASE_URL` runtime startup, including signup/session and `platform_settings` JSONB state persistence.
-- Added `npm.cmd run postgres:relational:smoke`, which applies the migration to disposable Docker PostgreSQL by default, starts `createServer({ databaseUrl })`, signs up a workspace, creates API key/password-reset/email-verification/survey/response/alert/webhook/integration/campaign/template/notification/invoice/report/platform-settings/AI-provider-log data, and asserts relational table rows, auth/security columns, rich JSON columns, event/template columns, report JSON, platform-settings row, AI provider log row, plus the compatibility snapshot. The script also has a guarded external disposable database mode through `POSTGRES_RELATIONAL_SMOKE_DATABASE_URL` plus `POSTGRES_RELATIONAL_SMOKE_CONFIRM=I_UNDERSTAND_THIS_RESETS_THE_DATABASE` for Railway/PostgreSQL verification when Docker is unavailable. The external guard was verified to stop before connecting when the confirmation variable is absent. The current local Docker run could not start because Docker Desktop's Linux engine pipe was unavailable (`npipe:////./pipe/dockerDesktopLinuxEngine` not found); rerun when Docker is running or point the guarded mode at a disposable external database.
-- Added `npm.cmd run postgres:backfill:drill`, which seeds a JSON-mode app snapshot, inserts only that compatibility snapshot into disposable PostgreSQL, starts `createServer({ databaseUrl })`, triggers a normal authenticated save, and asserts that relational users, sessions, workspaces, survey, version, response, respondent, contact, audit log, platform-settings row, and refreshed runtime snapshot are present. The drill uses Docker by default and has a guarded external disposable database mode through `POSTGRES_BACKFILL_DRILL_DATABASE_URL` plus `POSTGRES_BACKFILL_DRILL_CONFIRM=I_UNDERSTAND_THIS_RESETS_THE_DATABASE`. The current local Docker run could not start because Docker Desktop's Linux engine pipe was unavailable; rerun when Docker is running or point the guarded mode at a disposable external database.
+- `npm.cmd run postgres:relational:smoke` applies the migration to disposable Docker PostgreSQL, exercises the relational runtime, and asserts auth/security, survey, response, integration, billing, report, provider-log, and audit rows. Its guarded external disposable-database mode remains available for managed-provider verification. The 2026-07-11 Docker run passed with all asserted collections persisted.
+- `npm.cmd run postgres:backfill:drill` seeds only the compatibility snapshot, starts the relational runtime, triggers an authenticated save, and proves the relational tables are repopulated. The 2026-07-11 Docker run passed. Production subsequently operates relational-only and removes the compatibility row.
 - BullMQ and ioredis dependencies loaded successfully.
+- `npm.cmd run redis:worker:smoke` passed against disposable Docker Redis on 2026-07-11: a persisted password-reset email job was mirrored into BullMQ, processed by the dedicated worker, marked completed, and recorded in email logs.
 - Local Docker Redis/BullMQ smoke passed: a persisted `email_delivery` job was mirrored into BullMQ with `enqueuedExternal: 1`, processed by the worker, completed, and wrote a local email log. The disposable Redis container was stopped afterward.
 - Route smoke passed for `/api/health`, `/`, and `/sdk.js`.
 - Automated Chrome DevTools visual smoke passed for the desktop app shell and mobile public survey route. It captured `artifacts/visual-smoke/desktop-app-shell.png` at 1280 x 720 and `artifacts/visual-smoke/mobile-public-survey.png` at 390 x 844 with no console errors, exact viewport matches, and no horizontal overflow; details are in `docs/VISUAL_SMOKE.md`.
 - Designed monthly report PDF render verification passed with Poppler: a disposable API-generated report rendered as a 2-page Letter PDF with visible header, metric cards, sentiment/lead bars, trend chart, action list, issues/opportunities, quotes, and page footers, with no observed clipping or overlap. Temporary render files were removed after inspection.
-- The PostgreSQL adapter now has focused relational smoke and snapshot-backfill drill scripts with both Docker and guarded external-disposable-database modes, but the latest Docker executions were environment-blocked by Docker not running. Successful Docker or disposable external PostgreSQL reruns and a real Railway/Postgres deployment smoke are still needed before paid launch.
+- On 2026-07-11, both `npm.cmd run postgres:relational:smoke` and `npm.cmd run postgres:backfill:drill` passed against disposable local Docker PostgreSQL. A disposable database on the selected managed production provider and a managed backup/restore drill are still required before paid launch.
 - `tests/server.test.js` passed the core MVP/V1 HTTP loop:
   - signup
   - platform-required email verification, resend, confirm, and login gating
@@ -272,9 +275,8 @@ The current repo is a working local FeedbackOS product foundation and covers a b
 
 Recommended next completion pass:
 
-1. Rerun `npm.cmd run postgres:relational:smoke` and `npm.cmd run postgres:backfill:drill` with Docker running, or set their guarded external disposable PostgreSQL variables, then run the same relational persistence checks against the selected Railway/Postgres environment.
-2. Retire the PostgreSQL compatibility snapshot only after live relational-table restore/rollback checks pass.
-3. Verify the BullMQ worker against a live Redis service and decide whether to make Redis required for production.
+1. Run the guarded PostgreSQL drills against a disposable database on the selected managed provider and complete a managed backup/restore exercise.
+2. Verify the dedicated BullMQ worker against live managed Redis; Redis is already required by the production configuration gate.
 4. Verify deployment on a real Railway project with Postgres, Redis, managed backups/restore drills, SMTP credentials, LLM provider credentials, billing provider credentials, object-storage credentials, custom-domain SSL provider automation, live monitoring/uptime checks, `CRON_SECRET`, and environment variables.
 5. Certify SSO against the selected live IdP and prepare any customer-specific permission policy templates required by enterprise buyers.
 6. Get final legal approval for the selected live AI provider terms and record the accepted DPA/retention settings in production env.

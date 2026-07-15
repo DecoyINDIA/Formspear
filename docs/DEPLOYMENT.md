@@ -22,6 +22,9 @@ GET /api/admin/readiness
 
 The repo includes `railway.json` and `Procfile`.
 
+> [!IMPORTANT]
+> **Single-Writer Posture**: Formspear currently runs a single writer instance. Do not scale `web` replicas above 1 until the row-level persistence refactor (documented in `docs/REVIEW_REMEDIATION_PLAN.md` ITEM-8 / future epic) lands. Horizontal read-replica scaling is not yet supported.
+
 Recommended Railway services from the PRD:
 
 - Web service: this Node app
@@ -31,12 +34,18 @@ Recommended Railway services from the PRD:
 - Cron service: production trigger for retention/report scheduling, replacing the local in-process scheduler
 - Object storage: production target for file-upload answers
 
-Current local persistence is JSON-backed by default. The repo includes `migrations/0001_initial_postgres.sql` as the PostgreSQL baseline schema, `npm.cmd run migrations:check` as a static migration gate, and a `DATABASE_URL` runtime adapter that writes migration-backed collections into relational tables, including auth/security tokens, API keys, platform settings, AI provider logs, rich JSON/report/event/template fields, while retaining `platform_settings.value_json` as a compatibility snapshot safety net. Before paid launch, keep `DATABASE_URL` enabled, run the relational smoke against the target database, and retire the compatibility snapshot only after live migration and restore drills pass.
+Current local persistence is JSON-backed by default. The repo includes `migrations/0001_initial_postgres.sql` as the PostgreSQL baseline schema, `npm.cmd run migrations:check` as a static migration gate, and a `DATABASE_URL` runtime adapter that writes migration-backed collections into relational tables. Development retains `platform_settings.value_json` as a backfill safety snapshot unless explicitly disabled. Production defaults to relational-only persistence and deletes that compatibility row after a successful relational save; `POSTGRES_COMPATIBILITY_SNAPSHOT=true` is rejected by the production configuration gate.
 File uploads use local JSON records by default and S3/R2-compatible object storage when the S3 variables are configured. Before paid launch, keep remote payloads in object storage only and keep scan/lifecycle metadata in the database.
 
 ## Required Environment
 
 Copy `.env.example` and configure at least:
+
+Production boot is fail-closed. `NODE_ENV=production` refuses to start unless the durable database, queue, email, AI, Stripe, object-storage, file-scanning, and monitoring configuration is present. Validate the environment before a deploy with:
+
+```powershell
+npm.cmd run production:check
+```
 
 - `APP_URL`
 - `ENCRYPTION_KEY`
@@ -174,6 +183,13 @@ npm.cmd run worker
 ```
 
 `BULLMQ_QUEUE_NAME` defaults to `feedbackos-jobs`, and `BULLMQ_WORKER_CONCURRENCY` controls worker concurrency. Super admins can force a drain or BullMQ enqueue pass:
+
+Before deployment, verify the exact Redis-compatible service with a disposable database/namespace:
+
+```powershell
+$env:REDIS_WORKER_SMOKE_URL='redis://127.0.0.1:6379'
+npm.cmd run redis:worker:smoke
+```
 
 ```http
 POST /api/jobs/drain

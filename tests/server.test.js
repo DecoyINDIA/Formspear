@@ -8,6 +8,8 @@ const os = require('node:os');
 const path = require('node:path');
 const { createServer } = require('../src/server');
 
+process.env.WEBHOOK_ALLOW_PRIVATE_HOSTS = 'true';
+
 function makeClient(baseUrl) {
   let cookie = '';
   return {
@@ -249,7 +251,7 @@ async function makeStripeReceiver(t) {
   };
 }
 
-function stripeSignature(secret, body, timestamp = '1700000000') {
+function stripeSignature(secret, body, timestamp = String(Math.floor(Date.now() / 1000))) {
   const signature = crypto.createHmac('sha256', secret).update(`${timestamp}.${body}`).digest('hex');
   return `t=${timestamp},v1=${signature}`;
 }
@@ -1582,6 +1584,15 @@ test('FeedbackOS core MVP and V1 loops work over HTTP', async (t) => {
   assert.equal(ai.summary.intentClassifications[0].intent, 'Complaint');
   assert.equal(ai.summary.complaintClusters[0].label, 'Service delay');
   assert.equal(ai.summary.responseClusters[0].label, 'delay');
+  assert.ok(ai.summary.themeEvidence.length > 0);
+  assert.ok(ai.summary.themeEvidence.every((theme) => theme.evidence.every((evidence) => evidence.responseId)));
+  const latestAi = await admin.request(`/api/surveys/${created.survey.id}/ai-summary`);
+  assert.equal(latestAi.job.id, ai.job.id);
+  assert.deepEqual(latestAi.summary.themeEvidence, ai.summary.themeEvidence);
+  await assert.rejects(
+    () => admin.request(`/api/surveys/${created.survey.id}/ai-summary`, { method: 'PATCH', body: {} }),
+    (error) => error.status === 405 && error.payload.error.code === 'method_not_allowed'
+  );
 
   const monthlyReport = await admin.request('/api/ai/monthly-report', {
     method: 'POST',
@@ -2379,6 +2390,10 @@ test('FeedbackOS core MVP and V1 loops work over HTTP', async (t) => {
   assert.ok(monitoringReceiver.events.some((event) => event.url === '/capture/' && event.body.event === 'server_error' && event.body.api_key === 'phc_formspear'));
 
   const readiness = await admin.request('/api/admin/readiness');
+  await assert.rejects(
+    () => admin.request('/api/admin/readiness', { method: 'POST', body: {} }),
+    (error) => error.status === 405 && error.payload.error.code === 'method_not_allowed'
+  );
   assert.equal(readiness.migration.present, true);
   assert.ok(readiness.checks.some((check) => check.id === 'migration' && check.status === 'pass'));
   assert.equal(typeof readiness.productionReady, 'boolean');

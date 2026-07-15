@@ -109,11 +109,18 @@ async function main() {
       acceptTerms: true
     }
   });
-  // Email verification is required, so signup returns a verification token and no session.
+  // Email verification is required. Recover the test token from the queued email,
+  // mirroring delivery without exposing credentials through the auth response.
   assert.ok(signup.emailVerificationRequired, 'Signup should require email verification.');
+  assert.equal(signup.verificationToken, undefined);
+  const verificationJob = await pool.query(
+    `SELECT payload_json FROM jobs WHERE payload_json->'context'->>'verificationId' IS NOT NULL ORDER BY created_at DESC LIMIT 1`
+  );
+  const verificationToken = verificationJob.rows[0]?.payload_json?.message?.body?.match(/fo_verify_[a-f0-9]+/)?.[0];
+  assert.ok(verificationToken, 'Queued verification email should contain a test token.');
   await client.request('/api/auth/email-verification/confirm', {
     method: 'POST',
-    body: { token: signup.verificationToken }
+    body: { token: verificationToken }
   });
   const session = await client.request('/api/auth/login', {
     method: 'POST',

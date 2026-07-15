@@ -26,6 +26,8 @@ async function main() {
     const seeded = await seedSurvey(baseUrl);
     const shots = [
       { name: 'desktop-app-shell', url: `${baseUrl}/`, width: 1280, height: 720, mobile: false },
+      { name: 'desktop-dashboard', url: `${baseUrl}/#dashboard`, width: 1440, height: 900, mobile: false, cookie: seeded.cookie, expectedText: 'First insight path' },
+      { name: 'desktop-builder', url: `${baseUrl}/#builder`, width: 1440, height: 900, mobile: false, cookie: seeded.cookie, expectedText: 'Survey builder', verifyBuilder: true },
       { name: 'mobile-public-survey', url: `${baseUrl}/s/${seeded.slug}`, width: 390, height: 844, mobile: true }
     ];
     browser = await launchBrowser(browserPath);
@@ -41,12 +43,14 @@ async function main() {
       const stat = await fs.promises.stat(output);
       if (stat.size < 5000) throw new Error(`${shot.name} screenshot is unexpectedly small (${stat.size} bytes).`);
       if (result.consoleErrors.length) throw new Error(`${shot.name} emitted console errors: ${result.consoleErrors.join(' | ')}`);
-      if (result.viewport.overflowX) throw new Error(`${shot.name} has horizontal overflow: scrollWidth ${result.viewport.scrollWidth}, viewport ${result.viewport.innerWidth}.`);
+      if (result.viewport.overflowX) throw new Error(`${shot.name} has horizontal overflow: scrollWidth ${result.viewport.scrollWidth}, viewport ${result.viewport.innerWidth}, offenders ${JSON.stringify(result.viewport.offenders)}.`);
+      if (result.accessibility.issues.length) throw new Error(`${shot.name} has accessibility issues: ${result.accessibility.issues.join(' | ')}`);
       manifest.shots.push({
         ...shot,
         file: path.relative(ROOT, output).replace(/\\/g, '/'),
         bytes: stat.size,
         viewport: result.viewport,
+        accessibility: result.accessibility,
         consoleErrors: result.consoleErrors.length
       });
     }
@@ -116,7 +120,7 @@ async function seedSurvey(baseUrl) {
     }
   }, cookie);
   await postJson(`${baseUrl}/api/surveys/${surveyId}/publish`, {}, cookie);
-  return { workspaceId, surveyId, slug };
+  return { workspaceId, surveyId, slug, cookie };
 }
 
 async function postJson(url, body, cookie = '') {
@@ -246,7 +250,7 @@ async function launchBrowser(browserPath) {
 }
 
 async function captureScreenshot(browser, shot, output) {
-  const target = await createPageTarget(browser.httpBase, shot.url);
+  const target = await createPageTarget(browser.httpBase, 'about:blank');
   const client = await CdpClient.connect(target.webSocketDebuggerUrl);
   const consoleErrors = [];
   client.on('Runtime.exceptionThrown', (params) => {
@@ -260,6 +264,15 @@ async function captureScreenshot(browser, shot, output) {
   try {
     await client.send('Page.enable');
     await client.send('Runtime.enable');
+    await client.send('Network.enable');
+    if (shot.cookie) {
+      const separator = shot.cookie.indexOf('=');
+      await client.send('Network.setCookie', {
+        name: shot.cookie.slice(0, separator),
+        value: shot.cookie.slice(separator + 1),
+        url: shot.url.split('#')[0]
+      });
+    }
     await client.send('Emulation.setDeviceMetricsOverride', {
       width: shot.width,
       height: shot.height,
@@ -273,7 +286,13 @@ async function captureScreenshot(browser, shot, output) {
     await client.send('Page.navigate', { url: shot.url });
     await loadEvent;
     await delay(500);
+    if (shot.expectedText) {
+      const content = await client.send('Runtime.evaluate', { expression: 'document.body.innerText', returnByValue: true });
+      if (!String(content.result.value || '').includes(shot.expectedText)) throw new Error(`${shot.name} did not render expected text: ${shot.expectedText}`);
+    }
+    if (shot.verifyBuilder) await verifyBuilderInteractions(client);
     const viewport = await evaluateViewport(client);
+    const accessibility = await evaluateAccessibility(client);
     if (viewport.innerWidth !== shot.width) {
       throw new Error(`${shot.name} viewport width mismatch: expected ${shot.width}, got ${viewport.innerWidth}.`);
     }
@@ -283,10 +302,49 @@ async function captureScreenshot(browser, shot, output) {
       captureBeyondViewport: false
     });
     await fs.promises.writeFile(output, image.data, 'base64');
-    return { viewport, consoleErrors };
+    return { viewport, accessibility, consoleErrors };
   } finally {
     await client.close();
     await closePageTarget(browser.httpBase, target.id);
+  }
+}
+
+async function verifyBuilderInteractions(client) {
+  const original = await client.send('Runtime.evaluate', {
+    expression: `(() => {
+      const input = document.querySelector('[data-edit="survey.title"]');
+      if (!input) throw new Error('Builder title input is missing.');
+      const originalValue = input.value;
+      input.focus();
+      input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+      input.value = originalValue + ' autosave check';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      return originalValue;
+    })()`,
+    returnByValue: true
+  });
+  await delay(1400);
+  const saved = await client.send('Runtime.evaluate', {
+    expression: `(() => ({
+      status: document.querySelector('[data-builder-autosave-status]')?.textContent || '',
+      undoDisabled: Boolean(document.querySelector('[data-action="builder-undo"]')?.disabled)
+    }))()`,
+    returnByValue: true
+  });
+  if (saved.result.value.status !== 'All changes saved' || saved.result.value.undoDisabled) {
+    throw new Error(`Builder autosave did not complete: ${JSON.stringify(saved.result.value)}`);
+  }
+  await client.send('Runtime.evaluate', { expression: `document.querySelector('[data-action="builder-undo"]').click()` });
+  await delay(1400);
+  const undone = await client.send('Runtime.evaluate', {
+    expression: `(() => ({
+      title: document.querySelector('[data-edit="survey.title"]')?.value || '',
+      status: document.querySelector('[data-builder-autosave-status]')?.textContent || ''
+    }))()`,
+    returnByValue: true
+  });
+  if (undone.result.value.title !== original.result.value || undone.result.value.status !== 'All changes saved') {
+    throw new Error(`Builder undo/autosave verification failed: ${JSON.stringify(undone.result.value)}`);
   }
 }
 
@@ -318,7 +376,11 @@ async function evaluateViewport(client) {
       innerHeight: window.innerHeight,
       devicePixelRatio: window.devicePixelRatio,
       scrollWidth,
-      overflowX: scrollWidth > window.innerWidth + 1
+      overflowX: scrollWidth > window.innerWidth + 1,
+      offenders: elements.map((element) => {
+        const rect = element.getBoundingClientRect();
+        return { tag: element.tagName, className: String(element.className || '').slice(0, 80), right: Math.round(rect.right), width: Math.round(rect.width), text: String(element.textContent || '').trim().slice(0, 60) };
+      }).filter((item) => item.right > window.innerWidth + 1).sort((a, b) => b.right - a.right).slice(0, 5)
     };
   })()`;
   const evaluated = await client.send('Runtime.evaluate', {
@@ -329,6 +391,35 @@ async function evaluateViewport(client) {
   if (evaluated.exceptionDetails) {
     throw new Error(evaluated.exceptionDetails.text || 'Viewport evaluation failed.');
   }
+  return evaluated.result.value;
+}
+
+async function evaluateAccessibility(client) {
+  const expression = `(() => {
+    const issues = [];
+    if (!document.documentElement.lang) issues.push('document language is missing');
+    if (!document.querySelector('h1')) issues.push('page has no h1');
+    const visible = (element) => {
+      const style = getComputedStyle(element);
+      return style.display !== 'none' && style.visibility !== 'hidden' && element.getClientRects().length > 0;
+    };
+    for (const control of document.querySelectorAll('input:not([type="hidden"]), select, textarea')) {
+      if (!visible(control)) continue;
+      const idLabel = control.id && document.querySelector('label[for="' + CSS.escape(control.id) + '"]');
+      const wrappedLabel = control.closest('label');
+      const named = control.getAttribute('aria-label') || control.getAttribute('aria-labelledby') || control.title;
+      if (!idLabel && !wrappedLabel && !named) issues.push('unlabelled ' + control.tagName.toLowerCase() + (control.name ? '[name="' + control.name + '"]' : '') + ' ' + String(control.outerHTML || '').slice(0, 140));
+    }
+    for (const button of document.querySelectorAll('button')) {
+      if (visible(button) && !(button.textContent || '').trim() && !button.getAttribute('aria-label')) issues.push('button has no accessible name');
+    }
+    for (const image of document.querySelectorAll('img')) {
+      if (!image.hasAttribute('alt')) issues.push('image is missing alt text');
+    }
+    return { issues, labelledControls: document.querySelectorAll('label').length, headings: document.querySelectorAll('h1,h2,h3').length };
+  })()`;
+  const evaluated = await client.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
+  if (evaluated.exceptionDetails) throw new Error(evaluated.exceptionDetails.text || 'Accessibility evaluation failed.');
   return evaluated.result.value;
 }
 

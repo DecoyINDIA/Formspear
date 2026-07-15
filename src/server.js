@@ -7,6 +7,25 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { URL } = require('node:url');
 const writeExcelFile = require('write-excel-file/node');
+const { validateProductionEnvironment } = require('./production-config');
+const {
+  withSecurityHeaders,
+  encryptConfig,
+  decryptConfig,
+  publicWebhook,
+  hashToken,
+  signPayload,
+  hashPassword,
+  verifyPassword,
+  hashIp
+} = require('./security');
+const { handleAiSummaryRoute } = require('./routes/ai-summary');
+const { handleAnalyticsRoute } = require('./routes/analytics');
+const { handleBillingRoute } = require('./routes/billing');
+const { handleAdminReadinessRoute } = require('./routes/admin-readiness');
+const { handleResponsesRoute } = require('./routes/responses');
+const { handleAuthCredentialRoute } = require('./routes/auth-credentials');
+const { handleSurveyLifecycleRoute } = require('./routes/survey-lifecycle');
 
 const ROOT = path.resolve(__dirname, '..');
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -48,13 +67,6 @@ const COMPLAINT_CATEGORIES = [
   { label: 'Other', keywords: [] }
 ];
 const EICAR_TEST_SIGNATURE = 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*';
-const SECURITY_HEADERS = {
-  'x-content-type-options': 'nosniff',
-  'x-frame-options': 'SAMEORIGIN',
-  'referrer-policy': 'strict-origin-when-cross-origin',
-  'permissions-policy': 'camera=(), microphone=(), geolocation=()',
-  'content-security-policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
-};
 
 const QUESTION_TYPES = [
   'short_text',
@@ -267,7 +279,7 @@ function createCustomTemplateFromSurvey(db, survey, userId, input = {}) {
     type: survey.type,
     name: input.name || `${survey.title} template`,
     description: input.description || survey.description,
-    schema: structuredCloneCompat(survey.schema),
+    schema: structuredClone(survey.schema),
     status: input.status || 'draft',
     visibility: 'workspace'
   }, {
@@ -303,7 +315,7 @@ function templateResponse(template, overrides = {}) {
     industry: template.industry || '',
     useCase: template.useCase || '',
     tags: normalizeTemplateTags(template.tags || []),
-    schema: structuredCloneCompat(template.schema)
+    schema: structuredClone(template.schema)
   };
 }
 
@@ -326,6 +338,19 @@ const publicBuckets = new Map();
 const apiBuckets = new Map();
 const authBuckets = new Map();
 
+function sweepRateLimitBuckets() {
+  const now = Date.now();
+  for (const [key, bucket] of publicBuckets.entries()) {
+    if (bucket.resetAt < now) publicBuckets.delete(key);
+  }
+  for (const [key, bucket] of authBuckets.entries()) {
+    if (bucket.resetAt < now) authBuckets.delete(key);
+  }
+  for (const [key, bucket] of apiBuckets.entries()) {
+    if (bucket.resetAt < now) apiBuckets.delete(key);
+  }
+}
+
 function question(type, title, required = false, settings = {}) {
   return {
     id: makeId('q'),
@@ -340,11 +365,14 @@ function question(type, title, required = false, settings = {}) {
 }
 
 function createServer(options = {}) {
+  validateProductionEnvironment(options);
   const state = {
     dataFile: options.dataFile || DEFAULT_DATA_FILE,
     databaseUrl: options.databaseUrl || (options.dataFile ? '' : process.env.DATABASE_URL || ''),
     pgPool: null,
     pgReady: null,
+    pgShadow: null,
+    surveyViewLastSaved: new Map(),
     redisUrl: options.redisUrl || process.env.REDIS_URL || '',
     bullMqQueue: null,
     bullMqWorker: null,
@@ -355,6 +383,7 @@ function createServer(options = {}) {
     saveBatchPromise: null,
     saveDirty: false,
     jobTimer: null,
+    rateLimitSweepTimer: null,
     processingJobs: false,
     testFaults: Boolean(options.enableTestFaults)
   };
@@ -381,6 +410,11 @@ function createServer(options = {}) {
 
   server.state = state;
   server.on('listening', () => {
+    state.rateLimitSweepTimer = setInterval(() => {
+      sweepRateLimitBuckets();
+    }, 5 * 60 * 1000);
+    state.rateLimitSweepTimer.unref?.();
+
     if (options.disableWorker || state.jobTimer) return;
     state.jobTimer = setInterval(() => {
       processDueJobs(state).catch((error) => console.error('Job worker failed', error));
@@ -388,8 +422,16 @@ function createServer(options = {}) {
     state.jobTimer.unref?.();
   });
   server.on('close', () => {
+    if (state.rateLimitSweepTimer) clearInterval(state.rateLimitSweepTimer);
+    state.rateLimitSweepTimer = null;
     if (state.jobTimer) clearInterval(state.jobTimer);
     state.jobTimer = null;
+    if (state.pgLockClient) {
+      state.pgLockClient.query('SELECT pg_advisory_unlock($1)', [4159283748291029n])
+        .then(() => state.pgLockClient.release(true))
+        .catch(() => {})
+        .finally(() => { state.pgLockClient = null; });
+    }
     if (state.pgPool) state.pgPool.end().catch((error) => console.error('PostgreSQL pool close failed', error));
     closeBullMq(state).catch((error) => console.error('BullMQ close failed', error));
   });
@@ -424,8 +466,9 @@ async function routeRequest(req, res, state) {
   }
 
   const safePath = path.normalize(decodeURIComponent(url.pathname)).replace(/^([/\\])+/, '');
-  const target = path.join(PUBLIC_DIR, safePath);
-  if (!target.startsWith(PUBLIC_DIR)) {
+  const target = path.resolve(PUBLIC_DIR, safePath);
+  const resolvedPublicDir = path.resolve(PUBLIC_DIR);
+  if (!target.startsWith(resolvedPublicDir)) {
     sendJson(res, 403, { error: { code: 'forbidden', message: 'Forbidden.' } });
     return;
   }
@@ -497,25 +540,11 @@ async function handleApi(req, res, url, state) {
     return;
   }
 
-  if (segments[0] === 'auth' && segments[1] === 'password-reset' && segments[2] === 'request' && method === 'POST') {
-    await handlePasswordResetRequest(req, res, db, state);
-    return;
-  }
-
-  if (segments[0] === 'auth' && segments[1] === 'password-reset' && segments[2] === 'confirm' && method === 'POST') {
-    await handlePasswordResetConfirm(req, res, db, state);
-    return;
-  }
-
-  if (segments[0] === 'auth' && segments[1] === 'email-verification' && segments[2] === 'request' && method === 'POST') {
-    await handleEmailVerificationRequest(req, res, db, state);
-    return;
-  }
-
-  if (segments[0] === 'auth' && segments[1] === 'email-verification' && segments[2] === 'confirm' && method === 'POST') {
-    await handleEmailVerificationConfirm(req, res, db, state);
-    return;
-  }
+  if (await handleAuthCredentialRoute({
+    req, res, segments, db, state, readJson, cleanEmail, authRateAllowed, sendJson,
+    makeId, hashToken, queueEmailJob, audit, saveDb, hashPassword,
+    createEmailVerificationToken, publicUser
+  })) return;
 
   if (segments[0] === 'auth' && segments[1] === 'logout' && method === 'POST') {
     const session = getSession(req, db);
@@ -1152,105 +1181,6 @@ async function handleInviteSignup(req, res, db, state) {
   sendJson(res, 200, buildSessionPayload(db, user));
 }
 
-async function handlePasswordResetRequest(req, res, db, state) {
-  const body = await readJson(req);
-  const email = cleanEmail(body.email);
-  const rlKey = `${req.socket.remoteAddress || 'unknown'}:${email}`;
-  if (!authRateAllowed(rlKey)) {
-    sendJson(res, 429, { error: { code: 'rate_limited', message: 'Too many attempts. Try again later.' } });
-    return;
-  }
-  const user = db.users.find((item) => item.email === email);
-  if (user) {
-    const token = `fo_reset_${crypto.randomBytes(24).toString('hex')}`;
-    db.passwordResetTokens = db.passwordResetTokens.filter((item) => item.userId !== user.id || item.usedAt);
-    const reset = {
-      id: makeId('rst'),
-      userId: user.id,
-      tokenHash: hashToken(token),
-      tokenPreview: `${token.slice(0, 12)}...`,
-      expiresAt: new Date(Date.now() + 1000 * 60 * 30).toISOString(),
-      usedAt: null,
-      createdAt: new Date().toISOString()
-    };
-    db.passwordResetTokens.push(reset);
-    queueEmailJob(db, null, {
-      to: user.email,
-      subject: 'Reset your FeedbackOS password',
-      body: `Use reset token ${token}. It expires in 30 minutes.`
-    }, { resetId: reset.id });
-    db.auditLogs.push(audit(null, user.id, 'auth.password_reset_requested', 'user', user.id, {}));
-    await saveDb(state);
-    sendJson(res, 200, { ok: true });
-    return;
-  }
-  await saveDb(state);
-  sendJson(res, 200, { ok: true });
-}
-
-async function handlePasswordResetConfirm(req, res, db, state) {
-  const body = await readJson(req);
-  const tokenHash = hashToken(body.token || '');
-  const password = String(body.password || '');
-  const reset = db.passwordResetTokens.find((item) => !item.usedAt && item.tokenHash === tokenHash);
-  if (!reset || new Date(reset.expiresAt).getTime() < Date.now()) {
-    sendJson(res, 400, { error: { code: 'invalid_reset_token', message: 'Reset token is invalid or expired.' } });
-    return;
-  }
-  if (password.length < 8) {
-    sendJson(res, 400, { error: { code: 'weak_password', message: 'Password must be at least 8 characters.' } });
-    return;
-  }
-  const user = db.users.find((item) => item.id === reset.userId);
-  if (!user) {
-    sendJson(res, 404, { error: { code: 'user_not_found', message: 'User not found.' } });
-    return;
-  }
-  user.password = hashPassword(password);
-  user.updatedAt = new Date().toISOString();
-  reset.usedAt = new Date().toISOString();
-  db.sessions = db.sessions.filter((session) => session.userId !== user.id);
-  db.auditLogs.push(audit(null, user.id, 'auth.password_reset_completed', 'user', user.id, {}));
-  await saveDb(state);
-  sendJson(res, 200, { ok: true });
-}
-
-async function handleEmailVerificationRequest(req, res, db, state) {
-  const body = await readJson(req);
-  const email = cleanEmail(body.email);
-  const user = db.users.find((item) => item.email === email);
-  if (user && !user.emailVerifiedAt) {
-    const verification = createEmailVerificationToken(db, user);
-    db.auditLogs.push(audit(null, user.id, 'auth.email_verification_requested', 'user', user.id, {}));
-    await saveDb(state);
-    sendJson(res, 200, { ok: true });
-    return;
-  }
-  await saveDb(state);
-  sendJson(res, 200, { ok: true });
-}
-
-async function handleEmailVerificationConfirm(req, res, db, state) {
-  const body = await readJson(req);
-  const tokenHash = hashToken(body.token || '');
-  const verification = db.emailVerificationTokens.find((item) => !item.usedAt && item.tokenHash === tokenHash);
-  if (!verification || new Date(verification.expiresAt).getTime() < Date.now()) {
-    sendJson(res, 400, { error: { code: 'invalid_email_verification_token', message: 'Email verification token is invalid or expired.' } });
-    return;
-  }
-  const user = db.users.find((item) => item.id === verification.userId);
-  if (!user) {
-    sendJson(res, 404, { error: { code: 'user_not_found', message: 'User not found.' } });
-    return;
-  }
-  user.emailVerifiedAt = new Date().toISOString();
-  user.updatedAt = user.emailVerifiedAt;
-  verification.usedAt = user.emailVerifiedAt;
-  db.auditLogs.push(audit(null, user.id, 'auth.email_verified', 'user', user.id, {}));
-  await saveDb(state);
-  sendJson(res, 200, { ok: true, user: publicUser(user) });
-}
-
 async function handleProfile(req, res, segments, db, state, user) {
   if (segments.length === 0 && req.method === 'GET') {
     sendJson(res, 200, { user: publicUser(user) });
@@ -1800,243 +1730,22 @@ async function handleWorkspaces(req, res, url, segments, db, state, user) {
 }
 
 async function handleSurveys(req, res, url, segments, db, state, user) {
-  if (segments.length === 0 && req.method === 'GET') {
-    const workspaceId = url.searchParams.get('workspaceId');
-    if (!requireWorkspace(res, db, user, workspaceId, 'viewer')) return;
-    const surveys = db.surveys
-      .filter((survey) => survey.workspaceId === workspaceId && surveyVisibleToUser(db, user, survey, 'viewer'))
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-    sendJson(res, 200, { surveys });
-    return;
-  }
+  const lifecycle = await handleSurveyLifecycleRoute({
+    req, res, url, segments, db, state, user, readJson, requireWorkspace, surveyVisibleToUser,
+    checkPlanLimit, findSurveyTemplate, createSurvey, cleanText, markTemplateUsed, createSurveyVersion,
+    audit, saveDb, sendJson, requireSurveyAccess, surveyApprovalFingerprint, applySurveySlug,
+    updateSurveyFromBody, markApprovalStaleIfChanged, createCustomTemplateFromSurvey,
+    publishSurveyDraft, effectiveSurveyRole, requestSurveyApproval, surveyApprovalPayload,
+    validateSurveyForPublish, reviewSurveyApproval, normalizeSurveyAccessMode, normalizeSurveyAccessRules
+  });
+  if (lifecycle.handled) return;
+  const survey = lifecycle.survey;
 
-  if (segments.length === 0 && req.method === 'POST') {
-    const body = await readJson(req);
-    const workspaceId = body.workspaceId;
-    if (!requireWorkspace(res, db, user, workspaceId, 'editor')) return;
-    const limitCheck = checkPlanLimit(db, workspaceId, 'surveys');
-    if (!limitCheck.ok) {
-      sendJson(res, 402, { error: { code: 'plan_limit', message: limitCheck.message } });
-      return;
-    }
-    const template = findSurveyTemplate(db, body.templateId, workspaceId);
-    const survey = createSurvey({
-      workspaceId,
-      userId: user.id,
-      title: cleanText(body.title || template?.schema.title || 'Untitled Survey', 160),
-      description: cleanText(body.description || template?.schema.description || '', 500),
-      type: cleanText(body.type || template?.type || 'feedback_form', 60),
-      schema: template ? structuredCloneCompat(template.schema) : undefined
-    });
-    db.surveys.push(survey);
-    markTemplateUsed(db, template);
-    createSurveyVersion(db, survey, user.id);
-    db.auditLogs.push(audit(workspaceId, user.id, 'survey.created', 'survey', survey.id, { title: survey.title }));
-    await saveDb(state);
-    sendJson(res, 201, { survey });
-    return;
-  }
-
-  const surveyId = segments[0];
-  const survey = db.surveys.find((item) => item.id === surveyId);
-  if (!survey) {
-    sendJson(res, 404, { error: { code: 'not_found', message: 'Survey not found.' } });
-    return;
-  }
-  if (!requireSurveyAccess(res, db, user, survey, 'viewer')) return;
-
-  if (segments.length === 1 && req.method === 'GET') {
-    sendJson(res, 200, { survey });
-    return;
-  }
-
-  if (segments.length === 1 && req.method === 'PUT') {
-    if (!requireSurveyAccess(res, db, user, survey, 'editor')) return;
-    const body = await readJson(req);
-    const beforeApprovalFingerprint = surveyApprovalFingerprint(survey);
-    if (body.slug !== undefined) {
-      const slugResult = applySurveySlug(db, survey, body.slug);
-      if (!slugResult.ok) {
-        sendJson(res, 400, { error: { code: 'invalid_slug', message: slugResult.message } });
-        return;
-      }
-    }
-    const beforePublishedVersion = survey.publishedVersionId;
-    updateSurveyFromBody(db, survey, body);
-    survey.updatedAt = new Date().toISOString();
-    if (survey.status === 'published' && beforePublishedVersion) {
-      survey.hasUnpublishedChanges = true;
-    }
-    markApprovalStaleIfChanged(survey, beforeApprovalFingerprint);
-    db.auditLogs.push(audit(survey.workspaceId, user.id, 'survey.updated', 'survey', survey.id, { title: survey.title }));
-    await saveDb(state);
-    sendJson(res, 200, { survey });
-    return;
-  }
-
-  if (segments.length === 1 && req.method === 'DELETE') {
-    if (!requireSurveyAccess(res, db, user, survey, 'admin')) return;
-    survey.status = 'archived';
-    survey.updatedAt = new Date().toISOString();
-    db.auditLogs.push(audit(survey.workspaceId, user.id, 'survey.archived', 'survey', survey.id, {}));
-    await saveDb(state);
-    sendJson(res, 200, { survey });
-    return;
-  }
-
-  if (segments[1] === 'template' && segments.length === 2 && req.method === 'POST') {
-    if (!requireSurveyAccess(res, db, user, survey, 'editor')) return;
-    const body = await readJson(req);
-    const template = createCustomTemplateFromSurvey(db, survey, user.id, {
-      name: body.name,
-      description: body.description,
-      category: body.category,
-      industry: body.industry,
-      useCase: body.useCase,
-      tags: body.tags,
-      status: body.status,
-      visibility: body.visibility
-    });
-    db.customTemplates.push(template);
-    db.auditLogs.push(audit(survey.workspaceId, user.id, 'template.saved_from_survey', 'template', template.id, { surveyId: survey.id, status: template.status }));
-    await saveDb(state);
-    sendJson(res, 201, { template });
-    return;
-  }
-
-  if (segments[1] === 'publish' && req.method === 'POST') {
-    if (!requireSurveyAccess(res, db, user, survey, 'editor')) return;
-    const publish = publishSurveyDraft(db, survey, user.id, { actorRole: effectiveSurveyRole(db, user, survey) });
-    if (!publish.ok) {
-      sendJson(res, publish.status, { error: publish.error });
-      return;
-    }
-    db.auditLogs.push(audit(survey.workspaceId, user.id, 'survey.published', 'survey', survey.id, { versionId: publish.version.id }));
-    await saveDb(state);
-    sendJson(res, 200, { survey, version: publish.version });
-    return;
-  }
-
-  if (segments[1] === 'approval' && segments[2] === 'request' && req.method === 'POST') {
-    if (!requireSurveyAccess(res, db, user, survey, 'editor')) return;
-    const body = await readJson(req);
-    requestSurveyApproval(survey, user.id, body.note);
-    db.auditLogs.push(audit(survey.workspaceId, user.id, 'survey.approval_requested', 'survey', survey.id, { status: survey.approvalStatus }));
-    await saveDb(state);
-    sendJson(res, 200, { survey, approval: surveyApprovalPayload(db, survey) });
-    return;
-  }
-
-  if (segments[1] === 'approval' && segments[2] === 'approve' && req.method === 'POST') {
-    if (!requireWorkspace(res, db, user, survey.workspaceId, 'admin')) return;
-    const validation = validateSurveyForPublish(survey);
-    if (!validation.ok) {
-      sendJson(res, 400, { error: { code: 'publish_validation_failed', message: validation.message, details: validation.errors } });
-      return;
-    }
-    const body = await readJson(req);
-    reviewSurveyApproval(survey, user.id, 'approved', body.note);
-    db.auditLogs.push(audit(survey.workspaceId, user.id, 'survey.approval_approved', 'survey', survey.id, { requestedBy: survey.approvalRequestedBy }));
-    await saveDb(state);
-    sendJson(res, 200, { survey, approval: surveyApprovalPayload(db, survey) });
-    return;
-  }
-
-  if (segments[1] === 'approval' && segments[2] === 'reject' && req.method === 'POST') {
-    if (!requireWorkspace(res, db, user, survey.workspaceId, 'admin')) return;
-    const body = await readJson(req);
-    reviewSurveyApproval(survey, user.id, 'rejected', body.note);
-    db.auditLogs.push(audit(survey.workspaceId, user.id, 'survey.approval_rejected', 'survey', survey.id, { requestedBy: survey.approvalRequestedBy }));
-    await saveDb(state);
-    sendJson(res, 200, { survey, approval: surveyApprovalPayload(db, survey) });
-    return;
-  }
-
-  if (segments[1] === 'pause' && req.method === 'POST') {
-    if (!requireSurveyAccess(res, db, user, survey, 'editor')) return;
-    survey.status = 'paused';
-    survey.updatedAt = new Date().toISOString();
-    db.auditLogs.push(audit(survey.workspaceId, user.id, 'survey.paused', 'survey', survey.id, {}));
-    await saveDb(state);
-    sendJson(res, 200, { survey });
-    return;
-  }
-
-  if (segments[1] === 'access' && req.method === 'PUT') {
-    if (!requireWorkspace(res, db, user, survey.workspaceId, 'admin')) return;
-    const body = await readJson(req);
-    survey.accessMode = normalizeSurveyAccessMode(body.accessMode ?? survey.accessMode);
-    survey.accessRules = normalizeSurveyAccessRules(db, survey, body.accessRules ?? []);
-    survey.updatedAt = new Date().toISOString();
-    db.auditLogs.push(audit(survey.workspaceId, user.id, 'survey.access_updated', 'survey', survey.id, { accessMode: survey.accessMode, grants: survey.accessRules.length }));
-    await saveDb(state);
-    sendJson(res, 200, { survey });
-    return;
-  }
-
-  if (segments[1] === 'responses' && segments.length === 2 && req.method === 'GET') {
-    const result = filterResponses(db.responses.filter((item) => item.surveyId === survey.id && item.status !== 'deleted'), url, survey);
-    sendJson(res, 200, result);
-    return;
-  }
-
-  if (segments[1] === 'responses' && segments[2] && segments[3] === 'export.pdf' && req.method === 'GET') {
-    if (!requireWorkspacePermission(res, db, user, survey.workspaceId, 'responseExport')) return;
-    const response = db.responses.find((item) => item.id === segments[2] && item.surveyId === survey.id);
-    if (!response || response.status === 'deleted') {
-      sendJson(res, 404, { error: { code: 'response_not_found', message: 'Response not found.' } });
-      return;
-    }
-    const pdf = buildResponsePdf(db, survey, response);
-    db.auditLogs.push(audit(survey.workspaceId, user.id, 'response.exported_pdf', 'response', response.id, {}));
-    await saveDb(state);
-    res.writeHead(200, withSecurityHeaders({
-      'content-type': 'application/pdf',
-      'content-disposition': `attachment; filename="${slugify(survey.title)}-${response.id}.pdf"`
-    }));
-    res.end(pdf);
-    return;
-  }
-
-  if (segments[1] === 'responses' && segments[2] && req.method === 'GET') {
-    const response = db.responses.find((item) => item.id === segments[2] && item.surveyId === survey.id);
-    if (!response || response.status === 'deleted') {
-      sendJson(res, 404, { error: { code: 'response_not_found', message: 'Response not found.' } });
-      return;
-    }
-    sendJson(res, 200, { response: buildResponseDetail(db, survey, response) });
-    return;
-  }
-
-  if (segments[1] === 'responses' && segments[2] && req.method === 'PATCH') {
-    if (!requireSurveyAccess(res, db, user, survey, 'analyst')) return;
-    const response = db.responses.find((item) => item.id === segments[2] && item.surveyId === survey.id);
-    if (!response || response.status === 'deleted') {
-      sendJson(res, 404, { error: { code: 'response_not_found', message: 'Response not found.' } });
-      return;
-    }
-    const body = await readJson(req);
-    updateResponseRecord(response, body, user.id);
-    db.auditLogs.push(audit(survey.workspaceId, user.id, 'response.updated', 'response', response.id, { fields: Object.keys(body) }));
-    await saveDb(state);
-    sendJson(res, 200, { response: buildResponseDetail(db, survey, response) });
-    return;
-  }
-
-  if (segments[1] === 'responses' && segments[2] && req.method === 'DELETE') {
-    if (!requireSurveyAccess(res, db, user, survey, 'analyst')) return;
-    const response = db.responses.find((item) => item.id === segments[2] && item.surveyId === survey.id);
-    if (!response) {
-      sendJson(res, 404, { error: { code: 'response_not_found', message: 'Response not found.' } });
-      return;
-    }
-    response.status = 'deleted';
-    response.deletedAt = new Date().toISOString();
-    db.auditLogs.push(audit(survey.workspaceId, user.id, 'response.deleted', 'response', response.id, {}));
-    await saveDb(state);
-    sendJson(res, 200, { ok: true });
-    return;
-  }
+  if (await handleResponsesRoute({
+    req, res, url, segments, db, state, user, survey,
+    filterResponses, requireWorkspacePermission, requireSurveyAccess, buildResponsePdf,
+    audit, saveDb, withSecurityHeaders, slugify, sendJson, buildResponseDetail, readJson, updateResponseRecord
+  })) return;
 
   if (segments[1] === 'export.csv' && req.method === 'GET') {
     if (!requireWorkspacePermission(res, db, user, survey.workspaceId, 'responseExport')) return;
@@ -2071,23 +1780,7 @@ async function handleSurveys(req, res, url, segments, db, state, user) {
     return;
   }
 
-  if (segments[1] === 'analytics' && req.method === 'GET') {
-    const allResponses = db.responses.filter((item) => item.surveyId === survey.id && item.status !== 'deleted');
-    const responses = filterResponses(allResponses, url, survey, { noPagination: true }).responses;
-    const analytics = buildAnalytics(survey, responses);
-    const compareFrom = url.searchParams.get('compareFrom');
-    const compareTo = url.searchParams.get('compareTo');
-    if (compareFrom || compareTo) {
-      const compareUrl = new URL(url.toString());
-      compareUrl.searchParams.delete('from');
-      compareUrl.searchParams.delete('to');
-      if (compareFrom) compareUrl.searchParams.set('from', compareFrom);
-      if (compareTo) compareUrl.searchParams.set('to', compareTo);
-      analytics.comparison = buildAnalyticsComparison(analytics, buildAnalytics(survey, filterResponses(allResponses, compareUrl, survey, { noPagination: true }).responses));
-    }
-    sendJson(res, 200, { analytics });
-    return;
-  }
+  if (handleAnalyticsRoute({ req, res, url, segments, db, survey, filterResponses, buildAnalytics, buildAnalyticsComparison, sendJson })) return;
 
   if (segments[1] === 'translations' && segments[2] === 'generate' && req.method === 'POST') {
     if (!requireSurveyAccess(res, db, user, survey, 'editor')) return;
@@ -2108,36 +1801,23 @@ async function handleSurveys(req, res, url, segments, db, state, user) {
     return;
   }
 
-  if (segments[1] === 'ai-summary' && req.method === 'POST') {
-    if (!requireSurveyAccess(res, db, user, survey, 'analyst')) return;
-    const creditCheck = consumeAiCredits(db, survey.workspaceId, 1);
-    if (!creditCheck.ok) {
-      sendAiCreditLimitError(res, creditCheck);
-      return;
-    }
-    const responses = db.responses.filter((item) => item.surveyId === survey.id && item.status === 'completed');
-    const workspace = db.workspaces.find((item) => item.id === survey.workspaceId);
-    const output = await buildAiSummaryWithProvider(db, survey, responses, workspace);
-    const job = {
-      id: makeId('ai'),
-      workspaceId: survey.workspaceId,
-      surveyId: survey.id,
-      responseId: null,
-      jobType: 'survey_summary',
-      status: 'completed',
-      inputJson: { responseCount: responses.length },
-      outputJson: output,
-      tokensUsed: output.providerUsage?.totalTokens || Math.max(50, responses.length * 12),
-      error: '',
-      createdAt: new Date().toISOString(),
-      completedAt: new Date().toISOString()
-    };
-    db.aiJobs.push(job);
-    db.auditLogs.push(audit(survey.workspaceId, user.id, 'ai.summary_generated', 'survey', survey.id, { jobId: job.id }));
-    await saveDb(state);
-    sendJson(res, 200, { job, summary: output });
-    return;
-  }
+  if (await handleAiSummaryRoute({
+    req,
+    res,
+    segments,
+    db,
+    state,
+    user,
+    survey,
+    requireSurveyAccess,
+    consumeAiCredits,
+    sendAiCreditLimitError,
+    buildAiSummaryWithProvider,
+    makeId,
+    audit,
+    saveDb,
+    sendJson
+  })) return;
 
   if (segments[1] === 'qr.svg' && req.method === 'GET') {
     const appUrl = process.env.APP_URL || `${url.protocol}//${url.host}`;
@@ -2228,21 +1908,22 @@ async function handleIntegrations(req, res, url, segments, db, state, user) {
     const workspaceId = body.workspaceId;
     if (!requireWorkspace(res, db, user, workspaceId, 'admin')) return;
     if (body.type === 'webhook') {
+      const webhookUrl = cleanUrl(body.url);
+      if (!webhookUrl || !(await isSafeOutboundUrl(webhookUrl))) {
+        sendJson(res, 400, { error: { code: 'invalid_webhook', message: 'A valid webhook URL is required.' } });
+        return;
+      }
       const rawSecret = crypto.randomBytes(24).toString('hex');
       const webhook = {
         id: makeId('wh'),
         workspaceId,
-        url: cleanUrl(body.url),
+        url: webhookUrl,
         events: Array.isArray(body.events) ? body.events.slice(0, 20) : ['response.completed'],
         secretEncrypted: encryptConfig({ secret: rawSecret }),
         active: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
-      if (!webhook.url) {
-        sendJson(res, 400, { error: { code: 'invalid_webhook', message: 'A valid webhook URL is required.' } });
-        return;
-      }
       db.webhooks.push(webhook);
       db.auditLogs.push(audit(workspaceId, user.id, 'webhook.created', 'webhook', webhook.id, { url: webhook.url }));
       await saveDb(state);
@@ -2250,12 +1931,20 @@ async function handleIntegrations(req, res, url, segments, db, state, user) {
       return;
     }
 
+    const integrationType = normalizeIntegrationType(body.type || 'google_sheets');
+    const configObj = body.config || body.configJson || {};
+    const testUrl = cleanUrl(configObj.webhookUrl || configObj.url || configObj.apiUrl);
+    if (testUrl && !(await isSafeOutboundUrl(testUrl))) {
+      sendJson(res, 400, { error: { code: 'invalid_integration', message: 'A valid integration URL is required.' } });
+      return;
+    }
+
     const integration = {
       id: makeId('int'),
       workspaceId,
-      type: normalizeIntegrationType(body.type || 'google_sheets'),
+      type: integrationType,
       name: cleanText(body.name || 'Integration', 120),
-      configEncrypted: encryptConfig(body.config || body.configJson || {}),
+      configEncrypted: encryptConfig(configObj),
       events: Array.isArray(body.events) ? body.events.map((item) => cleanText(item, 80)).filter(Boolean).slice(0, 20) : ['response.completed'],
       status: 'configured',
       createdBy: user.id,
@@ -2557,76 +2246,11 @@ async function handleAiTools(req, res, segments, db, state, user) {
 }
 
 async function handleBilling(req, res, url, segments, db, state, user) {
-  const workspaceId = url.searchParams.get('workspaceId') || segments[0];
-  if (!requireWorkspacePermission(res, db, user, workspaceId, 'billingManagement')) return;
-
-  if ((segments.length === 0 || segments[1] === 'overview') && req.method === 'GET') {
-    const subscription = db.subscriptions.find((item) => item.workspaceId === workspaceId);
-    const invoices = db.invoices.filter((invoice) => invoice.workspaceId === workspaceId).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    const usage = db.usageMeters.filter((meter) => meter.workspaceId === workspaceId).sort((a, b) => b.period.localeCompare(a.period));
-    sendJson(res, 200, { subscription, invoices, usage, plans: billingPlans(db) });
-    return;
-  }
-
-  if (segments[1] === 'invoices' && req.method === 'POST') {
-    const body = await readJson(req);
-    const invoice = createInvoice(workspaceId, body);
-    db.invoices.push(invoice);
-    db.auditLogs.push(audit(workspaceId, user.id, 'billing.invoice_created', 'invoice', invoice.id, { amount: invoice.amountDueInr }));
-    await saveDb(state);
-    sendJson(res, 201, { invoice });
-    return;
-  }
-
-  if (segments[1] === 'checkout' && req.method === 'POST') {
-    const body = await readJson(req);
-    const plan = findBillingPlan(db, body.planId);
-    if (!plan) {
-      sendJson(res, 400, { error: { code: 'invalid_plan', message: 'Unknown plan.' } });
-      return;
-    }
-    const workspace = db.workspaces.find((item) => item.id === workspaceId);
-    const checkout = await createBillingCheckoutSession(workspace, plan, user, body);
-    if (!checkout.ok) {
-      sendJson(res, 502, { error: { code: 'billing_provider_failed', message: checkout.message || 'Billing provider checkout failed.' } });
-      return;
-    }
-    db.auditLogs.push(audit(workspaceId, user.id, 'billing.checkout_created', 'billing_checkout', checkout.session.id, {
-      provider: checkout.session.provider,
-      planId: plan.id,
-      mode: checkout.session.mode
-    }));
-    await saveDb(state);
-    sendJson(res, 201, { checkout: checkout.session });
-    return;
-  }
-
-  if (segments[1] === 'portal' && req.method === 'POST') {
-    const portal = await createBillingPortalSession(db, workspaceId);
-    if (!portal.ok) {
-      sendJson(res, 400, { error: { code: 'billing_portal_unavailable', message: portal.message } });
-      return;
-    }
-    db.auditLogs.push(audit(workspaceId, user.id, 'billing.portal_created', 'billing_portal', portal.session.id, { provider: portal.session.provider }));
-    await saveDb(state);
-    sendJson(res, 201, { portal: portal.session });
-    return;
-  }
-
-  if (segments[1] === 'payment-failed' && req.method === 'POST') {
-    const subscription = db.subscriptions.find((item) => item.workspaceId === workspaceId);
-    if (subscription) {
-      subscription.status = 'past_due';
-      subscription.updatedAt = new Date().toISOString();
-    }
-    applyGracefulDowngrade(db, workspaceId);
-    db.auditLogs.push(audit(workspaceId, user.id, 'billing.payment_failed', 'subscription', subscription?.id || null, {}));
-    await saveDb(state);
-    sendJson(res, 200, { subscription, workspace: db.workspaces.find((item) => item.id === workspaceId) });
-    return;
-  }
-
-  sendJson(res, 404, { error: { code: 'not_found', message: 'Billing route not found.' } });
+  return handleBillingRoute({
+    req, res, url, segments, db, state, user,
+    requireWorkspacePermission, billingPlans, readJson, createInvoice, audit, saveDb, sendJson,
+    findBillingPlan, createBillingCheckoutSession, createBillingPortalSession, applyGracefulDowngrade
+  });
 }
 
 async function handleBillingWebhook(req, res, providerInput, db, state) {
@@ -2685,10 +2309,7 @@ async function handleAdmin(req, res, url, segments, db, state, user) {
     return;
   }
 
-  if (segments[0] === 'readiness' && req.method === 'GET') {
-    sendJson(res, 200, buildReadinessReport(db, state));
-    return;
-  }
+  if (handleAdminReadinessRoute({ req, res, segments, db, state, buildReadinessReport, sendJson })) return;
 
   if (segments[0] === 'users' && req.method === 'GET') {
     const query = cleanText(url.searchParams.get('q') || '', 120).toLowerCase();
@@ -2899,7 +2520,6 @@ async function handleApiV1(req, res, url, segments, db, state) {
   if (segments[0] === 'surveys' && segments.length === 1 && req.method === 'GET') {
     if (!requireApiScope(res, apiKey, 'surveys:read')) return;
     const surveys = db.surveys.filter((survey) => survey.workspaceId === workspaceId && survey.status !== 'archived');
-    await saveDb(state);
     sendJson(res, 200, { surveys });
     return;
   }
@@ -2914,7 +2534,7 @@ async function handleApiV1(req, res, url, segments, db, state) {
       title: cleanText(body.title || template?.schema.title || 'API Survey', 160),
       description: cleanText(body.description || template?.schema.description || '', 500),
       type: cleanText(body.type || template?.type || 'feedback_form', 60),
-      schema: body.schema || (template ? structuredCloneCompat(template.schema) : undefined)
+      schema: body.schema || (template ? structuredClone(template.schema) : undefined)
     });
     db.surveys.push(survey);
     markTemplateUsed(db, template);
@@ -2934,7 +2554,6 @@ async function handleApiV1(req, res, url, segments, db, state) {
 
     if (segments.length === 2 && req.method === 'GET') {
       if (!requireApiScope(res, apiKey, 'surveys:read')) return;
-      await saveDb(state);
       sendJson(res, 200, { survey });
       return;
     }
@@ -2997,7 +2616,6 @@ async function handleApiV1(req, res, url, segments, db, state) {
     if (segments[2] === 'analytics' && req.method === 'GET') {
       if (!requireApiScope(res, apiKey, 'analytics:read')) return;
       const responses = db.responses.filter((item) => item.surveyId === survey.id && item.status !== 'deleted');
-      await saveDb(state);
       sendJson(res, 200, { analytics: buildAnalytics(survey, responses) });
       return;
     }
@@ -3011,7 +2629,6 @@ async function handleApiV1(req, res, url, segments, db, state) {
 
       if (req.method === 'GET') {
         if (!requireApiScope(res, apiKey, 'responses:read')) return;
-        await saveDb(state);
         sendJson(res, 200, { response: buildResponseDetail(db, survey, response) });
         return;
       }
@@ -3105,7 +2722,6 @@ async function handleApiV1(req, res, url, segments, db, state) {
 
     if (req.method === 'GET') {
       if (!requireApiScope(res, apiKey, 'responses:read')) return;
-      await saveDb(state);
       sendJson(res, 200, { response: buildResponseDetail(db, survey, response) });
       return;
     }
@@ -3137,7 +2753,6 @@ async function handleApiV1(req, res, url, segments, db, state) {
     const survey = surveyId ? db.surveys.find((item) => item.id === surveyId && item.workspaceId === workspaceId) : null;
     const base = db.responses.filter((item) => item.workspaceId === workspaceId && (!surveyId || item.surveyId === surveyId) && item.status !== 'deleted');
     const result = filterResponses(base, url, survey);
-    await saveDb(state);
     sendJson(res, 200, result);
     return;
   }
@@ -3191,7 +2806,6 @@ async function handleApiV1(req, res, url, segments, db, state) {
     if (req.method === 'GET') {
       if (!requireApiScope(res, apiKey, 'contacts:read')) return;
       const responses = db.responses.filter((response) => response.workspaceId === workspaceId && response.respondentId && db.respondents.some((respondent) => respondent.id === response.respondentId && respondent.email === contact.email));
-      await saveDb(state);
       sendJson(res, 200, { contact, responses });
       return;
     }
@@ -3209,14 +2823,12 @@ async function handleApiV1(req, res, url, segments, db, state) {
 
   if (segments[0] === 'contacts' && segments.length === 1 && req.method === 'GET') {
     if (!requireApiScope(res, apiKey, 'contacts:read')) return;
-    await saveDb(state);
     sendJson(res, 200, { contacts: db.contacts.filter((item) => item.workspaceId === workspaceId) });
     return;
   }
 
   if (segments[0] === 'webhooks' && segments.length === 1 && req.method === 'GET') {
     if (!requireApiScope(res, apiKey, 'webhooks:read')) return;
-    await saveDb(state);
     sendJson(res, 200, { webhooks: db.webhooks.filter((item) => item.workspaceId === workspaceId).map(publicWebhook) });
     return;
   }
@@ -3224,21 +2836,22 @@ async function handleApiV1(req, res, url, segments, db, state) {
   if (segments[0] === 'webhooks' && segments.length === 1 && req.method === 'POST') {
     if (!requireApiScope(res, apiKey, 'webhooks:write')) return;
     const body = await readJson(req);
+    const webhookUrl = cleanUrl(body.url);
+    if (!webhookUrl || !(await isSafeOutboundUrl(webhookUrl))) {
+      sendJson(res, 400, { error: { code: 'invalid_webhook', message: 'A valid webhook URL is required.' } });
+      return;
+    }
     const rawSecret = crypto.randomBytes(24).toString('hex');
     const webhook = {
       id: makeId('wh'),
       workspaceId,
-      url: cleanUrl(body.url),
+      url: webhookUrl,
       events: Array.isArray(body.events) ? body.events.map((item) => cleanText(item, 80)).filter(Boolean).slice(0, 20) : ['response.completed'],
       secretEncrypted: encryptConfig({ secret: rawSecret }),
       active: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    if (!webhook.url) {
-      sendJson(res, 400, { error: { code: 'invalid_webhook', message: 'A valid webhook URL is required.' } });
-      return;
-    }
     db.webhooks.push(webhook);
     db.auditLogs.push(audit(workspaceId, apiKey.createdBy, 'api.webhook_created', 'webhook', webhook.id, { apiKeyId: apiKey.id, url: webhook.url }));
     await saveDb(state);
@@ -3289,12 +2902,10 @@ async function handleApiV1(req, res, url, segments, db, state) {
   if (segments[0] === 'webhook-logs' && req.method === 'GET') {
     if (!requireApiScope(res, apiKey, 'webhooks:read')) return;
     const webhookIds = db.webhooks.filter((item) => item.workspaceId === workspaceId).map((item) => item.id);
-    await saveDb(state);
     sendJson(res, 200, { webhookLogs: db.webhookLogs.filter((log) => webhookIds.includes(log.webhookId)) });
     return;
   }
 
-  await saveDb(state);
   sendJson(res, 404, { error: { code: 'not_found', message: 'API v1 route not found.' } });
 }
 
@@ -3335,7 +2946,12 @@ async function handlePublic(req, res, url, segments, db, state) {
     }
     survey.metrics.views += 1;
     survey.updatedAt = new Date().toISOString();
-    await saveDb(state);
+    const lastSaved = state.surveyViewLastSaved?.get(survey.id) || 0;
+    const now = Date.now();
+    if (now - lastSaved >= 10000) {
+      state.surveyViewLastSaved?.set(survey.id, now);
+      saveDb(state).catch((error) => console.error('Throttled survey view save failed', error));
+    }
     sendJson(res, 200, { survey: publicSurveyPayload(db, survey, url.searchParams.get('lang') || '') });
     return;
   }
@@ -3684,7 +3300,7 @@ async function loadPostgresDb(state) {
   const db = migrateDb({ ...createEmptyDb(), ...snapshot });
   await loadPostgresPlatformSettings(pool, db);
   if (hasRelationalRows) {
-    await loadPostgresRelationalCollections(pool, db);
+    await loadPostgresRelationalCollections(pool, db, state);
   }
   return db;
 }
@@ -3694,22 +3310,36 @@ async function savePostgresDb(state, db) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query(
-      `INSERT INTO platform_settings(key, value_json, updated_at)
-       VALUES ($1, $2::jsonb, now())
-       ON CONFLICT (key)
-       DO UPDATE SET value_json = EXCLUDED.value_json, updated_at = now()`,
-      [POSTGRES_RUNTIME_STATE_KEY, JSON.stringify(db || createEmptyDb())]
-    );
+    if (postgresCompatibilitySnapshotEnabled()) {
+      await client.query(
+        `INSERT INTO platform_settings(key, value_json, updated_at)
+         VALUES ($1, $2::jsonb, now())
+         ON CONFLICT (key)
+         DO UPDATE SET value_json = EXCLUDED.value_json, updated_at = now()`,
+        [POSTGRES_RUNTIME_STATE_KEY, JSON.stringify(db || createEmptyDb())]
+      );
+    }
     await savePostgresPlatformSettings(client, db || createEmptyDb());
-    await savePostgresRelationalCollections(client, db || createEmptyDb());
+    const nextPgShadow = {};
+    await savePostgresRelationalCollections(client, db || createEmptyDb(), state, nextPgShadow);
+    if (!postgresCompatibilitySnapshotEnabled()) {
+      await client.query('DELETE FROM platform_settings WHERE key = $1', [POSTGRES_RUNTIME_STATE_KEY]);
+    }
     await client.query('COMMIT');
+    state.pgShadow = nextPgShadow;
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
     throw error;
   } finally {
     client.release();
   }
+}
+
+function postgresCompatibilitySnapshotEnabled() {
+  if (process.env.POSTGRES_COMPATIBILITY_SNAPSHOT !== undefined) {
+    return String(process.env.POSTGRES_COMPATIBILITY_SNAPSHOT).toLowerCase() === 'true';
+  }
+  return process.env.NODE_ENV !== 'production';
 }
 
 async function loadPostgresPlatformSettings(pool, db) {
@@ -4091,6 +3721,8 @@ const POSTGRES_RELATIONAL_COLLECTIONS = [
     collection: 'webhooks',
     table: 'webhooks',
     orderBy: 'created_at',
+    prepare: postgresPrepareWebhook,
+    hydrate: postgresHydrateWebhook,
     fields: {
       id: 'id',
       workspaceId: 'workspace_id',
@@ -4445,7 +4077,10 @@ async function postgresHasRelationalRows(pool) {
   return false;
 }
 
-async function loadPostgresRelationalCollections(pool, db) {
+async function loadPostgresRelationalCollections(pool, db, state) {
+  if (state && !state.pgShadow) {
+    state.pgShadow = {};
+  }
   for (const config of POSTGRES_RELATIONAL_COLLECTIONS) {
     const result = await pool.query(`SELECT * FROM ${config.table} ORDER BY ${config.orderBy || 'id'} ASC`);
     const snapshotById = new Map((db[config.collection] || []).map((item) => [item.id, item]));
@@ -4456,22 +4091,60 @@ async function loadPostgresRelationalCollections(pool, db) {
       };
       return config.hydrate ? config.hydrate(item, row) : item;
     });
+    if (state) {
+      const currentById = new Map();
+      for (const item of db[config.collection] || []) {
+        const prepared = config.prepare ? config.prepare(item) : item;
+        const { columns, values } = postgresObjectToRow(config, prepared);
+        currentById.set(item.id, { columns, values });
+      }
+      state.pgShadow[config.collection] = currentById;
+    }
   }
 }
 
-async function savePostgresRelationalCollections(client, db) {
-  for (const config of [...POSTGRES_RELATIONAL_COLLECTIONS].reverse()) {
-    await client.query(`DELETE FROM ${config.table}`);
-  }
+async function savePostgresRelationalCollections(client, db, state, nextPgShadow) {
   for (const config of POSTGRES_RELATIONAL_COLLECTIONS) {
+    const currentById = new Map();
     for (const item of db[config.collection] || []) {
-      const { columns, values } = postgresObjectToRow(config, config.prepare ? config.prepare(item) : item);
-      if (!columns.length) continue;
-      const placeholders = columns.map((_, index) => `$${index + 1}`).join(', ');
-      await client.query(
-        `INSERT INTO ${config.table} (${columns.join(', ')}) VALUES (${placeholders})`,
-        values
-      );
+      const prepared = config.prepare ? config.prepare(item) : item;
+      const { columns, values } = postgresObjectToRow(config, prepared);
+      currentById.set(item.id, { columns, values });
+    }
+    nextPgShadow[config.collection] = currentById;
+  }
+
+  // Deletes: reverse order
+  for (const config of [...POSTGRES_RELATIONAL_COLLECTIONS].reverse()) {
+    const currentById = nextPgShadow[config.collection];
+    const shadowById = state.pgShadow?.[config.collection] ?? new Map();
+    for (const id of shadowById.keys()) {
+      if (!currentById.has(id)) {
+        await client.query(`DELETE FROM ${config.table} WHERE id = $1`, [id]);
+      }
+    }
+  }
+
+  // Upserts: forward order
+  for (const config of POSTGRES_RELATIONAL_COLLECTIONS) {
+    const currentById = nextPgShadow[config.collection];
+    const shadowById = state.pgShadow?.[config.collection] ?? new Map();
+    for (const [id, row] of currentById.entries()) {
+      const shadowRow = shadowById.get(id);
+      const needsUpsert = !shadowRow || JSON.stringify(row.values) !== JSON.stringify(shadowRow.values);
+      if (needsUpsert) {
+        if (!row.columns.length) continue;
+        const placeholders = row.columns.map((_, index) => `$${index + 1}`).join(', ');
+        const nonIdCols = row.columns.filter((c) => c !== 'id');
+        let queryStr = `INSERT INTO ${config.table} (${row.columns.join(', ')}) VALUES (${placeholders})`;
+        if (nonIdCols.length > 0) {
+          const updateClause = nonIdCols.map((c) => `${c} = EXCLUDED.${c}`).join(', ');
+          queryStr += ` ON CONFLICT (id) DO UPDATE SET ${updateClause}`;
+        } else {
+          queryStr += ` ON CONFLICT (id) DO NOTHING`;
+        }
+        await client.query(queryStr, row.values);
+      }
     }
   }
 }
@@ -4546,6 +4219,24 @@ function postgresHydrateMonthlyReport(item = {}) {
   };
 }
 
+function postgresPrepareWebhook(item = {}) {
+  return {
+    ...item,
+    secret: item.secretEncrypted || item.secret || ''
+  };
+}
+
+function postgresHydrateWebhook(item = {}) {
+  const storedSecret = String(item.secret || '');
+  if (!storedSecret) return item;
+  const encrypted = /^[a-f0-9]+:[a-f0-9]+:[a-f0-9]+$/i.test(storedSecret)
+    ? storedSecret
+    : encryptConfig({ secret: storedSecret });
+  const hydrated = { ...item, secretEncrypted: encrypted };
+  delete hydrated.secret;
+  return hydrated;
+}
+
 function postgresSerializeValue(descriptor, value) {
   if (descriptor.type === 'json') return JSON.stringify(value ?? descriptor.fallback ?? null);
   if (descriptor.type === 'date') return cleanFutureOrPastIso(value, '') || null;
@@ -4565,7 +4256,7 @@ function postgresSerializeValue(descriptor, value) {
 }
 
 function postgresDeserializeValue(descriptor, value) {
-  if (descriptor.type === 'json') return value === null || value === undefined ? structuredCloneCompat(descriptor.fallback ?? null) : value;
+  if (descriptor.type === 'json') return value === null || value === undefined ? structuredClone(descriptor.fallback ?? null) : value;
   if (descriptor.type === 'date') return value ? new Date(value).toISOString() : '';
   if (descriptor.type === 'integer') return value === null || value === undefined ? null : Number(value);
   if (descriptor.type === 'number') return value === null || value === undefined ? null : Number(value);
@@ -4581,6 +4272,19 @@ async function ensurePostgresRuntime(state) {
     const result = await pool.query("SELECT to_regclass('public.platform_settings') AS table_name");
     if (!result.rows[0]?.table_name) {
       throw new Error('PostgreSQL baseline migration has not been applied. Run migrations/0001_initial_postgres.sql before using DATABASE_URL.');
+    }
+    const client = await pool.connect();
+    try {
+      const lockRes = await client.query('SELECT pg_try_advisory_lock($1) AS locked', [4159283748291029n]);
+      if (!lockRes.rows[0]?.locked) {
+        console.error("Another Formspear writer instance holds the DB advisory lock; refusing to start a second writer (see docs/REVIEW_REMEDIATION_PLAN.md ITEM-2).");
+        client.release(true);
+        process.exit(1);
+      }
+      state.pgLockClient = client;
+    } catch (error) {
+      client.release(true);
+      throw error;
     }
     return pool;
   })();
@@ -4783,6 +4487,13 @@ async function runWebhookJob(db, job) {
   const hook = db.webhooks.find((item) => item.id === webhookId && item.active);
   const log = db.webhookLogs.find((item) => item.id === webhookLogId);
   if (!hook) throw new Error('Webhook no longer exists or is inactive.');
+  if (!(await isSafeOutboundUrl(hook.url))) {
+    if (log) {
+      log.responseStatus = 'blocked';
+      log.error = 'destination blocked by SSRF policy';
+    }
+    throw new Error('destination blocked by SSRF policy');
+  }
   const hookSecret = hook.secretEncrypted ? (decryptConfig(hook.secretEncrypted).secret || '') : (hook.secret || '');
   const body = JSON.stringify({
     event,
@@ -5049,6 +4760,9 @@ async function deliverIntegrationPayload(integration, event, payloadJson) {
       status: integration.type === 'google_sheets' ? 'synced_simulated' : 'sent_simulated',
       responseStatus: 'simulated'
     };
+  }
+  if (!(await isSafeOutboundUrl(request.url))) {
+    throw new Error('destination blocked by SSRF policy');
   }
   const body = JSON.stringify(request.body);
   const controller = new AbortController();
@@ -6213,8 +5927,8 @@ function createSurveyVersion(db, survey, userId) {
     id: makeId('ver'),
     surveyId: survey.id,
     versionNumber: latest + 1,
-    schemaJson: structuredCloneCompat(survey.schema),
-    logicJson: structuredCloneCompat(survey.schema.logic || []),
+    schemaJson: structuredClone(survey.schema),
+    logicJson: structuredClone(survey.schema.logic || []),
     createdBy: userId,
     createdAt: new Date().toISOString()
   };
@@ -6662,12 +6376,19 @@ function validateFileAnswer(questionItem, value) {
   for (const file of files) {
     if (!file || typeof file !== 'object') return { ok: false, message: `${questionItem.title} must be a file upload.` };
     const name = cleanText(file.name || '', 240);
-    const size = Number(file.size || 0);
     const type = cleanText(file.type || '', 120).toLowerCase();
     const ext = cleanText(file.extension || path.extname(name).slice(1), 20).toLowerCase();
     const dataUrl = typeof file.dataUrl === 'string' ? file.dataUrl : '';
-    if (!name || !size || size < 0) return { ok: false, message: `${questionItem.title} has invalid file metadata.` };
-    if (size > maxBytes) return { ok: false, message: `${questionItem.title} exceeds ${questionItem.settings.maxSizeMB || 5} MB.` };
+    const declaredSize = Number(file.size || 0);
+    const actualBytes = dataUrl ? decodeDataUrlBuffer(dataUrl).length : declaredSize;
+
+    if (!name || actualBytes <= 0) return { ok: false, message: `${questionItem.title} has invalid file metadata.` };
+    if (actualBytes > maxBytes) return { ok: false, message: `${questionItem.title} exceeds ${questionItem.settings.maxSizeMB || 5} MB.` };
+
+    if (dataUrl && Math.abs(actualBytes - declaredSize) > 1024) {
+      return { ok: false, message: `${questionItem.title} has invalid file metadata.` };
+    }
+
     if (allowed.size && !allowed.has(ext) && !allowed.has(type.split('/').pop())) {
       return { ok: false, message: `${questionItem.title} only allows ${[...allowed].join(', ')} files.` };
     }
@@ -6828,7 +6549,7 @@ function resolveInAppSurvey(db, body) {
 }
 
 function applySurveyLanguage(schema, language) {
-  const translated = structuredCloneCompat(schema);
+  const translated = structuredClone(schema);
   const code = cleanText(language || '', 20).toLowerCase();
   const translation = code ? schema.translations?.[code] : null;
   if (!translation) {
@@ -6971,7 +6692,7 @@ function publicResumeLink(req, survey, response, resumeToken) {
 }
 
 function responseCompletion(survey, schema, response = null) {
-  const completion = structuredCloneCompat(schema.completion || survey.schema.completion || { type: 'message', message: 'Thank you for your response.' });
+  const completion = structuredClone(schema.completion || survey.schema.completion || { type: 'message', message: 'Thank you for your response.' });
   const logicCompletion = response?.logicCompletionJson || null;
   if (logicCompletion?.message) completion.message = cleanText(logicCompletion.message, 300);
   if (logicCompletion?.type) completion.type = cleanText(logicCompletion.type, 40);
@@ -7487,6 +7208,7 @@ function buildAiSummary(survey, responses) {
     }
   }
   const keywords = topKeywords(allText.join(' '), 12);
+  const themeEvidence = buildThemeEvidence(keywords, responses);
   const intent = buildIntentSummary(responses);
   const complaintClusters = buildComplaintClusters(responses);
   const responseClusters = buildResponseClusters(responses, keywords);
@@ -7500,6 +7222,7 @@ function buildAiSummary(survey, responses) {
       ? `${survey.title} collected ${responses.length} completed responses with ${sentiment.positive} positive and ${sentiment.negative} negative signals.`
       : 'No completed responses yet. Publish and share the survey to generate insights.',
     keyThemes: keywords.map((item) => item.label),
+    themeEvidence,
     positiveThemes: positiveShare >= 0.35 ? ['Customers are reporting usable positive sentiment.', ...keywords.slice(0, 3).map((item) => item.label)] : keywords.slice(0, 3).map((item) => item.label),
     negativeThemes: negativeShare >= 0.2 ? ['Investigate negative comments quickly.', ...keywords.slice(3, 7).map((item) => item.label)] : keywords.slice(3, 6).map((item) => item.label),
     urgentResponses: urgent,
@@ -7511,6 +7234,31 @@ function buildAiSummary(survey, responses) {
     sentiment,
     leadQualitySummary: summarizeLeadQuality(responses)
   };
+}
+
+function buildThemeEvidence(keywords, responses) {
+  return keywords.slice(0, 8).map((keyword) => {
+    const label = cleanText(keyword.label || '', 80).toLowerCase();
+    const evidence = responses
+      .filter((response) => label && answersToText(response.answersJson).toLowerCase().includes(label))
+      .slice(0, 3)
+      .map((response) => ({
+        responseId: response.id,
+        excerpt: evidenceExcerpt(answersToText(response.answersJson), label),
+        sentiment: response.sentiment || 'neutral',
+        leadScore: Number(response.leadScore || 0)
+      }));
+    return { theme: keyword.label, responseCount: evidence.length, evidence };
+  }).filter((item) => item.evidence.length);
+}
+
+function evidenceExcerpt(text, term) {
+  const cleaned = cleanText(text, 1000);
+  const index = cleaned.toLowerCase().indexOf(String(term || '').toLowerCase());
+  if (index < 0) return cleanText(cleaned, 220);
+  const start = Math.max(0, index - 80);
+  const end = Math.min(cleaned.length, index + String(term).length + 120);
+  return `${start ? '…' : ''}${cleaned.slice(start, end)}${end < cleaned.length ? '…' : ''}`;
 }
 
 async function buildAiSummaryWithProvider(db, survey, responses, workspace) {
@@ -7530,7 +7278,7 @@ async function buildAiSummaryWithProvider(db, survey, responses, workspace) {
       text: cleanText(answersToText(response.answersJson), 500),
       tags: response.tagsJson || []
     }))
-  }, 'Return JSON with headline, keyThemes, positiveThemes, negativeThemes, recommendedActions, optional urgentResponses, intentSummary, intentClassifications, responseClusters, and complaintClusters. Do not include data outside the provided survey responses.', workspace);
+  }, 'Return JSON with headline, keyThemes, positiveThemes, negativeThemes, recommendedActions, optional themeEvidence, urgentResponses, intentSummary, intentClassifications, responseClusters, and complaintClusters. Every themeEvidence item must contain a theme and evidence items with responseId values copied exactly from the provided responses. Do not include data outside the provided survey responses.', workspace);
   if (!provider) return fallback;
   const data = provider.data || {};
   return {
@@ -7541,6 +7289,7 @@ async function buildAiSummaryWithProvider(db, survey, responses, workspace) {
     providerUsage: provider.usage,
     headline: cleanText(data.headline || fallback.headline, 500),
     keyThemes: normalizeStringArray(data.keyThemes, fallback.keyThemes, 12),
+    themeEvidence: normalizeThemeEvidence(data.themeEvidence, fallback.themeEvidence, responses),
     positiveThemes: normalizeStringArray(data.positiveThemes, fallback.positiveThemes, 8),
     negativeThemes: normalizeStringArray(data.negativeThemes, fallback.negativeThemes, 8),
     recommendedActions: normalizeStringArray(data.recommendedActions, fallback.recommendedActions, 8),
@@ -7557,6 +7306,27 @@ async function buildAiSummaryWithProvider(db, survey, responses, workspace) {
       }))
       : fallback.urgentResponses
   };
+}
+
+function normalizeThemeEvidence(value, fallback, responses) {
+  if (!Array.isArray(value) || !value.length) return fallback || [];
+  const byId = new Map(responses.map((response) => [response.id, response]));
+  return value.slice(0, 8).map((item) => {
+    const evidence = (Array.isArray(item?.evidence) ? item.evidence : [])
+      .map((entry) => {
+        const response = byId.get(cleanText(entry?.responseId || '', 120));
+        if (!response) return null;
+        return {
+          responseId: response.id,
+          excerpt: cleanText(entry.excerpt || answersToText(response.answersJson), 220),
+          sentiment: response.sentiment || 'neutral',
+          leadScore: Number(response.leadScore || 0)
+        };
+      })
+      .filter(Boolean)
+      .slice(0, 3);
+    return { theme: cleanText(item?.theme || '', 80), responseCount: evidence.length, evidence };
+  }).filter((item) => item.theme && item.evidence.length);
 }
 
 async function generateSurveySchemaWithProvider(db, input = {}, workspace) {
@@ -8889,7 +8659,15 @@ function verifyBillingWebhookSignature(provider, rawBody, headers) {
     const timestamp = (signature.match(/(?:^|,)t=([^,]+)/) || [])[1] || '';
     const actual = (signature.match(/(?:^|,)v1=([^,]+)/) || [])[1] || '';
     const expected = crypto.createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest('hex');
-    return timingSafeEqualHex(actual, expected) ? { ok: true, mode: 'stripe' } : { ok: false, message: 'Stripe webhook signature is invalid.' };
+    if (!timingSafeEqualHex(actual, expected)) {
+      return { ok: false, message: 'Stripe webhook signature is invalid.' };
+    }
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const tsSeconds = parseInt(timestamp, 10);
+    if (isNaN(tsSeconds) || Math.abs(nowSeconds - tsSeconds) > 300) {
+      return { ok: false, message: 'Stripe webhook signature is invalid.' };
+    }
+    return { ok: true, mode: 'stripe' };
   }
   const secret = String(process.env.RAZORPAY_WEBHOOK_SECRET || '');
   if (!secret) return { ok: false, message: 'RAZORPAY_WEBHOOK_SECRET is not configured.' };
@@ -9254,7 +9032,7 @@ function applyResponseLogic(db, survey, schema, response, answers, allowNotifica
 }
 
 async function persistFileAnswers(db, survey, schema, response, answers) {
-  const output = structuredCloneCompat(answers);
+  const output = structuredClone(answers);
   let storageBytes = 0;
   const uploadQuestions = schema.questions.filter((questionItem) => questionItem.type === 'file_upload');
   const preparedQuestions = new Map();
@@ -9309,7 +9087,7 @@ async function prepareFileUpload(db, survey, response, questionItem, file) {
     name: cleanText(file.name || 'upload', 240),
     type: cleanText(file.type || '', 120),
     extension: cleanText(file.extension || path.extname(file.name || '').slice(1), 20).toLowerCase(),
-    size: Math.max(0, Number(file.size || 0)),
+    size: payload.length,
     sha256: crypto.createHash('sha256').update(payload).digest('hex'),
     storageProvider: '',
     storageBucket: '',
@@ -10038,7 +9816,13 @@ function formatAnswerText(value) {
 }
 
 function csvEscape(value) {
-  const text = String(value ?? '');
+  let text = String(value ?? '');
+  if (typeof value === 'string' && text.length > 0) {
+    const firstChar = text[0];
+    if (['=', '+', '-', '@', '\t', '\r'].includes(firstChar)) {
+      text = `'${text}`;
+    }
+  }
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
@@ -10126,7 +9910,7 @@ function buildReadinessReport(db, state) {
   const checks = [
     readinessCheck('health', 'Health endpoint', 'pass', '/api/health is available.'),
     readinessCheck('migration', 'PostgreSQL migration baseline', hasMigration ? 'pass' : 'fail', hasMigration ? 'Baseline migration file exists.' : 'Missing migrations/0001_initial_postgres.sql.'),
-    readinessCheck('database', 'PostgreSQL runtime store', providers.database.configured ? 'pass' : 'fail', providers.database.configured ? 'DATABASE_URL is configured and the runtime can use relational core tables plus a compatibility snapshot after migrations are applied.' : 'Set DATABASE_URL and apply the PostgreSQL baseline migration.'),
+    readinessCheck('database', 'PostgreSQL runtime store', providers.database.configured ? 'pass' : 'fail', providers.database.configured ? `DATABASE_URL is configured; runtime persistence uses relational core tables${postgresCompatibilitySnapshotEnabled() ? ' plus the development compatibility snapshot' : ' without the compatibility snapshot'}.` : 'Set DATABASE_URL and apply the PostgreSQL baseline migration.'),
     readinessCheck('queue', 'Redis/BullMQ queue', providers.queue.configured ? 'pass' : 'fail', providers.queue.configured ? `REDIS_URL is configured; run ${providers.queue.workerCommand} for BullMQ workers on ${providers.queue.queueName}.` : 'Set REDIS_URL and run the BullMQ worker for a durable production queue.'),
     readinessCheck('email', 'SMTP/email provider', providers.email.configured ? 'pass' : 'fail', providers.email.configured ? 'SMTP provider variables are configured.' : 'Set SMTP_HOST, SMTP_USER, and SMTP_PASSWORD.'),
     readinessCheck('ai', 'LLM provider', providers.ai.configured ? 'pass' : 'fail', providers.ai.configured ? `OPENAI_API_KEY is configured, model ${providers.ai.model || 'default'} is allowed, and provider DPA acceptance is recorded.` : 'Set OPENAI_API_KEY, use an allowed OpenAI-compatible model, and set AI_PROVIDER_DPA_ACCEPTED after legal review.'),
@@ -10155,7 +9939,7 @@ function buildReadinessReport(db, state) {
     },
     runtime: {
       node: process.version,
-      dataStore: state.databaseUrl ? 'postgres_relational_core_with_snapshot' : 'local_json',
+      dataStore: state.databaseUrl ? (postgresCompatibilitySnapshotEnabled() ? 'postgres_relational_core_with_snapshot' : 'postgres_relational_core') : 'local_json',
       dataFile: state.dataFile ? path.relative(ROOT, state.dataFile) : '',
       jobPollIntervalMs: JOB_POLL_INTERVAL_MS,
       queueMode: providers.queue.mode,
@@ -11326,49 +11110,6 @@ function apiRateAllowed(apiKey) {
   return bucket.count <= apiKey.rateLimitPerMinute;
 }
 
-function encryptionKey() {
-  const raw = process.env.ENCRYPTION_KEY;
-  if (!raw || raw === 'replace-with-32-byte-secret') {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('ENCRYPTION_KEY must be set to a strong secret in production.');
-    }
-  }
-  return crypto.createHash('sha256').update(raw || 'formspear-local-dev-key').digest();
-}
-
-function encryptConfig(config) {
-  const key = encryptionKey();
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  const encrypted = Buffer.concat([cipher.update(JSON.stringify(config), 'utf8'), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  return `${iv.toString('hex')}:${tag.toString('hex')}:${encrypted.toString('hex')}`;
-}
-
-function decryptConfig(encrypted) {
-  if (!encrypted) return {};
-  try {
-    const [ivHex, tagHex, encryptedHex] = String(encrypted).split(':');
-    if (!ivHex || !tagHex || !encryptedHex) return {};
-    const key = encryptionKey();
-    const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'));
-    decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
-    const decrypted = Buffer.concat([decipher.update(Buffer.from(encryptedHex, 'hex')), decipher.final()]).toString('utf8');
-    return JSON.parse(decrypted);
-  } catch {
-    return {};
-  }
-}
-
-function publicWebhook(webhook) {
-  if (!webhook) return webhook;
-  const copy = { ...webhook };
-  delete copy.secret;
-  delete copy.secretEncrypted;
-  copy.secret = '[hidden]';
-  return copy;
-}
-
 function isValidTimezone(tz) {
   if (!tz || typeof tz !== 'string') return false;
   try {
@@ -11382,32 +11123,6 @@ function cleanTimezone(tz, fallback = 'Asia/Kolkata') {
   if (!tz) return fallback;
   const cleaned = cleanText(tz, 80);
   return isValidTimezone(cleaned) ? cleaned : fallback;
-}
-
-function hashToken(token) {
-  return crypto.createHash('sha256').update(String(token || '')).digest('hex');
-}
-
-function signPayload(body, secret) {
-  const signingSecret = secret || process.env.WEBHOOK_SIGNING_SECRET || 'feedbackos-local-webhook-secret';
-  return `sha256=${crypto.createHmac('sha256', signingSecret).update(body).digest('hex')}`;
-}
-
-function hashPassword(password) {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
-  return { salt, hash };
-}
-
-function verifyPassword(password, stored) {
-  if (!stored?.salt || !stored?.hash) return false;
-  const actual = crypto.scryptSync(password, stored.salt, 64);
-  const expected = Buffer.from(stored.hash, 'hex');
-  return expected.length === actual.length && crypto.timingSafeEqual(actual, expected);
-}
-
-function hashIp(ip) {
-  return crypto.createHash('sha256').update(`${ip}:${process.env.IP_HASH_SALT || 'formspear-local-salt'}`).digest('hex').slice(0, 32);
 }
 
 function audit(workspaceId, userId, action, entityType, entityId, metadataJson) {
@@ -11452,6 +11167,85 @@ function cleanEmail(value, optional = false) {
 
 function isEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || ''));
+}
+
+const dnsCache = new Map();
+
+async function cachedDnsLookup(hostname) {
+  const cached = dnsCache.get(hostname);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.ip;
+  }
+  try {
+    const result = await dns.lookup(hostname);
+    const ip = result.address;
+    dnsCache.set(hostname, { ip, expiresAt: Date.now() + 60000 });
+    return ip;
+  } catch {
+    return null;
+  }
+}
+
+function isPrivateIp(ip) {
+  if (!ip) return false;
+  if (ip === 'localhost' || ip === '::1' || ip === '0.0.0.0') return true;
+
+  const ipv4Match = ip.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (ipv4Match) {
+    const octet1 = parseInt(ipv4Match[1], 10);
+    const octet2 = parseInt(ipv4Match[2], 10);
+    if (octet1 === 127 || octet1 === 10 || octet1 === 0) return true;
+    if (octet1 === 172 && octet2 >= 16 && octet2 <= 31) return true;
+    if (octet1 === 192 && octet2 === 168) return true;
+    if (octet1 === 169 && octet2 === 254) return true;
+    return false;
+  }
+
+  const cleanIp = ip.toLowerCase().trim();
+  if (
+    cleanIp === '::1' ||
+    cleanIp.startsWith('fe80:') ||
+    cleanIp.startsWith('fc00:') ||
+    cleanIp.startsWith('fd00:')
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+async function isSafeOutboundUrl(rawUrl) {
+  if (process.env.WEBHOOK_ALLOW_PRIVATE_HOSTS === 'true') {
+    return true;
+  }
+  if (!rawUrl || typeof rawUrl !== 'string') return false;
+  let parsed;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return false;
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+  
+  if (hostname === 'localhost' || hostname.endsWith('.local') || hostname.endsWith('.internal')) {
+    return false;
+  }
+
+  if (isPrivateIp(hostname)) {
+    return false;
+  }
+
+  const resolvedIp = await cachedDnsLookup(hostname);
+  if (!resolvedIp || isPrivateIp(resolvedIp)) {
+    return false;
+  }
+
+  return true;
 }
 
 function cleanUrl(value) {
@@ -11508,6 +11302,9 @@ function setSessionCookie(res, sessionId, expires) {
     'SameSite=Lax',
     `Expires=${expires.toUTCString()}`
   ];
+  if (process.env.NODE_ENV === 'production' && process.env.INSECURE_COOKIES !== 'true') {
+    parts.push('Secure');
+  }
   res.setHeader('set-cookie', parts.join('; '));
 }
 
@@ -11560,10 +11357,6 @@ async function sendFile(res, target, contentType) {
     }
     throw error;
   }
-}
-
-function withSecurityHeaders(headers = {}) {
-  return { ...SECURITY_HEADERS, ...headers };
 }
 
 function mimeType(filePath) {
@@ -11686,10 +11479,6 @@ function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function structuredCloneCompat(value) {
-  return structuredClone(value);
-}
-
 if (require.main === module) {
   const port = Number(process.env.PORT || 4173);
   const server = createServer();
@@ -11700,6 +11489,7 @@ if (require.main === module) {
 
 module.exports = {
   createServer,
+  validateProductionEnvironment,
   processDueJobs,
   startBullMqWorker,
   closeBullMq,
