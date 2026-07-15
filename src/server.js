@@ -468,7 +468,7 @@ async function routeRequest(req, res, state) {
   const safePath = path.normalize(decodeURIComponent(url.pathname)).replace(/^([/\\])+/, '');
   const target = path.resolve(PUBLIC_DIR, safePath);
   const resolvedPublicDir = path.resolve(PUBLIC_DIR);
-  if (!target.startsWith(resolvedPublicDir)) {
+  if (target !== resolvedPublicDir && !target.startsWith(resolvedPublicDir + path.sep)) {
     sendJson(res, 403, { error: { code: 'forbidden', message: 'Forbidden.' } });
     return;
   }
@@ -11501,5 +11501,6 @@ module.exports = {
   validateSurveyForPublish,
   validateAnswers,
   visibleQuestions,
-  encryptConfig
+  encryptConfig,
+  savePostgresRelationalCollections
 };
