@@ -234,11 +234,11 @@ Sketch only. Replace the global-authoritative `state.db` with per-request row ac
 
 ## Progress
 
-- [ ] ITEM-1 — row-level Postgres writes (diff-on-save) + fewer read-path saves
-- [ ] ITEM-2 — single-writer enforcement (advisory lock + deploy pin + docs)
-- [ ] ITEM-3 — `Secure` session cookie in production
-- [ ] ITEM-4 — validate file size against decoded payload
-- [ ] ITEM-5 — CSV formula-injection neutralization
-- [ ] ITEM-6 — bounded rate-limit maps (periodic eviction)
-- [ ] ITEM-7 — SSRF guardrails on webhooks/integrations
-- [ ] ITEM-8 — hygiene batch (Stripe replay window, static-path guard, LICENSE, SAML note)
+- [x] ITEM-1 — row-level Postgres writes (diff-on-save) + fewer read-path saves
+- [x] ITEM-2 — single-writer enforcement (advisory lock + deploy pin + docs)
+- [x] ITEM-3 — `Secure` session cookie in production
+- [x] ITEM-4 — validate file size against decoded payload
+- [x] ITEM-5 — CSV formula-injection neutralization
+- [x] ITEM-6 — bounded rate-limit maps (periodic eviction)
+- [x] ITEM-7 — SSRF guardrails on webhooks/integrations
+- [x] ITEM-8 — hygiene batch (Stripe replay window, static-path guard, LICENSE, SAML note)
