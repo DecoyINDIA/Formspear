@@ -246,6 +246,10 @@ Set `S3_LIFECYCLE_DAYS` to the bucket retention policy you have configured. Work
 
 Server exceptions are always captured in local admin error logs. Configure `SENTRY_DSN` to emit Sentry store events and `POSTHOG_KEY` plus optional `POSTHOG_HOST` to emit PostHog `server_error` capture events. `MONITORING_TIMEOUT_MS` bounds provider delivery so local error handling remains fast.
 
+## Reverse Proxy and Client IP
+
+Configure `TRUST_PROXY_HOPS` with the number of reverse proxies in front of the application. `0` (the default) uses the socket address. Set to `1` on a single-proxy host (such as Railway, Render, or an NGINX ingress). Setting it too high allows clients to spoof their IP address by injecting extra `X-Forwarded-For` entries. Client IP derivation is used for public rate limiting, anti-abuse IP hashing, and login/signup throttling.
+
 ## Pre-Launch Checks
 
 ```powershell

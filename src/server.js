@@ -8,6 +8,7 @@ const crypto = require('node:crypto');
 const { URL } = require('node:url');
 const writeExcelFile = require('write-excel-file/node');
 const { validateProductionEnvironment } = require('./production-config');
+const { clientIp } = require('./lib/client-ip');
 const {
   withSecurityHeaders,
   embeddableSecurityHeaders,
@@ -735,7 +736,7 @@ async function handleSignup(req, res, db, state) {
   const body = await readJson(req);
   const name = cleanText(body.name, 120);
   const email = cleanEmail(body.email);
-  const rlKey = `${req.socket.remoteAddress || 'unknown'}:${email}`;
+  const rlKey = `${clientIp(req)}:${email}`;
   if (!authRateAllowed(rlKey)) {
     sendJson(res, 429, { error: { code: 'rate_limited', message: 'Too many attempts. Try again later.' } });
     return;
@@ -820,7 +821,7 @@ async function handleSignup(req, res, db, state) {
 async function handleLogin(req, res, db, state) {
   const body = await readJson(req);
   const email = cleanEmail(body.email);
-  const rlKey = `${req.socket.remoteAddress || 'unknown'}:${email}`;
+  const rlKey = `${clientIp(req)}:${email}`;
   if (!authRateAllowed(rlKey)) {
     sendJson(res, 429, { error: { code: 'rate_limited', message: 'Too many attempts. Try again later.' } });
     return;
@@ -8591,7 +8592,7 @@ function recordCampaignEvent(db, campaign, eventType, recipientHash, req) {
     recipientHash,
     email: contact ? contact.email : '',
     userAgent: String(req.headers['user-agent'] || '').slice(0, 500),
-    ipHash: hashIp(req.socket.remoteAddress || ''),
+    ipHash: hashIp(clientIp(req)),
     createdAt: new Date().toISOString()
   };
   db.campaignEvents.push(event);
@@ -11088,7 +11089,7 @@ function captureMetadata(req, bodyMetadata, survey) {
   const userAgent = !anonymous && survey.settings.collectUserAgent ? String(req.headers['user-agent'] || '').slice(0, 500) : '';
   const referrer = anonymous ? '' : String(req.headers.referer || bodyMetadata.referrer || '').slice(0, 500);
   return {
-    ipHash: !anonymous && survey.settings.collectIpHash ? hashIp(req.socket.remoteAddress || '') : '',
+    ipHash: !anonymous && survey.settings.collectIpHash ? hashIp(clientIp(req)) : '',
     userAgent,
     deviceType: detectDevice(userAgent),
     browser: detectBrowser(userAgent),
@@ -11432,7 +11433,7 @@ function qrForegroundColor(color) {
 }
 
 function publicRateAllowed(req, slug) {
-  const key = `${slug}:${req.socket.remoteAddress || 'unknown'}`;
+  const key = `${slug}:${clientIp(req)}`;
   const now = Date.now();
   const bucket = publicBuckets.get(key) || { count: 0, resetAt: now + PUBLIC_RATE_LIMIT_WINDOW_MS };
   if (bucket.resetAt < now) {
