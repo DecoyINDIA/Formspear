@@ -1423,6 +1423,7 @@ async function handleWorkspaces(req, res, url, segments, db, state, user) {
       customDomain: nextCustomDomain,
       customCss: sanitizeCustomCss(body.customCss ?? workspace.customCss),
       customFooterText: cleanText(body.customFooterText ?? workspace.customFooterText, 280),
+      hidePlatformBranding: body.hidePlatformBranding !== undefined ? parseBoolean(body.hidePlatformBranding) : Boolean(workspace.hidePlatformBranding),
       defaultSenderEmail: cleanEmail(body.defaultSenderEmail ?? workspace.defaultSenderEmail, true),
       privacyPolicyUrl: cleanUrl(body.privacyPolicyUrl ?? workspace.privacyPolicyUrl),
       termsUrl: cleanUrl(body.termsUrl ?? workspace.termsUrl),
@@ -6134,6 +6135,7 @@ function createWorkspace(input) {
     sso: normalizeSsoConfig({}),
     customCss: '',
     customFooterText: '',
+    hidePlatformBranding: false,
     defaultSenderEmail: '',
     dataRetentionSettings: { retentionDays: 365, anonymousModeDefault: false },
     privacyPolicyUrl: '',
@@ -6773,7 +6775,7 @@ function publicSurveyPayload(db, survey, language = '') {
       background: survey.branding.background || '#F7F3EA',
       customCss: sanitizeCustomCss(survey.branding.customCss || workspace?.customCss || ''),
       footerText: cleanText(survey.branding.footerText || workspace?.customFooterText || '', 280),
-      platformBrandingHidden: ['pro', 'agency'].includes(plan.id)
+      platformBrandingHidden: ['pro', 'agency', 'scale', 'enterprise'].includes(plan.id) && Boolean(workspace?.hidePlatformBranding || survey.branding?.hidePlatformBranding)
     },
     settings: {
       anonymousMode: survey.settings.anonymousMode,

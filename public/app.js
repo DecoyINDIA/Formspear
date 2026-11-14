@@ -1415,6 +1415,7 @@ function renderBranding() {
         <div class="field"><label>Next retention run</label><input name="retentionNextRunAt" type="datetime-local" value="${escapeAttr(dateTimeLocalValue(workspace.retentionNextRunAt))}" /></div>
         <div class="field"><label>Custom footer text</label><input name="customFooterText" value="${escapeAttr(workspace.customFooterText || '')}" /></div>
       </div>
+      <label class="choice"><input name="hidePlatformBranding" type="checkbox" ${workspace.hidePlatformBranding ? 'checked' : ''} ${['pro', 'agency', 'scale', 'enterprise'].includes(currentWorkspace()?.planId) ? '' : 'disabled'}/> Remove "Powered by Formspear" badge ${['pro', 'agency', 'scale', 'enterprise'].includes(currentWorkspace()?.planId) ? '' : '(Pro or higher required)'}</label>
       <label class="choice"><input name="allowExternalAi" type="checkbox" ${workspace.allowExternalAi !== false ? 'checked' : ''}/> Allow configured external AI provider</label>
       <label class="choice"><input name="retentionScheduleEnabled" type="checkbox" ${workspace.retentionScheduleEnabled !== false ? 'checked' : ''}/> Run retention automatically every day</label>
       <label class="choice"><input name="requirePublishApproval" type="checkbox" ${workspace.requirePublishApproval ? 'checked' : ''}/> Require admin approval before editor or API publishing</label>
@@ -3052,6 +3053,7 @@ async function submitIntegration(form) {
 async function submitBranding(form) {
   const values = formValues(form);
   values.allowExternalAi = Boolean(form.querySelector('[name="allowExternalAi"]')?.checked);
+  values.hidePlatformBranding = Boolean(form.querySelector('[name="hidePlatformBranding"]')?.checked);
   values.retentionScheduleEnabled = Boolean(form.querySelector('[name="retentionScheduleEnabled"]')?.checked);
   values.requirePublishApproval = Boolean(form.querySelector('[name="requirePublishApproval"]')?.checked);
   await api(`/api/workspaces/${state.workspaceId}`, { method: 'PUT', body: values });
