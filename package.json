@@ -19,7 +19,8 @@
     "redis:worker:smoke": "node scripts/redis-worker-smoke.js",
     "visual:smoke": "node scripts/visual-smoke.js",
     "performance:smoke": "node scripts/performance-smoke.js",
-    "performance:budget": "node scripts/performance-budget.js"
+    "performance:budget": "node scripts/performance-budget.js",
+    "postgres:save:benchmark": "node --expose-gc scripts/postgres-save-benchmark.js"
   },
   "engines": {
     "node": ">=20"
