@@ -794,7 +794,7 @@ async function handleSignup(req, res, db, state) {
     name,
     email,
     avatarUrl: '',
-    password: hashPassword(password),
+    password: await hashPassword(password),
     emailVerifiedAt: platformSettings(db).requireEmailVerification ? null : new Date().toISOString(),
     platformRole: bootstrapPlatformRole(db, email),
     timezone: cleanTimezone(body.timezone, 'Asia/Kolkata'),
@@ -859,7 +859,7 @@ async function handleLogin(req, res, db, state) {
   const rememberMe = parseBoolean(body.rememberMe || body.remember);
   const user = db.users.find((item) => item.email === email);
 
-  if (!user || user.disabled || !verifyPassword(password, user.password)) {
+  if (!user || user.disabled || !(await verifyPassword(password, user.password))) {
     sendJson(res, 401, { error: { code: 'invalid_login', message: 'Email or password is incorrect.' } });
     return;
   }
@@ -1017,7 +1017,7 @@ async function handleGoogleOAuthCallback(req, res, url, db, state) {
   try {
     const tokens = await exchangeGoogleOAuthCode(config, code, request);
     const profile = await fetchGoogleOAuthProfile(config, tokens);
-    const result = completeGoogleOAuthLogin(db, profile, request);
+    const result = await completeGoogleOAuthLogin(db, profile, request);
     request.completedAt = new Date().toISOString();
     request.status = 'completed';
     const policyError = postIdentityPolicyError(db, result.user, { federated: true });
@@ -1132,7 +1132,7 @@ async function completeSsoLogin(req, res, db, state, workspace, request, email, 
       sendJson(res, 403, { error: { code: 'sso_user_not_invited', message: 'SSO user is not provisioned and JIT provisioning is disabled.' } });
       return;
     }
-    user = createSsoUser(email, name, workspace);
+    user = await createSsoUser(email, name, workspace);
     db.users.push(user);
   }
   if (user.disabled) {
@@ -1207,7 +1207,7 @@ async function handleInviteSignup(req, res, db, state) {
       name,
       email,
       avatarUrl: '',
-      password: hashPassword(password),
+      password: await hashPassword(password),
       emailVerifiedAt: new Date().toISOString(),
       platformRole: 'user',
       timezone: cleanTimezone(body.timezone, 'Asia/Kolkata'),
@@ -1294,7 +1294,7 @@ async function handleProfile(req, res, segments, db, state, user) {
   }
   if (segments[0] === '2fa' && segments[1] === 'disable' && req.method === 'POST') {
     const body = await readJson(req);
-    const passwordOk = body.password ? verifyPassword(String(body.password || ''), user.password) : false;
+    const passwordOk = body.password ? await verifyPassword(String(body.password || ''), user.password) : false;
     const codeOk = verifyTwoFactorCode(user, body.code) || consumeRecoveryCode(user, body.recoveryCode || body.code);
     if (!passwordOk && !codeOk) {
       sendJson(res, 400, { error: { code: 'invalid_two_factor_code', message: 'Enter your password, authenticator code, or recovery code to disable 2FA.' } });
@@ -1316,7 +1316,7 @@ async function handleProfile(req, res, segments, db, state, user) {
     const body = await readJson(req);
     const currentPassword = String(body.currentPassword || '');
     const newPassword = String(body.newPassword || '');
-    if (!verifyPassword(currentPassword, user.password)) {
+    if (!(await verifyPassword(currentPassword, user.password))) {
       sendJson(res, 400, { error: { code: 'invalid_password', message: 'Current password is incorrect.' } });
       return;
     }
@@ -1324,7 +1324,7 @@ async function handleProfile(req, res, segments, db, state, user) {
       sendJson(res, 400, { error: { code: 'weak_password', message: 'New password must be at least 8 characters.' } });
       return;
     }
-    user.password = hashPassword(newPassword);
+    user.password = await hashPassword(newPassword);
     user.updatedAt = new Date().toISOString();
     db.auditLogs.push(audit(null, user.id, 'profile.password_changed', 'user', user.id, {}));
     await saveDb(state);
@@ -5910,14 +5910,14 @@ function samlAttributeValue(xml, names) {
   return '';
 }
 
-function createSsoUser(email, name, workspace) {
+async function createSsoUser(email, name, workspace) {
   const now = new Date().toISOString();
   return {
     id: makeId('usr'),
     name,
     email,
     avatarUrl: '',
-    password: hashPassword(`sso_${crypto.randomBytes(24).toString('hex')}`),
+    password: await hashPassword(`sso_${crypto.randomBytes(24).toString('hex')}`),
     emailVerifiedAt: now,
     platformRole: 'user',
     timezone: workspace.timezone || 'Asia/Kolkata',
@@ -6003,7 +6003,7 @@ async function fetchGoogleOAuthProfile(config, tokens) {
   };
 }
 
-function completeGoogleOAuthLogin(db, profile, request) {
+async function completeGoogleOAuthLogin(db, profile, request) {
   let user = db.users.find((item) => item.email === profile.email);
   let created = false;
   let workspaceId = '';
@@ -6017,7 +6017,7 @@ function completeGoogleOAuthLogin(db, profile, request) {
       name: request.name || profile.name,
       email: profile.email,
       avatarUrl: profile.avatarUrl,
-      password: hashPassword(`oauth_${crypto.randomBytes(24).toString('hex')}`),
+      password: await hashPassword(`oauth_${crypto.randomBytes(24).toString('hex')}`),
       emailVerifiedAt: now,
       platformRole: bootstrapPlatformRole(db, profile.email),
       timezone: request.timezone || 'Asia/Kolkata',

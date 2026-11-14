@@ -56,7 +56,7 @@ async function handleAuthCredentialRoute(context) {
       sendJson(res, 404, { error: { code: 'user_not_found', message: 'User not found.' } });
       return true;
     }
-    user.password = hashPassword(password);
+    user.password = await hashPassword(password);
     user.updatedAt = new Date().toISOString();
     reset.usedAt = user.updatedAt;
     db.sessions = db.sessions.filter((session) => session.userId !== user.id);

@@ -1,4 +1,7 @@
 const crypto = require('node:crypto');
+const util = require('node:util');
+
+const scryptAsync = util.promisify(crypto.scrypt);
 
 const SECURITY_HEADERS = Object.freeze({
   'x-content-type-options': 'nosniff',
@@ -67,17 +70,21 @@ function signPayload(body, secret, env = process.env) {
   return `sha256=${crypto.createHmac('sha256', signingSecret).update(body).digest('hex')}`;
 }
 
-function hashPassword(password) {
+async function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
-  return { salt, hash };
+  const derivedKey = await scryptAsync(password, salt, 64);
+  return { salt, hash: derivedKey.toString('hex') };
 }
 
-function verifyPassword(password, stored) {
+async function verifyPassword(password, stored) {
   if (!stored?.salt || !stored?.hash) return false;
-  const actual = crypto.scryptSync(password, stored.salt, 64);
-  const expected = Buffer.from(stored.hash, 'hex');
-  return expected.length === actual.length && crypto.timingSafeEqual(actual, expected);
+  try {
+    const actual = await scryptAsync(password, stored.salt, 64);
+    const expected = Buffer.from(stored.hash, 'hex');
+    return expected.length === actual.length && crypto.timingSafeEqual(actual, expected);
+  } catch {
+    return false;
+  }
 }
 
 function hashIp(ip, env = process.env) {
