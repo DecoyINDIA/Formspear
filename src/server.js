@@ -9,6 +9,7 @@ const { URL } = require('node:url');
 const writeExcelFile = require('write-excel-file/node');
 const { validateProductionEnvironment } = require('./production-config');
 const { clientIp } = require('./lib/client-ip');
+const { readBodyBuffer } = require('./lib/http-body');
 const {
   withSecurityHeaders,
   embeddableSecurityHeaders,
@@ -395,6 +396,14 @@ function createServer(options = {}) {
       if (error?.code === 'file_upload_rejected') {
         if (!res.headersSent) {
           sendJson(res, 400, { error: { code: error.code, message: error.message, details: error.details || {} } });
+        } else {
+          res.destroy();
+        }
+        return;
+      }
+      if (error?.code === 'body_too_large') {
+        if (!res.headersSent) {
+          sendJson(res, 413, { error: { code: 'body_too_large', message: 'Request body too large.' } });
         } else {
           res.destroy();
         }
@@ -11681,20 +11690,7 @@ function setSessionCookie(res, sessionId, expires) {
 }
 
 function readRawBody(req) {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', (chunk) => {
-      body += chunk;
-      if (Buffer.byteLength(body) > MAX_BODY_BYTES) {
-        reject(new Error('Request body too large.'));
-        req.destroy();
-      }
-    });
-    req.on('end', () => {
-      resolve(body);
-    });
-    req.on('error', reject);
-  });
+  return readBodyBuffer(req, MAX_BODY_BYTES).then((buffer) => buffer.toString('utf8'));
 }
 
 async function readJson(req) {
