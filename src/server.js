@@ -11,6 +11,7 @@ const { validateProductionEnvironment } = require('./production-config');
 const { clientIp } = require('./lib/client-ip');
 const { readBodyBuffer } = require('./lib/http-body');
 const { isSafeOutboundUrl } = require('./lib/outbound');
+const { loadAsset, isCompressible, negotiateEncoding } = require('./lib/static-assets');
 const {
   withSecurityHeaders,
   embeddableSecurityHeaders,
@@ -467,22 +468,22 @@ async function routeRequest(req, res, state) {
   }
 
   if (url.pathname === '/privacy') {
-    await sendFile(res, path.join(PUBLIC_DIR, 'privacy.html'), 'text/html; charset=utf-8');
+    await sendFile(req, res, path.join(PUBLIC_DIR, 'privacy.html'), 'text/html; charset=utf-8');
     return;
   }
 
   if (url.pathname === '/terms') {
-    await sendFile(res, path.join(PUBLIC_DIR, 'terms.html'), 'text/html; charset=utf-8');
+    await sendFile(req, res, path.join(PUBLIC_DIR, 'terms.html'), 'text/html; charset=utf-8');
     return;
   }
 
   if (url.pathname === '/' || url.pathname === '/app') {
-    await sendFile(res, path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8');
+    await sendFile(req, res, path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8');
     return;
   }
 
   if (url.pathname.startsWith('/s/')) {
-    await sendFile(res, path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8', embeddableSecurityHeaders);
+    await sendFile(req, res, path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8', embeddableSecurityHeaders);
     return;
   }
 
@@ -494,7 +495,7 @@ async function routeRequest(req, res, state) {
     return;
   }
 
-  await sendFile(res, target);
+  await sendFile(req, res, target);
 }
 
 async function handleApi(req, res, url, state) {
@@ -11639,17 +11640,30 @@ function sendJsonWithHeaders(res, status, payload, headers = {}) {
   res.end(JSON.stringify(payload));
 }
 
-async function sendFile(res, target, contentType, headerBuilder = withSecurityHeaders) {
+async function sendFile(req, res, target, contentType, headerBuilder = withSecurityHeaders) {
   try {
-    const stat = await fs.promises.stat(target);
-    if (!stat.isFile()) throw Object.assign(new Error('Not found'), { code: 'ENOENT' });
+    const asset = await loadAsset(target);
     const type = contentType || mimeType(target);
+    const headers = { 'content-type': type, 'cache-control': 'no-cache', etag: asset.etag, vary: 'accept-encoding' };
     const builder = typeof headerBuilder === 'function' ? headerBuilder : withSecurityHeaders;
-    const extraHeaders = typeof headerBuilder === 'object' && headerBuilder !== null ? headerBuilder : {};
-    const responseHeaders = builder({ 'content-type': type, 'cache-control': 'no-cache', ...extraHeaders });
+
+    if (req.headers['if-none-match'] === asset.etag) {
+      const responseHeaders = builder(headers);
+      for (const [key, value] of Object.entries(responseHeaders)) if (value === null) delete responseHeaders[key];
+      res.writeHead(304, responseHeaders);
+      res.end();
+      return;
+    }
+
+    const encoding = isCompressible(type) ? negotiateEncoding(req.headers['accept-encoding'] || '', asset) : null;
+    const body = encoding ? asset[encoding] : asset.raw;
+    if (encoding) headers['content-encoding'] = encoding;
+    headers['content-length'] = body.length;
+
+    const responseHeaders = builder(headers);
     for (const [key, value] of Object.entries(responseHeaders)) if (value === null) delete responseHeaders[key];
     res.writeHead(200, responseHeaders);
-    fs.createReadStream(target).pipe(res);
+    res.end(req.method === 'HEAD' ? undefined : body);
   } catch (error) {
     if (error.code === 'ENOENT') {
       sendJson(res, 404, { error: { code: 'not_found', message: 'File not found.' } });
