@@ -2322,8 +2322,8 @@ async function handleBillingWebhook(req, res, providerInput, db, state) {
     sendJson(res, 400, { error: { code: 'invalid_billing_webhook', message: 'Billing webhook payload must be JSON.' } });
     return;
   }
-  const eventId = cleanText(event.id || event.payload?.payment?.entity?.id || event.payload?.subscription?.entity?.id || '', 200);
-  if (eventId && db.auditLogs.some((item) => item.action === 'billing.webhook_received' && item.entityId === eventId && item.metadataJson?.provider === provider)) {
+  const eventId = cleanText(event.id || event.payload?.payment?.entity?.id || event.payload?.subscription?.entity?.id || '', 160);
+  if (eventId && db.auditLogs.some((entry) => entry.action === 'billing.webhook_received' && entry.entityId === eventId)) {
     sendJson(res, 200, { ok: true, provider, duplicate: true });
     return;
   }
@@ -9040,18 +9040,37 @@ function applyStripeBillingEvent(db, event) {
   if (type === 'customer.subscription.deleted') {
     const workspaceId = findWorkspaceIdByProviderSubscription(db, object.id);
     const subscription = db.subscriptions.find((item) => item.workspaceId === workspaceId);
-    if (subscription) {
+    if (workspaceId && subscription) {
       subscription.status = 'canceled';
       subscription.updatedAt = new Date().toISOString();
       recordProviderEvent(subscription, eventCreated);
-      const workspace = db.workspaces.find((item) => item.id === workspaceId);
-      if (workspace) {
-        workspace.planId = 'starter';
-        workspace.billingWarning = 'Subscription canceled. Workspace moved to Starter limits.';
-        workspace.updatedAt = subscription.updatedAt;
-      }
+      applyGracefulDowngrade(db, workspaceId);
     }
     return { eventId: event.id || '', eventType: type, action: workspaceId ? 'subscription_canceled' : 'ignored', workspaceId };
+  }
+  if (type === 'customer.subscription.updated') {
+    const workspaceId = findWorkspaceIdByProviderSubscription(db, object.id);
+    const subscription = db.subscriptions.find((item) => item.workspaceId === workspaceId);
+    if (workspaceId && subscription) {
+      if (Number.isFinite(object.current_period_start)) {
+        subscription.currentPeriodStart = new Date(object.current_period_start * 1000).toISOString();
+      }
+      if (Number.isFinite(object.current_period_end)) {
+        subscription.currentPeriodEnd = new Date(object.current_period_end * 1000).toISOString();
+      }
+      const status = object.status;
+      if (status === 'active' || status === 'trialing') {
+        subscription.status = 'active';
+      } else if (status === 'past_due' || status === 'unpaid') {
+        subscription.status = 'past_due';
+      } else if (status === 'canceled' || status === 'incomplete_expired') {
+        subscription.status = 'canceled';
+        applyGracefulDowngrade(db, workspaceId);
+      }
+      subscription.updatedAt = new Date().toISOString();
+      recordProviderEvent(subscription, eventCreated);
+    }
+    return { eventId: event.id || '', eventType: type, action: workspaceId ? 'subscription_updated' : 'ignored', workspaceId };
   }
   return { eventId: event.id || '', eventType: type || 'unknown', action: 'ignored', workspaceId: '' };
 }
