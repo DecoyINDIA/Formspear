@@ -37,6 +37,7 @@ const POSTGRES_RUNTIME_STATE_KEY = '__feedbackos_runtime_state__';
 const POSTGRES_PLATFORM_SETTINGS_KEY = '__feedbackos_platform_settings__';
 const BULLMQ_QUEUE_NAME = process.env.BULLMQ_QUEUE_NAME || 'feedbackos-jobs';
 const MAX_BODY_BYTES = Number(process.env.MAX_BODY_BYTES || 8 * 1024 * 1024);
+const LOG_MEMORY_MAX = Math.max(100, Number(process.env.LOG_MEMORY_MAX || 5000));
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14;
 const REMEMBER_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const TWO_FACTOR_CHALLENGE_TTL_MS = 1000 * 60 * 10;
@@ -3310,8 +3311,8 @@ function delay(ms) {
 }
 
 function saveDb(state) {
-  if (state.db && Array.isArray(state.db.auditLogs) && state.db.auditLogs.length > 1000) {
-    state.db.auditLogs = state.db.auditLogs.slice(-1000);
+  if (state.db && Array.isArray(state.db.auditLogs) && state.db.auditLogs.length > LOG_MEMORY_MAX) {
+    state.db.auditLogs = state.db.auditLogs.slice(-LOG_MEMORY_MAX);
   }
   state.saveDirty = true;
   if (state.saveBatchPromise) return state.saveBatchPromise;
@@ -3876,6 +3877,7 @@ const POSTGRES_RELATIONAL_COLLECTIONS = [
     collection: 'aiProviderLogs',
     table: 'ai_provider_logs',
     orderBy: 'created_at',
+    appendOnly: true,
     fields: {
       id: 'id',
       workspaceId: { column: 'workspace_id', nullable: true },
@@ -4112,6 +4114,7 @@ const POSTGRES_RELATIONAL_COLLECTIONS = [
     collection: 'auditLogs',
     table: 'audit_logs',
     orderBy: 'created_at',
+    appendOnly: true,
     fields: {
       id: 'id',
       workspaceId: { column: 'workspace_id', nullable: true },
@@ -4143,6 +4146,7 @@ const POSTGRES_RELATIONAL_COLLECTIONS = [
     collection: 'errorLogs',
     table: 'error_logs',
     orderBy: 'created_at',
+    appendOnly: true,
     fields: {
       id: 'id',
       method: 'method',
@@ -4170,7 +4174,10 @@ async function loadPostgresRelationalCollections(pool, db, state) {
     state.pgShadow = {};
   }
   for (const config of POSTGRES_RELATIONAL_COLLECTIONS) {
-    const result = await pool.query(`SELECT * FROM ${config.table} ORDER BY ${config.orderBy || 'id'} ASC`);
+    const query = config.appendOnly
+      ? `SELECT * FROM (SELECT * FROM ${config.table} ORDER BY ${config.orderBy || 'id'} DESC LIMIT ${LOG_MEMORY_MAX}) recent ORDER BY ${config.orderBy || 'id'} ASC`
+      : `SELECT * FROM ${config.table} ORDER BY ${config.orderBy || 'id'} ASC`;
+    const result = await pool.query(query);
     const snapshotById = new Map((db[config.collection] || []).map((item) => [item.id, item]));
     db[config.collection] = result.rows.map((row) => {
       const item = {
@@ -4204,6 +4211,7 @@ async function savePostgresRelationalCollections(client, db, state, nextPgShadow
 
   // Deletes: reverse order
   for (const config of [...POSTGRES_RELATIONAL_COLLECTIONS].reverse()) {
+    if (config.appendOnly) continue;
     const currentById = nextPgShadow[config.collection];
     const shadowById = state.pgShadow?.[config.collection] ?? new Map();
     for (const id of shadowById.keys()) {
@@ -5171,7 +5179,7 @@ async function recordErrorLog(state, req, error) {
     createdAt: new Date().toISOString()
   };
   db.errorLogs.push(errorLog);
-  if (db.errorLogs.length > 200) db.errorLogs.splice(0, db.errorLogs.length - 200);
+  if (db.errorLogs.length > LOG_MEMORY_MAX) db.errorLogs.splice(0, db.errorLogs.length - LOG_MEMORY_MAX);
   await emitMonitoringError(errorLog).catch(() => {});
   await saveDb(state);
 }
@@ -7928,7 +7936,7 @@ function recordAiProviderLog(db, input = {}) {
     error: input.error ? cleanText(input.error.message || String(input.error), 300) : '',
     createdAt: new Date().toISOString()
   });
-  if (db.aiProviderLogs.length > 500) db.aiProviderLogs.splice(0, db.aiProviderLogs.length - 500);
+  if (db.aiProviderLogs.length > LOG_MEMORY_MAX) db.aiProviderLogs.splice(0, db.aiProviderLogs.length - LOG_MEMORY_MAX);
 }
 
 function parseProviderJson(content) {
