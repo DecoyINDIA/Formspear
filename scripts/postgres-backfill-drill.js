@@ -6,6 +6,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { Pool } = require('pg');
 const { createServer } = require('../src/server');
+const { applyMigrations } = require('./migrate');
 
 const root = path.resolve(__dirname, '..');
 const runtimeStateKey = '__feedbackos_runtime_state__';
@@ -177,8 +178,7 @@ async function seedJsonSnapshot() {
 }
 
 async function applyMigrationAndReset(pool) {
-  const migration = fs.readFileSync(path.join(root, 'migrations', '0001_initial_postgres.sql'), 'utf8');
-  await pool.query(migration);
+  await applyMigrations(pool, { dir: path.join(root, 'migrations') });
   await pool.query(`TRUNCATE TABLE platform_settings, ${relationalTables.join(', ')} RESTART IDENTITY CASCADE`);
 }
 

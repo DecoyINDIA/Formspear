@@ -5,6 +5,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { Pool } = require('pg');
 const { createServer } = require('../src/server');
+const { applyMigrations } = require('./migrate');
 
 const root = path.resolve(__dirname, '..');
 const externalDatabaseUrl = process.env.POSTGRES_RELATIONAL_SMOKE_DATABASE_URL || '';
@@ -82,8 +83,7 @@ async function main() {
   await waitForPostgres(databaseUrl);
 
   pool = new Pool({ connectionString: databaseUrl });
-  const migration = fs.readFileSync(path.join(root, 'migrations', '0001_initial_postgres.sql'), 'utf8');
-  await pool.query(migration);
+  await applyMigrations(pool, { dir: path.join(root, 'migrations') });
   // Seed both the runtime-state and platform-settings rows so the server loads our
   // settings instead of taking the empty-db branch (which would overwrite them with defaults).
   await pool.query(

@@ -43,6 +43,8 @@ Copy `.env.example` and configure at least:
 
 Production boot is fail-closed. `NODE_ENV=production` refuses to start unless the durable database, queue, email, AI, Stripe, object-storage, file-scanning, and monitoring configuration is present. Validate the environment before a deploy with:
 
+Set `BOOTSTRAP_ADMIN_EMAIL` to the exact verified identity that may receive platform-admin access. Every other public password or Google signup is always a normal user. Leave `ALLOW_MANUAL_PLAN_CHANGES=false`; paid plans are activated only by verified billing webhooks.
+
 ```powershell
 npm.cmd run production:check
 ```
@@ -135,8 +137,8 @@ npm.cmd run migrations:check
 Production application order:
 
 1. Provision Railway PostgreSQL and set `DATABASE_URL`.
-2. Apply `migrations/0001_initial_postgres.sql` inside one transaction.
-3. Confirm `schema_migrations` contains version `0001`.
+2. Run `npm.cmd run migrate` to apply migrations in order.
+3. Confirm migrations completed successfully and are recorded in `schema_migrations`.
 4. Start the app with `DATABASE_URL` set; the runtime writes the migration-backed collections to relational tables and also updates the compatibility snapshot for rollback/backfill safety.
 5. Run app smoke tests against the PostgreSQL-backed runtime before paid traffic. Locally, `npm.cmd run postgres:relational:smoke` starts a disposable Docker PostgreSQL container, applies the migration, signs up a workspace, creates API key/password-reset/email-verification/survey/response/alert/webhook/integration/campaign/template/notification/invoice/report/platform-settings/AI-provider-log records, and asserts relational table row counts, auth/security columns, rich JSON columns, event/template columns, report JSON, platform-settings row, AI provider log row, plus the compatibility snapshot.
 

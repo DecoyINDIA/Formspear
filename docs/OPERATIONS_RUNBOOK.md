@@ -3,7 +3,7 @@
 ## Service topology
 
 - `web`: `node src/server.js` (Formspear currently runs a single writer instance. Do not scale `web` replicas above 1 until the row-level persistence refactor lands. Horizontal read-replica scaling is not yet supported. See docs/REVIEW_REMEDIATION_PLAN.md ITEM-2.)
-- `worker`: `node scripts/worker.js`
+- Queue consumer: runs inside the single `web` process when `REDIS_URL` is set.
 - PostgreSQL: only production data path
 - Redis/BullMQ: only production job path
 - External scheduler: call `POST /api/cron/run` with `Authorization: Bearer <CRON_SECRET>` every minute
@@ -12,20 +12,20 @@ Production startup fails closed when any required durable provider or security s
 
 ## Deploy procedure
 
-1. Apply `migrations/0001_initial_postgres.sql` to a backed-up database.
+1. Run `npm.cmd run migrate` against a backed-up database.
 2. Run `npm.cmd run postgres:relational:smoke` against a disposable database on the same PostgreSQL version.
-3. Run `npm.cmd run production:check` in the web and worker environments.
-4. Deploy the worker, confirm it connects to Redis, then deploy the web service.
+3. Run `npm.cmd run production:check` in the web environment.
+4. Deploy one web instance and confirm it connects to PostgreSQL and Redis.
 5. Confirm `/api/health`, authenticated `/api/admin/readiness`, signup, publish, public submission, AI insight, email, and Stripe test-mode checkout/webhook.
 6. Watch error telemetry and queue failures for at least 15 minutes before completing rollout.
 
 ## Rollback
 
 1. Stop new deploy traffic and pause the scheduler.
-2. Roll back the web and worker to the previous image together.
+2. Roll back the web service to the previous image.
 3. Do not reverse a database migration until its rollback has been tested on a restored backup.
 4. Restore PostgreSQL only for confirmed data corruption; preserve the failed database for investigation.
-5. Resume the worker, then web traffic, then scheduler. Verify one job and one public response end to end.
+5. Resume web traffic, then the scheduler. Verify one job and one public response end to end.
 
 ## Incident priorities
 

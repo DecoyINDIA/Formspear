@@ -6,6 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "node src/server.js",
+    "migrate": "node scripts/migrate.js",
     "worker": "node scripts/worker.js",
     "dev": "node --watch src/server.js",
     "test": "node --test tests/*.test.js",
