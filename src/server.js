@@ -8919,22 +8919,96 @@ async function createStripeCheckoutSession(workspace, plan, user, input = {}) {
   };
 }
 
+async function resolveRazorpayPlanId(baseUrl, authHeader, plan, amount) {
+  const envKey = `RAZORPAY_PLAN_ID_${String(plan.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '_')}`;
+  if (process.env[envKey]) return process.env[envKey];
+  if (plan.razorpayPlanId) return plan.razorpayPlanId;
+
+  try {
+    const res = await fetch(`${baseUrl}/plans`, {
+      method: 'POST',
+      headers: { authorization: authHeader, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        period: 'monthly',
+        interval: 1,
+        item: {
+          name: `${plan.name} Monthly`,
+          amount: Math.max(100, Math.round(amount.totalInr * 100)),
+          currency: 'INR',
+          description: `${plan.name} monthly subscription`
+        },
+        notes: { planId: plan.id }
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (data.id) return data.id;
+  } catch {
+    // fallback
+  }
+  return `plan_${plan.id}`;
+}
+
 async function createRazorpayCheckoutSession(workspace, plan, user, input = {}) {
   const baseUrl = (cleanUrl(process.env.RAZORPAY_BASE_URL || '') || 'https://api.razorpay.com/v1').replace(/\/$/, '');
   const keyId = String(process.env.RAZORPAY_KEY_ID || '');
   const secret = String(process.env.RAZORPAY_SECRET || '');
+  const authHeader = `Basic ${Buffer.from(`${keyId}:${secret}`).toString('base64')}`;
   const billingPolicy = billingPolicySnapshot(input);
   const amount = billingPlanAmount(plan, billingPolicy);
-  const response = await fetch(`${baseUrl}/orders`, {
+
+  if (input.mode === 'one_time') {
+    const response = await fetch(`${baseUrl}/orders`, {
+      method: 'POST',
+      headers: {
+        authorization: authHeader,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        amount: Math.max(0, Math.round(amount.totalInr * 100)),
+        currency: 'INR',
+        receipt: `${workspace.id}_${plan.id}`.slice(0, 40),
+        notes: {
+          workspaceId: workspace.id,
+          planId: plan.id,
+          userId: user.id,
+          email: user.email || '',
+          taxMode: billingPolicy.taxMode,
+          taxPercent: String(billingPolicy.taxPercent),
+          prorationPolicy: billingPolicy.prorationPolicy
+        }
+      })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error?.description || `Razorpay order failed with HTTP ${response.status}.`);
+    return {
+      id: cleanText(payload.id || makeId('chk'), 120),
+      provider: 'razorpay',
+      mode: 'order',
+      status: cleanText(payload.status || 'created', 60),
+      workspaceId: workspace.id,
+      planId: plan.id,
+      amountInr: amount.totalInr,
+      subtotalInr: amount.subtotalInr,
+      taxInr: amount.taxInr,
+      billingPolicy,
+      checkoutUrl: '',
+      providerCheckoutId: cleanText(payload.id || '', 120),
+      providerKeyId: keyId
+    };
+  }
+
+  const razorpayPlanId = await resolveRazorpayPlanId(baseUrl, authHeader, plan, amount);
+  const response = await fetch(`${baseUrl}/subscriptions`, {
     method: 'POST',
     headers: {
-      authorization: `Basic ${Buffer.from(`${keyId}:${secret}`).toString('base64')}`,
+      authorization: authHeader,
       'content-type': 'application/json'
     },
     body: JSON.stringify({
-      amount: Math.max(0, Math.round(amount.totalInr * 100)),
-      currency: 'INR',
-      receipt: `${workspace.id}_${plan.id}`.slice(0, 40),
+      plan_id: razorpayPlanId,
+      total_count: 120,
+      quantity: 1,
+      customer_notify: 1,
       notes: {
         workspaceId: workspace.id,
         planId: plan.id,
@@ -8947,11 +9021,12 @@ async function createRazorpayCheckoutSession(workspace, plan, user, input = {}) 
     })
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error?.description || `Razorpay order failed with HTTP ${response.status}.`);
+  if (!response.ok) throw new Error(payload.error?.description || `Razorpay subscription creation failed with HTTP ${response.status}.`);
+
   return {
-    id: cleanText(payload.id || makeId('chk'), 120),
+    id: cleanText(payload.id || makeId('sub_rzp'), 120),
     provider: 'razorpay',
-    mode: 'order',
+    mode: 'subscription',
     status: cleanText(payload.status || 'created', 60),
     workspaceId: workspace.id,
     planId: plan.id,
@@ -8959,8 +9034,9 @@ async function createRazorpayCheckoutSession(workspace, plan, user, input = {}) 
     subtotalInr: amount.subtotalInr,
     taxInr: amount.taxInr,
     billingPolicy,
-    checkoutUrl: '',
+    checkoutUrl: payload.short_url || '',
     providerCheckoutId: cleanText(payload.id || '', 120),
+    providerSubscriptionId: cleanText(payload.id || '', 120),
     providerKeyId: keyId
   };
 }
@@ -9171,19 +9247,74 @@ function recordProviderEvent(subscription, eventCreated) {
 
 function applyRazorpayBillingEvent(db, event) {
   const type = cleanText(event.event || event.type || '', 120);
-  const entity = event.payload?.order?.entity || event.payload?.subscription?.entity || event.payload?.payment?.entity || {};
+  const entity = event.payload?.subscription?.entity || event.payload?.order?.entity || event.payload?.payment?.entity || {};
   const notes = entity.notes || {};
-  const workspaceId = cleanText(notes.workspaceId || '', 120);
+  const subscriptionId = entity.subscription_id || (type.startsWith('subscription.') ? entity.id : '');
+  const workspaceId = cleanText(notes.workspaceId || findWorkspaceIdByProviderSubscription(db, subscriptionId), 120);
   const planId = cleanText(notes.planId || '', 40);
+  const eventCreated = Math.max(0, Number(event.created_at || entity.created_at || 0));
+
+  const existingSubscription = db.subscriptions.find((item) => item.providerSubscriptionId === (subscriptionId || entity.id));
+  if (eventCreated && Number(existingSubscription?.billingPolicy?.providerEventCreated || 0) > eventCreated) {
+    return { eventId: event.id || '', eventType: type, action: 'ignored_out_of_order', workspaceId };
+  }
+
   if (['order.paid', 'subscription.activated', 'subscription.charged'].includes(type)) {
-    const subscription = applyProviderSubscription(db, workspaceId, planId, 'razorpay', entity.subscription_id || entity.id, 'active', '', notes);
+    const activeSubId = subscriptionId || entity.id;
+    const subscription = applyProviderSubscription(db, workspaceId, planId, 'razorpay', activeSubId, 'active', entity.customer_id || '', notes);
+    recordProviderEvent(subscription, eventCreated);
     upsertProviderInvoice(db, workspaceId, 'razorpay', entity.id, 'paid', Number(entity.amount_paid || entity.amount || 0) / 100, planId);
     return { eventId: event.id || entity.id || '', eventType: type, action: 'subscription_activated', workspaceId, subscriptionId: subscription?.id || '' };
   }
+
+  if (['subscription.cancelled', 'subscription.completed'].includes(type)) {
+    if (workspaceId) {
+      const subscription = db.subscriptions.find((item) => item.workspaceId === workspaceId);
+      if (subscription) {
+        subscription.status = 'cancelled';
+        subscription.cancelledAt = new Date().toISOString();
+        subscription.updatedAt = subscription.cancelledAt;
+        recordProviderEvent(subscription, eventCreated);
+      }
+      const workspace = db.workspaces.find((item) => item.id === workspaceId);
+      if (workspace) {
+        workspace.previousPlanId = workspace.planId;
+        workspace.planId = 'starter';
+        workspace.updatedAt = new Date().toISOString();
+      }
+    }
+    return { eventId: event.id || entity.id || '', eventType: type, action: 'subscription_cancelled', workspaceId };
+  }
+
+  if (type === 'subscription.paused') {
+    if (workspaceId) {
+      const subscription = db.subscriptions.find((item) => item.workspaceId === workspaceId);
+      if (subscription) {
+        subscription.status = 'paused';
+        subscription.updatedAt = new Date().toISOString();
+        recordProviderEvent(subscription, eventCreated);
+      }
+    }
+    return { eventId: event.id || entity.id || '', eventType: type, action: 'subscription_paused', workspaceId };
+  }
+
+  if (type === 'subscription.resumed') {
+    if (workspaceId) {
+      const subscription = db.subscriptions.find((item) => item.workspaceId === workspaceId);
+      if (subscription) {
+        subscription.status = 'active';
+        subscription.updatedAt = new Date().toISOString();
+        recordProviderEvent(subscription, eventCreated);
+      }
+    }
+    return { eventId: event.id || entity.id || '', eventType: type, action: 'subscription_resumed', workspaceId };
+  }
+
   if (type === 'payment.failed') {
     if (workspaceId) markProviderPaymentFailed(db, workspaceId, 'razorpay', entity.id);
     return { eventId: event.id || entity.id || '', eventType: type, action: workspaceId ? 'payment_failed' : 'ignored', workspaceId };
   }
+
   return { eventId: event.id || entity.id || '', eventType: type || 'unknown', action: 'ignored', workspaceId };
 }
 
