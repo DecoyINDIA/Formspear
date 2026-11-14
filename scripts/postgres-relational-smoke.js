@@ -290,6 +290,151 @@ async function main() {
   assert.equal(platformSettings.rows.length, 1);
 
   console.log(`PostgreSQL relational smoke passed: ${JSON.stringify(rowCounts)}`);
+
+  if (server) {
+    await new Promise((resolve) => server.close(resolve));
+    server = null;
+  }
+
+  await restartParityPhase(databaseUrl);
+}
+
+async function waitForAdvisoryLockFree(databaseUrl) {
+  const probePool = new Pool({ connectionString: databaseUrl });
+  const deadline = Date.now() + 5000;
+  let unlocked = false;
+  try {
+    while (Date.now() < deadline) {
+      const lockRes = await probePool.query('SELECT pg_try_advisory_lock($1) AS locked', [4159283748291029n]);
+      if (lockRes.rows[0]?.locked) {
+        await probePool.query('SELECT pg_advisory_unlock($1)', [4159283748291029n]);
+        unlocked = true;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  } finally {
+    await probePool.end().catch(() => {});
+  }
+  if (!unlocked) {
+    throw new Error('Timed out after 5s waiting for PostgreSQL advisory lock to be released.');
+  }
+}
+
+async function restartParityPhase(databaseUrl) {
+  const previousSnapshotEnv = process.env.POSTGRES_COMPATIBILITY_SNAPSHOT;
+  process.env.POSTGRES_COMPATIBILITY_SNAPSHOT = 'false';
+
+  let server1 = null;
+  let server2 = null;
+
+  try {
+    await waitForAdvisoryLockFree(databaseUrl);
+
+    server1 = createServer({ databaseUrl, disableWorker: true });
+    await new Promise((resolve) => server1.listen(0, '127.0.0.1', resolve));
+    const baseUrl1 = `http://127.0.0.1:${server1.address().port}`;
+    const client1 = makeClient(baseUrl1);
+
+    const signup = await client1.request('/api/auth/signup', {
+      method: 'POST',
+      body: {
+        name: 'Restart User',
+        email: 'restart@example.test',
+        password: 'FeedbackOS123',
+        workspaceName: 'Restart Workspace',
+        acceptTerms: true
+      }
+    });
+    if (signup.emailVerificationRequired) {
+      const verificationJob = await pool.query(
+        `SELECT payload_json FROM jobs WHERE payload_json->'context'->>'verificationId' IS NOT NULL ORDER BY created_at DESC LIMIT 1`
+      );
+      const verificationToken = verificationJob.rows[0]?.payload_json?.message?.body?.match(/fo_verify_[a-f0-9]+/)?.[0];
+      assert.ok(verificationToken, 'Queued verification email should contain a test token.');
+      await client1.request('/api/auth/email-verification/confirm', {
+        method: 'POST',
+        body: { token: verificationToken }
+      });
+    }
+
+    const session = await client1.request('/api/auth/login', {
+      method: 'POST',
+      body: { email: 'restart@example.test', password: 'FeedbackOS123' }
+    });
+    const workspaceId = session.workspaces[0].id;
+
+    const created = await client1.request('/api/surveys', {
+      method: 'POST',
+      body: { workspaceId, title: 'Restart Parity Survey' }
+    });
+    const surveyId = created.survey.id;
+    const slug = created.survey.slug;
+    const initialQuestions = created.survey.schema.questions;
+
+    const published = await client1.request(`/api/surveys/${surveyId}/publish`, {
+      method: 'POST'
+    });
+    const publishedVersionId = published.version.id;
+    assert.ok(publishedVersionId, 'publishedVersionId should exist');
+
+    const editedQuestions = [
+      ...initialQuestions,
+      { id: 'q_draft_only', type: 'short_text', title: 'Draft Question Added After Publish', required: false }
+    ];
+    const updated = await client1.request(`/api/surveys/${surveyId}`, {
+      method: 'PUT',
+      body: {
+        schema: {
+          ...created.survey.schema,
+          questions: editedQuestions
+        }
+      }
+    });
+    const recordedPublishedVersionId = updated.survey.publishedVersionId;
+    const recordedHasUnpublishedChanges = updated.survey.hasUnpublishedChanges;
+    assert.equal(recordedPublishedVersionId, publishedVersionId);
+    assert.equal(recordedHasUnpublishedChanges, true);
+
+    await new Promise((resolve) => server1.close(resolve));
+    server1 = null;
+
+    await waitForAdvisoryLockFree(databaseUrl);
+
+    server2 = createServer({ databaseUrl, disableWorker: true });
+    await new Promise((resolve) => server2.listen(0, '127.0.0.1', resolve));
+    const baseUrl2 = `http://127.0.0.1:${server2.address().port}`;
+    const client2 = makeClient(baseUrl2);
+
+    await client2.request('/api/auth/login', {
+      method: 'POST',
+      body: { email: 'restart@example.test', password: 'FeedbackOS123' }
+    });
+
+    const fetched = await client2.request(`/api/surveys/${surveyId}`);
+    assert.equal(fetched.survey.publishedVersionId, recordedPublishedVersionId);
+    assert.equal(fetched.survey.hasUnpublishedChanges, recordedHasUnpublishedChanges);
+
+    const publicSurvey = await client2.request(`/api/public/surveys/${slug}`);
+    const publicQuestionIds = (publicSurvey.survey.schema?.questions || []).map((q) => q.id);
+    assert.ok(!publicQuestionIds.includes('q_draft_only'), 'Public survey must serve published schema, not draft');
+    assert.deepEqual(publicQuestionIds, initialQuestions.map((q) => q.id));
+
+    const snapshotRows = await pool.query(
+      "SELECT count(*)::int AS count FROM platform_settings WHERE key = '__feedbackos_runtime_state__'"
+    );
+    assert.equal(snapshotRows.rows[0].count, 0, 'Compatibility snapshot __feedbackos_runtime_state__ must be absent');
+
+    console.log('PostgreSQL restart parity phase passed: survey version and unpublished changes preserved across restart without snapshot.');
+  } finally {
+    if (server1) await new Promise((resolve) => server1.close(resolve)).catch(() => {});
+    if (server2) await new Promise((resolve) => server2.close(resolve)).catch(() => {});
+    if (previousSnapshotEnv === undefined) {
+      delete process.env.POSTGRES_COMPATIBILITY_SNAPSHOT;
+    } else {
+      process.env.POSTGRES_COMPATIBILITY_SNAPSHOT = previousSnapshotEnv;
+    }
+  }
 }
 
 main()
