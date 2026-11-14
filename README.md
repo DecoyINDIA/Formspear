@@ -5,7 +5,7 @@
 ![Railway ready](https://img.shields.io/badge/deploy-Railway-7c3aed)
 ![Status](https://img.shields.io/badge/status-working%20SaaS%20foundation-f59e0b)
 
-Formspear is a full-stack forms, surveys, feedback, analytics, automation, AI-insights, billing, and admin-operations platform. It is built as a local-first Node.js SaaS prototype: it runs immediately with JSON persistence, can attach to PostgreSQL through `DATABASE_URL`, and includes the scaffolding needed for Railway, workers, providers, monitoring, backups, and production cutover.
+Formspear is a full-stack forms, surveys, feedback, analytics, automation, AI-insights, billing, and admin-operations platform. It is built as a local-first Node.js SaaS prototype: it runs immediately with JSON persistence, can attach to PostgreSQL through `DATABASE_URL`, and includes the scaffolding needed for Railway, providers, monitoring, backups, and production cutover. One web process handles HTTP and background jobs; Redis is optional and only changes the in-process queue transport.
 
 The product is intentionally broad. It covers the full feedback lifecycle: build a survey, publish it, collect responses through public links or embeds, analyze results, trigger alerts and integrations, manage teams and billing, export compliance data, and review operational readiness from a super-admin console.
 
@@ -126,7 +126,7 @@ The product is intentionally broad. It covers the full feedback lifecycle: build
 - Protected production-readiness report for database, queue, email, OAuth, AI, billing, storage, file scanning, SSO, custom-domain SSL, monitoring, backups, and uptime checks.
 - JSON-backed local persistence by default.
 - PostgreSQL baseline migration and `DATABASE_URL` runtime state adapter.
-- Optional Redis/BullMQ queue transport and separate worker process.
+- Optional Redis/BullMQ queue transport with an in-process consumer owned by the single web process.
 - Retryable job records for email alerts, webhooks, integrations, monthly reports, retention sweeps, and provider delivery.
 - `CRON_SECRET`-protected managed cron trigger.
 - Local JSON backup and restore scripts with checksum manifests and smoke verification.
@@ -144,7 +144,7 @@ public/sdk.js                         In-app survey SDK
 public/privacy.html                   First-party privacy page
 public/terms.html                     First-party terms page
 tests/server.test.js                  End-to-end HTTP coverage for the product loop
-scripts/worker.js                     Optional worker process
+scripts/worker.js                     Legacy local worker entry point (not used in production)
 scripts/performance-smoke.js          Concurrent submission and 100,000-response pagination smoke
 scripts/visual-smoke.js               Chrome DevTools visual smoke for app shell and public survey
 scripts/backup-data.ps1               Local JSON backup with manifest
@@ -265,6 +265,8 @@ See `docs/API.md` for route details and request examples.
 
 ## Deployment Position
 
+The [7 November 2026 production review](docs/PRODUCTION_READINESS_REVIEW.md) found release blockers in credential persistence, worker topology, billing, authorization, privacy, and external collection. Follow the [production fix plan](docs/PRODUCTION_FIX_PLAN.md) and [validation record](docs/PRODUCTION_REVIEW_VALIDATION.md) before launch.
+
 Formspear is a working local SaaS foundation, not a finished production SaaS deployment. The repo includes serious production scaffolding, but paid launch still needs live provider setup and verification.
 
 > [!IMPORTANT]
@@ -277,7 +279,7 @@ Current production-oriented support:
 - `DATABASE_URL` adapter that persists migration-backed runtime collections into relational PostgreSQL tables. Development can retain a compatibility JSONB snapshot for backfill drills; production disables and removes it.
 - `postgres:relational:smoke` for disposable Docker PostgreSQL by default, with a guarded `POSTGRES_RELATIONAL_SMOKE_DATABASE_URL` mode for disposable Railway/PostgreSQL verification when Docker is unavailable.
 - `postgres:backfill:drill` for proving that a compatibility snapshot can repopulate the relational tables on a disposable PostgreSQL target before the snapshot is retired.
-- Optional Redis/BullMQ worker mode.
+- Optional Redis/BullMQ queue mode in the single web process.
 - SMTP, AI provider, billing provider, object storage, file scan, monitoring, custom-domain SSL, and integration hooks.
 - Protected readiness report that exposes missing production configuration without leaking secrets.
 - Backup and restore scripts for the local JSON store.

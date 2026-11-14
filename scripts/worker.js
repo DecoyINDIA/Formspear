@@ -19,6 +19,9 @@ async function syncDueJobs() {
 }
 
 async function main() {
+  if (process.env.DATABASE_URL) {
+    throw new Error('The standalone worker is disabled in PostgreSQL mode: Formspear runs a single writer process that also processes jobs. Start only the web process.');
+  }
   if (!process.env.REDIS_URL) {
     throw new Error('REDIS_URL is required to run the BullMQ worker.');
   }

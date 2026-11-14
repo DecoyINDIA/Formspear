@@ -22,7 +22,7 @@ New route behavior belongs in a focused module. Existing auth, survey lifecycle,
 
 ## Persistence
 
-Development may use the atomic JSON store. Production startup requires PostgreSQL and Redis. PostgreSQL relational tables are authoritative in production; the development compatibility snapshot is disabled and removed. The web process schedules/enqueues durable jobs and the dedicated worker consumes BullMQ jobs.
+Development may use the atomic JSON store. Production startup requires PostgreSQL. PostgreSQL relational tables are authoritative in production; the development compatibility snapshot is disabled and removed. One web process handles HTTP and jobs; Redis is optional and only changes the in-process queue transport.
 
 ## Verification boundary
 

@@ -45,13 +45,16 @@ test('production configuration fails closed when durable services are absent', (
   withEnvironment({ NODE_ENV: 'production', APP_URL: 'http://localhost:4173' }, () => {
     assert.throws(
       () => validateProductionEnvironment(),
-      /Production configuration is incomplete:.*DATABASE_URL is required.*REDIS_URL is required.*APP_URL must use HTTPS/
+      /Production configuration is incomplete:.*DATABASE_URL is required.*APP_URL must use HTTPS/
     );
   });
 });
 
 test('production configuration accepts the complete shipped provider set', () => {
   withEnvironment(PRODUCTION_ENV, () => assert.doesNotThrow(() => validateProductionEnvironment()));
+  const envWithoutRedis = { ...PRODUCTION_ENV };
+  delete envWithoutRedis.REDIS_URL;
+  withEnvironment(envWithoutRedis, () => assert.doesNotThrow(() => validateProductionEnvironment()));
 });
 
 test('local development remains provider-optional', () => {

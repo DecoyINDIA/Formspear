@@ -29,8 +29,8 @@ Recommended Railway services from the PRD:
 
 - Web service: this Node app
 - PostgreSQL: production data store target
-- Redis: queue target for BullMQ or compatible worker
-- Worker service: can initially run the same start command while jobs are in-process
+- Redis (optional): queue transport for BullMQ inside the web process
+- Jobs: one web process handles HTTP and jobs; Redis is optional and only changes the in-process queue transport
 - Cron service: production trigger for retention/report scheduling, replacing the local in-process scheduler
 - Object storage: production target for file-upload answers
 
@@ -178,11 +178,7 @@ The app now persists retryable jobs for:
 - Monthly AI reports
 - Retention sweeps, including an immediate protected workspace endpoint and local scheduled due-run enqueueing
 
-Without `REDIS_URL`, the in-process worker drains jobs every `JOB_POLL_INTERVAL_MS`. With `REDIS_URL`, due jobs remain persisted in the app state and are mirrored into BullMQ. Run a separate worker service:
-
-```powershell
-npm.cmd run worker
-```
+One web process handles HTTP and jobs; Redis is optional and only changes the in-process queue transport. Without `REDIS_URL`, the in-process loop drains jobs every `JOB_POLL_INTERVAL_MS`. With `REDIS_URL`, the in-process BullMQ consumer runs inside the same web process.
 
 `BULLMQ_QUEUE_NAME` defaults to `feedbackos-jobs`, and `BULLMQ_WORKER_CONCURRENCY` controls worker concurrency. Super admins can force a drain or BullMQ enqueue pass:
 

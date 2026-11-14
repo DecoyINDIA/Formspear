@@ -1,3 +1,2 @@
-# Only one web process is allowed. See docs/REVIEW_REMEDIATION_PLAN.md ITEM-2
+# The web process owns PostgreSQL and runs the queue consumer in-process.
 web: node src/server.js
-worker: node scripts/worker.js

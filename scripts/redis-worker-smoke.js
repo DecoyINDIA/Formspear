@@ -2,14 +2,14 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const { createServer, processDueJobs, startBullMqWorker, closeBullMq } = require('../src/server');
+const { createServer, processDueJobs, closeBullMq } = require('../src/server');
 
 const redisUrl = process.env.REDIS_WORKER_SMOKE_URL || process.env.REDIS_URL || '';
 
 async function main() {
   if (!redisUrl) throw new Error('Set REDIS_WORKER_SMOKE_URL to a disposable Redis instance.');
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'formspear-redis-smoke-'));
-  const server = createServer({ dataFile: path.join(tempDir, 'db.json'), redisUrl, disableWorker: true });
+  const server = createServer({ dataFile: path.join(tempDir, 'db.json'), redisUrl });
   try {
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
     const baseUrl = `http://127.0.0.1:${server.address().port}`;
@@ -18,7 +18,6 @@ async function main() {
       name: 'Redis Smoke', email, password: 'FeedbackOS123', workspaceName: 'Redis Smoke', acceptTerms: true
     });
     await request(baseUrl, '/api/auth/password-reset/request', { email });
-    await startBullMqWorker(server.state);
     const queued = await processDueJobs(server.state);
     assert.ok(queued.enqueuedExternal >= 1, 'Expected a persisted job to be mirrored into BullMQ.');
     await waitFor(() => server.state.db.jobs.some((job) => job.type === 'email_delivery' && job.status === 'completed'), 10000);
