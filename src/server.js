@@ -2205,7 +2205,7 @@ async function handleAiTools(req, res, segments, db, state, user) {
     const body = await readJson(req);
     const workspaceId = body.workspaceId;
     if (!requireWorkspace(res, db, user, workspaceId, 'editor')) return;
-    const creditCheck = consumeAiCredits(db, workspaceId, 2);
+    const creditCheck = checkAiCreditLimit(db, workspaceId, 2);
     if (!creditCheck.ok) {
       sendAiCreditLimitError(res, creditCheck);
       return;
@@ -2213,6 +2213,9 @@ async function handleAiTools(req, res, segments, db, state, user) {
     const workspace = db.workspaces.find((item) => item.id === workspaceId);
     const generatedResult = await generateSurveySchemaWithProvider(db, body, workspace);
     const generated = generatedResult.schema;
+    if (generatedResult.aiGenerated) {
+      consumeAiCredits(db, workspaceId, 2);
+    }
     const survey = createSurvey({
       workspaceId,
       userId: user.id,
@@ -2235,13 +2238,16 @@ async function handleAiTools(req, res, segments, db, state, user) {
     const body = await readJson(req);
     const workspaceId = body.workspaceId;
     if (!requireWorkspace(res, db, user, workspaceId, 'editor')) return;
-    const creditCheck = consumeAiCredits(db, workspaceId, 1);
+    const creditCheck = checkAiCreditLimit(db, workspaceId, 1);
     if (!creditCheck.ok) {
       sendAiCreditLimitError(res, creditCheck);
       return;
     }
     const workspace = db.workspaces.find((item) => item.id === workspaceId);
     const improved = await improveQuestionWithProvider(db, body, workspace);
+    if (improved.aiGenerated) {
+      consumeAiCredits(db, workspaceId, 1);
+    }
     const job = createAiJob(workspaceId, body.surveyId || null, null, 'question_improvement', body, improved);
     db.aiJobs.push(job);
     await saveDb(state);
@@ -2279,12 +2285,15 @@ async function handleAiTools(req, res, segments, db, state, user) {
     const body = await readJson(req);
     const workspaceId = body.workspaceId;
     if (!requireWorkspacePermission(res, db, user, workspaceId, 'aiReports')) return;
-    const creditCheck = consumeAiCredits(db, workspaceId, 3);
+    const creditCheck = checkAiCreditLimit(db, workspaceId, 3);
     if (!creditCheck.ok) {
       sendAiCreditLimitError(res, creditCheck);
       return;
     }
     const report = await buildMonthlyReportWithProvider(db, workspaceId, body.month || new Date().toISOString().slice(0, 7));
+    if (report.aiGenerated) {
+      consumeAiCredits(db, workspaceId, 3);
+    }
     report.pdfUrl = `/api/ai/monthly-reports/${workspaceId}/${report.id}.pdf`;
     db.monthlyReports.push(report);
     db.aiJobs.push(createAiJob(workspaceId, null, null, 'monthly_report', body, report));
@@ -5127,9 +5136,12 @@ function integrationMessageText(integration, event, payloadJson) {
 async function runMonthlyReportJob(db, job) {
   const month = cleanText(job.payloadJson?.month || new Date().toISOString().slice(0, 7), 7);
   const recipients = normalizeEmailList(job.payloadJson?.recipients || []);
-  const creditCheck = consumeAiCredits(db, job.workspaceId, 3);
+  const creditCheck = checkAiCreditLimit(db, job.workspaceId, 3);
   if (!creditCheck.ok) throw new Error(creditCheck.message);
   const report = await buildMonthlyReportWithProvider(db, job.workspaceId, month);
+  if (report.aiGenerated) {
+    consumeAiCredits(db, job.workspaceId, 3);
+  }
   report.pdfUrl = `/api/ai/monthly-reports/${job.workspaceId}/${report.id}.pdf`;
   report.scheduled = true;
   report.jobId = job.id;
@@ -7698,7 +7710,7 @@ async function generateSurveySchemaWithProvider(db, input = {}, workspace) {
     tone: cleanText(input.tone || 'clear and professional', 120),
     surveyType: cleanText(input.type || input.surveyType || 'feedback_form', 80)
   }, 'Return JSON for a survey schema with title, description, type, questions, logic, and completion. Question objects need id, type, title, required, settings, and validation.', workspace);
-  if (!provider) return { schema: fallback, provider: 'local_heuristic' };
+  if (!provider) return { schema: fallback, provider: 'local_heuristic', aiGenerated: false };
   try {
     const schema = normalizeSchema({
       title: provider.data.title || fallback.title,
@@ -7708,9 +7720,9 @@ async function generateSurveySchemaWithProvider(db, input = {}, workspace) {
       logic: Array.isArray(provider.data.logic) ? provider.data.logic : fallback.logic,
       completion: provider.data.completion || fallback.completion
     });
-    return { schema, provider: provider.provider, providerUsage: provider.usage };
+    return { schema, provider: provider.provider, providerUsage: provider.usage, aiGenerated: true };
   } catch {
-    return { schema: fallback, provider: 'local_heuristic' };
+    return { schema: fallback, provider: 'local_heuristic', aiGenerated: false };
   }
 }
 
@@ -7724,6 +7736,7 @@ async function improveQuestionWithProvider(db, input = {}, workspace) {
   if (!provider) return fallback;
   return {
     ...fallback,
+    aiGenerated: true,
     provider: provider.provider,
     providerModel: provider.model,
     providerUsage: provider.usage,
@@ -7789,7 +7802,7 @@ function improveQuestionText(input = {}) {
         ? neutral
         : `${neutral}?`;
   return {
-    aiGenerated: true,
+    aiGenerated: false,
     original,
     improvedTitle,
     suggestedType: inferQuestionType(improvedTitle),
@@ -7834,7 +7847,7 @@ function buildMonthlyReport(db, workspaceId, month) {
     id: makeId('rpt'),
     workspaceId,
     month,
-    aiGenerated: true,
+    aiGenerated: false,
     generatedAt: new Date().toISOString(),
     title: `${workspace?.name || 'Workspace'} ${month} feedback report`,
     totalResponses: responses.length,
@@ -7873,6 +7886,7 @@ async function buildMonthlyReportWithProvider(db, workspaceId, month) {
   if (!provider) return report;
   return {
     ...report,
+    aiGenerated: true,
     title: cleanText(provider.data.title || report.title, 200),
     provider: provider.provider,
     providerModel: provider.model,
@@ -11921,5 +11935,9 @@ module.exports = {
   postgresObjectToRow,
   postgresRowToObject,
   postgresPrepareItem,
-  postgresHydrateItem
+  postgresHydrateItem,
+  checkAiCreditLimit,
+  consumeAiCredits,
+  improveQuestionText,
+  buildMonthlyReport
 };

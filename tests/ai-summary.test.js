@@ -1,7 +1,14 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { buildAiSummary, selectResponsesForAi } = require('../src/server');
+const {
+  buildAiSummary,
+  selectResponsesForAi,
+  improveQuestionText,
+  buildMonthlyReport,
+  checkAiCreditLimit,
+  consumeAiCredits
+} = require('../src/server');
 
 test('AI summary themes include traceable response evidence and correct honesty metadata', () => {
   const survey = { id: 'survey_1', title: 'Delivery feedback', schema: { questions: [] } };
@@ -127,4 +134,27 @@ test('selectResponsesForAi with 5 responses and limit 60 returns all 5', () => {
   for (const r of responses) {
     assert.ok(selectedIds.has(r.id));
   }
+});
+
+test('E-14: local heuristic AI tools set aiGenerated: false and check credit limit without consuming on heuristic fallback', () => {
+  const improved = improveQuestionText({ question: 'Was our service amazing?', mode: 'clarity' });
+  assert.equal(improved.aiGenerated, false);
+
+  const db = {
+    workspaces: [{ id: 'wks_1', planId: 'pro', usageMonth: '2026-03', aiCreditLimitOverride: null }],
+    usageMeters: [],
+    surveys: [],
+    responses: [],
+    aiJobs: []
+  };
+
+  const report = buildMonthlyReport(db, 'wks_1', '2026-03');
+  assert.equal(report.aiGenerated, false);
+
+  const initialCheck = checkAiCreditLimit(db, 'wks_1', 1);
+  assert.equal(initialCheck.ok, true);
+  assert.equal(initialCheck.used, 0);
+
+  const consumed = consumeAiCredits(db, 'wks_1', 2);
+  assert.equal(consumed.used, 2);
 });
