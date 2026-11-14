@@ -1909,6 +1909,29 @@ async function handleSurveys(req, res, url, segments, db, state, user) {
     return;
   }
 
+  if (segments[1] === 'distribute' && segments[2] === 'whatsapp' && req.method === 'POST') {
+    if (!requireWorkspace(res, db, user, survey.workspaceId, 'editor')) return;
+    const body = await readJson(req);
+    const to = cleanText(body.phone || body.to || '', 40);
+    if (!to) {
+      sendJson(res, 400, { error: { code: 'phone_required', message: 'Recipient phone number is required.' } });
+      return;
+    }
+    const appUrl = process.env.APP_URL || 'http://localhost:4173';
+    const surveyUrl = `${appUrl}/s/${survey.slug}?source=whatsapp`;
+    queueWhatsappJob(db, survey.workspaceId, {
+      to,
+      template: cleanText(body.template || 'survey_invite', 80),
+      body: cleanText(body.message || `Please complete our survey: ${survey.title}`, 2000),
+      surveyTitle: survey.title,
+      surveySlug: survey.slug,
+      surveyUrl
+    }, { surveyId: survey.id, manual: true });
+    await saveDb(state);
+    sendJson(res, 200, { success: true, message: 'WhatsApp delivery queued.', surveyUrl });
+    return;
+  }
+
   sendJson(res, 404, { error: { code: 'not_found', message: 'Survey route not found.' } });
 }
 
@@ -4617,6 +4640,8 @@ async function processJobRecord(db, job) {
       await runWebhookJob(db, job);
     } else if (job.type === 'email_delivery') {
       await runEmailJob(db, job);
+    } else if (job.type === 'whatsapp_delivery') {
+      await runWhatsappJob(db, job);
     } else if (job.type === 'integration_delivery') {
       await runIntegrationJob(db, job);
     } else if (job.type === 'monthly_report') {
@@ -4780,6 +4805,86 @@ async function runWebhookJob(db, job) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function runWhatsappJob(db, job) {
+  const message = job.payloadJson.message || {};
+  const context = job.payloadJson.context || {};
+  await deliverWhatsappMessage(db, job.workspaceId, message, { jobId: job.id });
+  if (context.campaignId) {
+    const campaign = db.emailCampaigns.find((item) => item.id === context.campaignId);
+    if (campaign) {
+      campaign.sentCount = (campaign.sentCount || 0) + 1;
+      campaign.status = campaign.sentCount >= campaign.contacts.length ? 'sent' : 'sending';
+      campaign.updatedAt = new Date().toISOString();
+    }
+  }
+}
+
+async function deliverWhatsappMessage(db, workspaceId, message, options = {}) {
+  const to = cleanText(message.to || '', 40);
+  if (!to) throw new Error('WhatsApp recipient phone number is required.');
+  const template = cleanText(message.template || 'survey_alert', 80);
+  const body = cleanText(message.body || '', 4000);
+  const surveyUrl = message.surveyUrl || '';
+
+  const whatsappConfigured = Boolean(process.env.WHATSAPP_API_KEY && (process.env.WHATSAPP_PHONE_NUMBER_ID || process.env.WHATSAPP_API_URL));
+  const log = {
+    id: makeId('walog'),
+    workspaceId,
+    to,
+    template,
+    bodyPreview: body.slice(0, 300),
+    surveyUrl,
+    provider: whatsappConfigured ? 'meta_cloud_api' : 'local_simulated',
+    status: whatsappConfigured ? 'pending_provider' : 'sent_simulated',
+    error: '',
+    jobId: options.jobId || '',
+    createdAt: new Date().toISOString()
+  };
+
+  try {
+    if (whatsappConfigured) {
+      const apiUrl = process.env.WHATSAPP_API_URL || `https://graph.facebook.com/v19.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+      const payload = {
+        messaging_product: 'whatsapp',
+        to: to.replace(/[^0-9]/g, ''),
+        type: 'template',
+        template: {
+          name: template,
+          language: { code: message.lang || 'en' },
+          components: [
+            {
+              type: 'body',
+              parameters: [
+                { type: 'text', text: body }
+              ]
+            }
+          ]
+        }
+      };
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.WHATSAPP_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`WhatsApp API responded with ${response.status}: ${errorText}`);
+      }
+      log.status = 'sent_provider';
+    }
+  } catch (error) {
+    log.status = 'failed_provider';
+    log.error = cleanText(error.message || String(error), 500);
+    db.integrationLogs.push(log);
+    throw error;
+  }
+  db.integrationLogs.push(log);
+  return log;
 }
 
 async function runEmailJob(db, job) {
@@ -8643,28 +8748,68 @@ function buildResponseClusters(responses, keywords) {
 function normalizeCampaignContacts(input) {
   const items = Array.isArray(input)
     ? input
-    : String(input || '').split(/\r?\n|,/).map((email) => ({ email }));
+    : String(input || '').split(/\r?\n|,/).map((text) => {
+        const trimmed = text.trim();
+        return trimmed.includes('@') ? { email: trimmed } : { phone: trimmed };
+      });
   return items
     .map((item) => {
       const email = cleanEmail(typeof item === 'string' ? item : item.email, true);
+      const phone = cleanText(typeof item === 'object' ? item.phone || '' : (typeof item === 'string' && !item.includes('@') ? item : ''), 40);
+      const channel = (typeof item === 'object' && item.channel) ? item.channel : (phone && !email ? 'whatsapp' : 'email');
       return {
         id: cleanText(typeof item === 'object' ? item.id || '' : '', 80) || makeId('rcp'),
         email,
-        emailHash: email ? hashToken(email).slice(0, 24) : '',
+        phone,
+        channel,
+        emailHash: email ? hashToken(email).slice(0, 24) : (phone ? hashToken(phone).slice(0, 24) : ''),
         name: cleanText(typeof item === 'object' ? item.name || '' : '', 120)
       };
     })
-    .filter((item) => item.email)
+    .filter((item) => item.email || item.phone)
     .slice(0, 5000);
 }
 
 function queueCampaignJobs(db, campaign, survey) {
   if (!survey) return;
   const appUrl = process.env.APP_URL || 'http://localhost:4173';
-  const surveyUrl = `${appUrl}/s/${survey.slug}?source=email&campaign=${campaign.id}`;
   const nextRunAt = campaign.scheduledAt || new Date().toISOString();
   let queued = 0;
   for (const contact of campaign.contacts) {
+    const isWhatsapp = campaign.channel === 'whatsapp' || contact.channel === 'whatsapp' || (!contact.email && contact.phone);
+    if (isWhatsapp) {
+      const recipient = contact.phone || contact.email;
+      const existing = db.jobs.some((job) => job.type === 'whatsapp_delivery' && job.payloadJson?.context?.campaignId === campaign.id && job.payloadJson?.message?.to === recipient);
+      if (existing) continue;
+      const surveyUrl = `${appUrl}/s/${survey.slug}?source=whatsapp&campaign=${campaign.id}`;
+      const trackedUrl = `${appUrl}/api/public/campaigns/${campaign.id}/click?recipient=${encodeURIComponent(contact.emailHash)}&url=${encodeURIComponent(surveyUrl)}`;
+      db.jobs.push({
+        id: makeId('job'),
+        workspaceId: campaign.workspaceId,
+        type: 'whatsapp_delivery',
+        status: 'queued',
+        attempts: 0,
+        maxAttempts: JOB_MAX_ATTEMPTS,
+        payloadJson: {
+          message: {
+            to: recipient,
+            template: campaign.template || 'survey_invite',
+            body: `${campaign.message}\n\nSurvey link: ${trackedUrl}`,
+            surveyTitle: survey.title,
+            surveyUrl: trackedUrl
+          },
+          context: { campaignId: campaign.id, surveyId: survey.id, contactPhone: recipient, recipientHash: contact.emailHash, trackedUrl }
+        },
+        lastError: '',
+        nextRunAt,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        completedAt: null
+      });
+      queued += 1;
+      continue;
+    }
+    const surveyUrl = `${appUrl}/s/${survey.slug}?source=email&campaign=${campaign.id}`;
     const existing = db.jobs.some((job) => job.type === 'email_delivery' && job.payloadJson?.context?.campaignId === campaign.id && job.payloadJson?.message?.to === contact.email);
     if (existing) continue;
     const trackedUrl = `${appUrl}/api/public/campaigns/${campaign.id}/click?recipient=${encodeURIComponent(contact.emailHash)}&url=${encodeURIComponent(surveyUrl)}`;
@@ -10165,6 +10310,16 @@ function processAlerts(db, survey, response) {
         body: notification.message
       }, { alertId: alert.id, responseId: response.id, notificationId: notification.id });
     }
+    if (alert.channelsJson.whatsapp) {
+      queueWhatsappJob(db, survey.workspaceId, {
+        to: alert.channelsJson.whatsappTo || '',
+        template: alert.channelsJson.whatsappTemplate || 'survey_alert',
+        body: notification.message,
+        surveyTitle: survey.title,
+        surveySlug: survey.slug,
+        surveyUrl: `${process.env.APP_URL || 'http://localhost:4173'}/s/${survey.slug}`
+      }, { alertId: alert.id, responseId: response.id, notificationId: notification.id });
+    }
   }
 }
 
@@ -10212,6 +10367,23 @@ function processIntegrations(db, survey, response) {
       source: response.metadataJson?.source || 'direct'
     });
   }
+}
+
+function queueWhatsappJob(db, workspaceId, message, context = {}) {
+  db.jobs.push({
+    id: makeId('job'),
+    workspaceId,
+    type: 'whatsapp_delivery',
+    status: 'queued',
+    attempts: 0,
+    maxAttempts: JOB_MAX_ATTEMPTS,
+    payloadJson: { message, context },
+    lastError: '',
+    nextRunAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    completedAt: null
+  });
 }
 
 function queueEmailJob(db, workspaceId, message, context = {}) {
@@ -11517,7 +11689,9 @@ function normalizeAlertChannels(channels) {
     emailTo: cleanEmail(channels?.emailTo || '', true),
     inApp: channels?.inApp !== false,
     webhook: Boolean(channels?.webhook),
-    whatsapp: Boolean(channels?.whatsapp)
+    whatsapp: Boolean(channels?.whatsapp),
+    whatsappTo: cleanText(channels?.whatsappTo || '', 40),
+    whatsappTemplate: cleanText(channels?.whatsappTemplate || 'survey_alert', 80)
   };
 }
 
