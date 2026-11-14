@@ -484,7 +484,7 @@ async function routeRequest(req, res, state) {
   }
 
   if (url.pathname.startsWith('/s/')) {
-    await sendFile(req, res, path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8', embeddableSecurityHeaders);
+    await sendFile(req, res, path.join(PUBLIC_DIR, 'survey.html'), 'text/html; charset=utf-8', embeddableSecurityHeaders);
     return;
   }
 

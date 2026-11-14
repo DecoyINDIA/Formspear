@@ -14,3 +14,15 @@ if (totalGzipBytes > limit) {
   throw new Error(`Public initial payload is ${totalGzipBytes} gzip bytes, above the ${limit}-byte budget.`);
 }
 console.log(`Performance budget passed: ${totalGzipBytes}/${limit} gzip bytes (${assets.map((asset) => `${asset.file}=${asset.gzipBytes}`).join(', ')}).`);
+
+const respondentFiles = ['public/survey.html', 'public/styles.css', 'public/survey.js'];
+const respondentLimit = Number(process.env.PUBLIC_RESPONDENT_GZIP_BUDGET_BYTES || 20 * 1024);
+const respondentAssets = respondentFiles.map((file) => {
+  const contents = fs.readFileSync(path.join(root, file));
+  return { file, rawBytes: contents.length, gzipBytes: zlib.gzipSync(contents, { level: 9 }).length };
+});
+const respondentTotalGzipBytes = respondentAssets.reduce((sum, asset) => sum + asset.gzipBytes, 0);
+if (respondentTotalGzipBytes > respondentLimit) {
+  throw new Error(`Respondent initial payload is ${respondentTotalGzipBytes} gzip bytes, above the ${respondentLimit}-byte budget.`);
+}
+console.log(`Respondent performance budget passed: ${respondentTotalGzipBytes}/${respondentLimit} gzip bytes (${respondentAssets.map((asset) => `${asset.file}=${asset.gzipBytes}`).join(', ')}).`);
