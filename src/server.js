@@ -12248,6 +12248,225 @@ function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+const responsesRepo = {
+  async findById(db, state, id, workspaceId = null) {
+    const database = db || (state ? await getDb(state) : null);
+    if (state?.postgresClient) {
+      const config = POSTGRES_RELATIONAL_COLLECTIONS.find((c) => c.collection === 'responses');
+      const res = await state.postgresClient.query(
+        workspaceId
+          ? 'SELECT * FROM responses WHERE id = $1 AND workspace_id = $2'
+          : 'SELECT * FROM responses WHERE id = $1',
+        workspaceId ? [id, workspaceId] : [id]
+      );
+      if (res.rows.length) return postgresRowToObject(config, res.rows[0]);
+    }
+    return database?.responses.find((item) => item.id === id && (!workspaceId || item.workspaceId === workspaceId)) || null;
+  },
+
+  async listBySurvey(db, state, surveyId, options = {}) {
+    const database = db || (state ? await getDb(state) : null);
+    if (state?.postgresClient) {
+      const config = POSTGRES_RELATIONAL_COLLECTIONS.find((c) => c.collection === 'responses');
+      let query = 'SELECT * FROM responses WHERE survey_id = $1 AND status != $2';
+      const params = [surveyId, 'deleted'];
+      if (options.status) {
+        params.push(options.status);
+        query += ` AND status = $${params.length}`;
+      }
+      query += ' ORDER BY created_at DESC';
+      if (options.limit) {
+        params.push(Number(options.limit));
+        query += ` LIMIT $${params.length}`;
+      }
+      const res = await state.postgresClient.query(query, params);
+      return res.rows.map((r) => postgresRowToObject(config, r));
+    }
+    let list = (database?.responses || []).filter((item) => item.surveyId === surveyId && item.status !== 'deleted');
+    if (options.status) list = list.filter((item) => item.status === options.status);
+    if (options.limit) list = list.slice(0, Number(options.limit));
+    return list;
+  },
+
+  async listByWorkspace(db, state, workspaceId, options = {}) {
+    const database = db || (state ? await getDb(state) : null);
+    if (state?.postgresClient) {
+      const config = POSTGRES_RELATIONAL_COLLECTIONS.find((c) => c.collection === 'responses');
+      let query = 'SELECT * FROM responses WHERE workspace_id = $1 AND status != $2';
+      const params = [workspaceId, 'deleted'];
+      if (options.surveyId) {
+        params.push(options.surveyId);
+        query += ` AND survey_id = $${params.length}`;
+      }
+      query += ' ORDER BY created_at DESC';
+      if (options.limit) {
+        params.push(Number(options.limit));
+        query += ` LIMIT $${params.length}`;
+      }
+      const res = await state.postgresClient.query(query, params);
+      return res.rows.map((r) => postgresRowToObject(config, r));
+    }
+    let list = (database?.responses || []).filter((item) => item.workspaceId === workspaceId && item.status !== 'deleted');
+    if (options.surveyId) list = list.filter((item) => item.surveyId === options.surveyId);
+    if (options.limit) list = list.slice(0, Number(options.limit));
+    return list;
+  },
+
+  async count(db, state, filter = {}) {
+    const database = db || (state ? await getDb(state) : null);
+    if (state?.postgresClient) {
+      let query = 'SELECT COUNT(*)::int as count FROM responses WHERE status != $1';
+      const params = ['deleted'];
+      if (filter.workspaceId) {
+        params.push(filter.workspaceId);
+        query += ` AND workspace_id = $${params.length}`;
+      }
+      if (filter.surveyId) {
+        params.push(filter.surveyId);
+        query += ` AND survey_id = $${params.length}`;
+      }
+      if (filter.status) {
+        params.push(filter.status);
+        query += ` AND status = $${params.length}`;
+      }
+      const res = await state.postgresClient.query(query, params);
+      return res.rows[0]?.count || 0;
+    }
+    return (database?.responses || []).filter((item) => {
+      if (item.status === 'deleted') return false;
+      if (filter.workspaceId && item.workspaceId !== filter.workspaceId) return false;
+      if (filter.surveyId && item.surveyId !== filter.surveyId) return false;
+      if (filter.status && item.status !== filter.status) return false;
+      return true;
+    }).length;
+  },
+
+  async save(db, state, response) {
+    const database = db || (state ? await getDb(state) : null);
+    if (database) {
+      const existingIndex = database.responses.findIndex((r) => r.id === response.id);
+      if (existingIndex >= 0) {
+        database.responses[existingIndex] = response;
+      } else {
+        database.responses.push(response);
+      }
+    }
+    if (state?.postgresClient) {
+      const config = POSTGRES_RELATIONAL_COLLECTIONS.find((c) => c.collection === 'responses');
+      if (config) {
+        const prepared = postgresPrepareItem(config, response);
+        const { columns, values } = postgresObjectToRow(config, prepared);
+        const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ');
+        const nonIdCols = columns.filter((c) => c !== 'id');
+        let queryStr = `INSERT INTO responses (${columns.join(', ')}) VALUES (${placeholders})`;
+        if (nonIdCols.length > 0) {
+          const updateClause = nonIdCols.map((c) => `${c} = EXCLUDED.${c}`).join(', ');
+          queryStr += ` ON CONFLICT (id) DO UPDATE SET ${updateClause}`;
+        } else {
+          queryStr += ` ON CONFLICT (id) DO NOTHING`;
+        }
+        await state.postgresClient.query(queryStr, values);
+      }
+    }
+    return response;
+  },
+
+  async dualReadVerify(db, state, id) {
+    const database = db || (state ? await getDb(state) : null);
+    const memoryRecord = database?.responses.find((item) => item.id === id) || null;
+    if (!state?.postgresClient) return { matched: true, divergence: null };
+    const config = POSTGRES_RELATIONAL_COLLECTIONS.find((c) => c.collection === 'responses');
+    const res = await state.postgresClient.query('SELECT * FROM responses WHERE id = $1', [id]);
+    const sqlRecord = res.rows.length ? postgresRowToObject(config, res.rows[0]) : null;
+    if (!memoryRecord && !sqlRecord) return { matched: true, divergence: null };
+    if (!memoryRecord || !sqlRecord) {
+      return { matched: false, divergence: { inMemory: Boolean(memoryRecord), inSql: Boolean(sqlRecord) } };
+    }
+    const memJson = JSON.stringify(memoryRecord);
+    const sqlJson = JSON.stringify(sqlRecord);
+    return {
+      matched: memJson === sqlJson,
+      divergence: memJson === sqlJson ? null : { memoryRecord, sqlRecord }
+    };
+  }
+};
+
+const jobsRepo = {
+  async listDue(db, state, now = Date.now(), limit = 100) {
+    const database = db || (state ? await getDb(state) : null);
+    if (state?.postgresClient) {
+      const config = POSTGRES_RELATIONAL_COLLECTIONS.find((c) => c.collection === 'jobs');
+      const res = await state.postgresClient.query(
+        'SELECT * FROM jobs WHERE status IN ($1, $2) AND next_run_at <= $3 ORDER BY next_run_at ASC LIMIT $4',
+        ['queued', 'retrying', new Date(now).toISOString(), limit]
+      );
+      return res.rows.map((r) => postgresRowToObject(config, r));
+    }
+    return (database?.jobs || [])
+      .filter((job) => ['queued', 'retrying'].includes(job.status) && new Date(job.nextRunAt || 0).getTime() <= now)
+      .sort((a, b) => new Date(a.nextRunAt || 0) - new Date(b.nextRunAt || 0))
+      .slice(0, limit);
+  },
+  async save(db, state, job) {
+    const database = db || (state ? await getDb(state) : null);
+    if (database) {
+      const idx = database.jobs.findIndex((j) => j.id === job.id);
+      if (idx >= 0) database.jobs[idx] = job;
+      else database.jobs.push(job);
+    }
+    if (state?.postgresClient) {
+      const config = POSTGRES_RELATIONAL_COLLECTIONS.find((c) => c.collection === 'jobs');
+      if (config) {
+        const prepared = postgresPrepareItem(config, job);
+        const { columns, values } = postgresObjectToRow(config, prepared);
+        const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ');
+        const nonIdCols = columns.filter((c) => c !== 'id');
+        let queryStr = `INSERT INTO jobs (${columns.join(', ')}) VALUES (${placeholders})`;
+        if (nonIdCols.length > 0) {
+          const updateClause = nonIdCols.map((c) => `${c} = EXCLUDED.${c}`).join(', ');
+          queryStr += ` ON CONFLICT (id) DO UPDATE SET ${updateClause}`;
+        }
+        await state.postgresClient.query(queryStr, values);
+      }
+    }
+    return job;
+  }
+};
+
+const auditLogsRepo = {
+  async append(db, state, log) {
+    const database = db || (state ? await getDb(state) : null);
+    if (database) {
+      database.auditLogs.push(log);
+    }
+    if (state?.postgresClient) {
+      const config = POSTGRES_RELATIONAL_COLLECTIONS.find((c) => c.collection === 'auditLogs');
+      if (config) {
+        const prepared = postgresPrepareItem(config, log);
+        const { columns, values } = postgresObjectToRow(config, prepared);
+        const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ');
+        await state.postgresClient.query(`INSERT INTO audit_logs (${columns.join(', ')}) VALUES (${placeholders}) ON CONFLICT DO NOTHING`, values);
+      }
+    }
+    return log;
+  },
+  async listByWorkspace(db, state, workspaceId, limit = 50) {
+    const database = db || (state ? await getDb(state) : null);
+    if (state?.postgresClient) {
+      const config = POSTGRES_RELATIONAL_COLLECTIONS.find((c) => c.collection === 'auditLogs');
+      const res = await state.postgresClient.query(
+        'SELECT * FROM audit_logs WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT $2',
+        [workspaceId, limit]
+      );
+      return res.rows.map((r) => postgresRowToObject(config, r));
+    }
+    return (database?.auditLogs || [])
+      .filter((item) => item.workspaceId === workspaceId)
+      .slice(-limit)
+      .reverse();
+  }
+};
+
 if (require.main === module) {
   const port = Number(process.env.PORT || 4173);
   const server = createServer();
@@ -12283,5 +12502,8 @@ module.exports = {
   checkAiCreditLimit,
   consumeAiCredits,
   improveQuestionText,
-  buildMonthlyReport
+  buildMonthlyReport,
+  responsesRepo,
+  jobsRepo,
+  auditLogsRepo
 };
