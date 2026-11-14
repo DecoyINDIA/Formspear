@@ -12671,6 +12671,8 @@ module.exports = {
   buildMonthlyReport,
   classifyMultilingualResponse,
   validateEvidenceCitations,
+  parseSamlResponsePayload,
+  validateSsoAssertion,
   responsesRepo,
   jobsRepo,
   auditLogsRepo
