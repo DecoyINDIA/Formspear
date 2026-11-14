@@ -416,6 +416,9 @@ function createServer(options = {}) {
     state.rateLimitSweepTimer.unref?.();
 
     if (options.disableWorker || state.jobTimer) return;
+    if (bullMqEnabled(state)) {
+      startBullMqWorker(state).catch((error) => console.error('BullMQ worker failed to start', error));
+    }
     state.jobTimer = setInterval(() => {
       processDueJobs(state).catch((error) => console.error('Job worker failed', error));
     }, JOB_POLL_INTERVAL_MS);
@@ -461,7 +464,10 @@ async function routeRequest(req, res, state) {
   }
 
   if (url.pathname === '/' || url.pathname.startsWith('/s/') || url.pathname === '/app') {
-    await sendFile(res, path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8');
+    const publicFrameHeaders = url.pathname.startsWith('/s/')
+      ? { 'x-frame-options': null, 'content-security-policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; frame-ancestors *; base-uri 'self'; form-action 'self'" }
+      : {};
+    await sendFile(res, path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8', publicFrameHeaders);
     return;
   }
 
@@ -744,7 +750,7 @@ async function handleSignup(req, res, db, state) {
     avatarUrl: '',
     password: hashPassword(password),
     emailVerifiedAt: platformSettings(db).requireEmailVerification ? null : new Date().toISOString(),
-    platformRole: db.users.length === 0 ? 'super_admin' : 'user',
+    platformRole: bootstrapAdminRole(email),
     timezone: cleanTimezone(body.timezone, 'Asia/Kolkata'),
     notificationPreferences: { emailAlerts: true, weeklyDigest: true },
     termsAcceptedAt: new Date().toISOString(),
@@ -966,6 +972,13 @@ async function handleGoogleOAuthCallback(req, res, url, db, state) {
     const result = completeGoogleOAuthLogin(db, profile, request);
     request.completedAt = new Date().toISOString();
     request.status = 'completed';
+    const policyError = postIdentityPolicyError(db, result.user, { federated: true });
+    if (policyError) {
+      db.auditLogs.push(audit(result.workspaceId || null, result.user.id, 'auth.oauth_policy_blocked', 'user', result.user.id, { provider: 'google', code: policyError.code }));
+      await saveDb(state);
+      sendJson(res, 403, { error: policyError });
+      return;
+    }
     const session = createSession(result.user.id);
     db.sessions.push(session);
     db.auditLogs.push(audit(result.workspaceId || null, result.user.id, result.created ? 'auth.oauth_signup' : 'auth.oauth_login', 'user', result.user.id, { provider: 'google' }));
@@ -1383,6 +1396,10 @@ async function handleWorkspaces(req, res, url, segments, db, state, user) {
   }
 
   if (segments[1] === 'subscription' && req.method === 'POST') {
+    if (user.platformRole !== 'super_admin' && !(process.env.NODE_ENV !== 'production' && process.env.ALLOW_MANUAL_PLAN_CHANGES === 'true')) {
+      sendJson(res, 403, { error: { code: 'verified_billing_required', message: 'Paid plans must be activated through a verified billing provider.' } });
+      return;
+    }
     const body = await readJson(req);
     const plan = findBillingPlan(db, body.planId);
     if (!plan) {
@@ -1736,7 +1753,8 @@ async function handleSurveys(req, res, url, segments, db, state, user) {
     audit, saveDb, sendJson, requireSurveyAccess, surveyApprovalFingerprint, applySurveySlug,
     updateSurveyFromBody, markApprovalStaleIfChanged, createCustomTemplateFromSurvey,
     publishSurveyDraft, effectiveSurveyRole, requestSurveyApproval, surveyApprovalPayload,
-    validateSurveyForPublish, reviewSurveyApproval, normalizeSurveyAccessMode, normalizeSurveyAccessRules
+    validateSurveyForPublish, reviewSurveyApproval, normalizeSurveyAccessMode, normalizeSurveyAccessRules,
+    surveyAccessPolicyChanged
   });
   if (lifecycle.handled) return;
   const survey = lifecycle.survey;
@@ -1744,7 +1762,8 @@ async function handleSurveys(req, res, url, segments, db, state, user) {
   if (await handleResponsesRoute({
     req, res, url, segments, db, state, user, survey,
     filterResponses, requireWorkspacePermission, requireSurveyAccess, buildResponsePdf,
-    audit, saveDb, withSecurityHeaders, slugify, sendJson, buildResponseDetail, readJson, updateResponseRecord
+    audit, saveDb, withSecurityHeaders, slugify, sendJson, buildResponseDetail, readJson, updateResponseRecord,
+    eraseResponse
   })) return;
 
   if (segments[1] === 'export.csv' && req.method === 'GET') {
@@ -2018,7 +2037,8 @@ async function handleFileUploads(req, res, segments, db, user) {
   }
   if (!requireWorkspace(res, db, user, upload.workspaceId, 'viewer')) return;
   if (segments[1] === 'download-url' && req.method === 'GET') {
-    if (upload.lifecycleStatus === 'expired' || upload.deletedAt) {
+    const parentResponse = upload.responseId ? db.responses.find((item) => item.id === upload.responseId) : null;
+    if (upload.lifecycleStatus === 'expired' || upload.lifecycleStatus === 'deleted' || upload.deletedAt || parentResponse?.status === 'deleted') {
       sendJson(res, 410, { error: { code: 'file_upload_expired', message: 'File upload retention has expired.' } });
       return;
     }
@@ -2270,6 +2290,11 @@ async function handleBillingWebhook(req, res, providerInput, db, state) {
     event = JSON.parse(rawBody || '{}');
   } catch {
     sendJson(res, 400, { error: { code: 'invalid_billing_webhook', message: 'Billing webhook payload must be JSON.' } });
+    return;
+  }
+  const eventId = cleanText(event.id || event.payload?.payment?.entity?.id || event.payload?.subscription?.entity?.id || '', 200);
+  if (eventId && db.auditLogs.some((item) => item.action === 'billing.webhook_received' && item.entityId === eventId && item.metadataJson?.provider === provider)) {
+    sendJson(res, 200, { ok: true, provider, duplicate: true });
     return;
   }
   const result = applyBillingWebhookEvent(db, provider, event);
@@ -2526,6 +2551,11 @@ async function handleApiV1(req, res, url, segments, db, state) {
 
   if (segments[0] === 'surveys' && segments.length === 1 && req.method === 'POST') {
     if (!requireApiScope(res, apiKey, 'surveys:write')) return;
+    const limitCheck = checkPlanLimit(db, workspaceId, 'surveys');
+    if (!limitCheck.ok) {
+      sendJson(res, 402, { error: { code: 'plan_limit', message: limitCheck.message } });
+      return;
+    }
     const body = await readJson(req);
     const template = findSurveyTemplate(db, body.templateId, workspaceId);
     const survey = createSurvey({
@@ -2561,6 +2591,10 @@ async function handleApiV1(req, res, url, segments, db, state) {
     if (segments.length === 2 && req.method === 'PUT') {
       if (!requireApiScope(res, apiKey, 'surveys:write')) return;
       const body = await readJson(req);
+      if (surveyAccessPolicyChanged(db, survey, body)) {
+        sendJson(res, 403, { error: { code: 'forbidden', message: 'API keys cannot change survey access policy.' } });
+        return;
+      }
       const beforeApprovalFingerprint = surveyApprovalFingerprint(survey);
       if (body.slug !== undefined) {
         const slugResult = applySurveySlug(db, survey, body.slug);
@@ -2915,14 +2949,33 @@ async function handlePublic(req, res, url, segments, db, state) {
     return;
   }
 
+  if (segments[0] === 'in-app' && segments[1] === 'resolve' && req.method === 'OPTIONS') {
+    const workspaceId = cleanText(req.headers['x-feedbackos-workspace'] || '', 120);
+    const origin = cleanText(req.headers.origin || '', 300);
+    if (!inAppOriginAllowed(db, workspaceId, origin, url)) {
+      sendJson(res, 403, { error: { code: 'origin_not_allowed', message: 'This origin is not allowed for the installation.' } });
+      return;
+    }
+    res.writeHead(204, publicCorsHeaders(origin));
+    res.end();
+    return;
+  }
+
   if (segments[0] === 'in-app' && segments[1] === 'resolve' && req.method === 'POST') {
     if (!publicRateAllowed(req, 'in-app')) {
       sendJson(res, 429, { error: { code: 'rate_limited', message: 'Too many in-app survey events. Please try again shortly.' } });
       return;
     }
     const body = await readJson(req);
+    const workspaceId = cleanText(body.workspaceId || req.headers['x-feedbackos-workspace'] || '', 120);
+    const origin = cleanText(req.headers.origin || '', 300);
+    if (!workspaceId || workspaceId !== cleanText(req.headers['x-feedbackos-workspace'] || workspaceId, 120) || !inAppOriginAllowed(db, workspaceId, origin, url)) {
+      sendJson(res, 403, { error: { code: 'invalid_installation', message: 'The SDK installation or origin is not allowed.' } });
+      return;
+    }
+    body.workspaceId = workspaceId;
     const match = resolveInAppSurvey(db, body);
-    sendJson(res, 200, match ? { survey: match } : { survey: null });
+    sendJsonWithHeaders(res, 200, match ? { survey: match } : { survey: null }, publicCorsHeaders(origin));
     return;
   }
 
@@ -2984,7 +3037,8 @@ async function handlePublic(req, res, url, segments, db, state) {
     }
     const publishedVersion = db.surveyVersions.find((version) => version.id === survey.publishedVersionId);
     const schema = publishedVersion ? publishedVersion.schemaJson : survey.schema;
-    const answers = normalizeAnswers(body.answers || {});
+    const normalizedAnswers = normalizeAnswers(body.answers || {});
+    const answers = survey.settings.anonymousMode ? anonymizeResponseAnswers(schema, normalizedAnswers) : normalizedAnswers;
     const resumeToken = `fo_resume_${crypto.randomBytes(24).toString('hex')}`;
     const response = {
       id: makeId('rsp'),
@@ -3091,7 +3145,8 @@ async function handlePublic(req, res, url, segments, db, state) {
     }
     const publishedVersion = db.surveyVersions.find((version) => version.id === survey.publishedVersionId);
     const schema = publishedVersion ? publishedVersion.schemaJson : survey.schema;
-    const incomingAnswers = normalizeAnswers(body.answers || {});
+    const normalizedIncomingAnswers = normalizeAnswers(body.answers || {});
+    const incomingAnswers = survey.settings.anonymousMode ? anonymizeResponseAnswers(schema, normalizedIncomingAnswers) : normalizedIncomingAnswers;
     const answers = body.replaceAnswers ? incomingAnswers : { ...response.answersJson, ...incomingAnswers };
     response.answersJson = answers;
     response.metadataJson = { ...response.metadataJson, ...captureMetadata(req, body.metadata || {}, survey) };
@@ -3359,11 +3414,27 @@ async function savePostgresPlatformSettings(client, db) {
   );
 }
 
+const POSTGRES_EXTRA_PROPERTIES = {
+  users: ['twoFactorPendingAt', 'twoFactorEnabledAt', 'twoFactorDisabledAt', 'oauthProviders'],
+  workspaces: ['permissionPolicy', 'previousPlanId', 'customDomainDnsCheckedAt', 'customDomainObservedTxt', 'customDomainSslCertificateId', 'customDomainSslLastError', 'customDomainSslProvider', 'customDomainSslProvisionedAt', 'customDomainSslUpdatedAt'],
+  surveys: ['hasUnpublishedChanges', 'approvalStatus', 'approvalFingerprint', 'approvalNote', 'approvalRequestedAt', 'approvalRequestedBy', 'approvalReviewedAt', 'approvalReviewedBy'],
+  responses: ['logicCompletionJson', 'fileUploadBytes', 'resumeEmailSentAt', 'resumeEmailRecipientHash'],
+  jobs: ['externalQueue', 'externalQueueName', 'externalQueuedAt'],
+  webhooks: ['deletedAt'],
+  workspaceInvites: ['status']
+};
+
+const POSTGRES_TRANSIENT_PROPERTIES = {
+  users: ['twoFactorPendingSecret']
+};
+
 const POSTGRES_RELATIONAL_COLLECTIONS = [
   {
     collection: 'users',
     table: 'users',
     orderBy: 'created_at',
+    prepare: postgresPrepareUser,
+    hydrate: postgresHydrateUser,
     fields: {
       id: 'id',
       name: 'name',
@@ -3375,12 +3446,13 @@ const POSTGRES_RELATIONAL_COLLECTIONS = [
       timezone: 'timezone',
       notificationPreferences: { column: 'notification_preferences', type: 'json', fallback: {} },
       disabled: { column: 'disabled', type: 'boolean' },
-      twoFactorSecretHash: 'two_factor_secret_hash',
+      twoFactorSecretEncrypted: 'two_factor_secret_encrypted',
       twoFactorEnabled: { column: 'two_factor_enabled', type: 'boolean' },
       twoFactorRecoveryCodeHashes: { column: 'two_factor_recovery_codes', type: 'json', fallback: [] },
       authProvider: 'auth_provider',
       termsAcceptedAt: { column: 'terms_accepted_at', type: 'date' },
       privacyAcceptedAt: { column: 'privacy_accepted_at', type: 'date' },
+      extraJson: { column: 'extra_json', type: 'json', fallback: {} },
       createdAt: { column: 'created_at', type: 'date' },
       updatedAt: { column: 'updated_at', type: 'date' }
     }
@@ -3502,6 +3574,7 @@ const POSTGRES_RELATIONAL_COLLECTIONS = [
       retentionNextRunAt: { column: 'retention_next_run_at', type: 'date' },
       suspended: { column: 'suspended', type: 'boolean' },
       billingWarning: 'billing_warning',
+      extraJson: { column: 'extra_json', type: 'json', fallback: {} },
       createdAt: { column: 'created_at', type: 'date' },
       updatedAt: { column: 'updated_at', type: 'date' }
     }
@@ -3569,6 +3642,7 @@ const POSTGRES_RELATIONAL_COLLECTIONS = [
       invitedBy: { column: 'invited_by', nullable: true },
       acceptedAt: { column: 'accepted_at', type: 'date' },
       expiresAt: { column: 'expires_at', type: 'date' },
+      extraJson: { column: 'extra_json', type: 'json', fallback: {} },
       createdAt: { column: 'created_at', type: 'date' }
     }
   },
@@ -3593,8 +3667,10 @@ const POSTGRES_RELATIONAL_COLLECTIONS = [
       accessRules: { column: 'access_rules_json', type: 'json', fallback: [] },
       metrics: { column: 'metrics_json', type: 'json', fallback: {} },
       createdBy: { column: 'created_by', nullable: true },
+      publishedVersionId: { column: 'published_version_id', nullable: true },
       publishedAt: { column: 'published_at', type: 'date' },
       archivedAt: { column: 'archived_at', type: 'date' },
+      extraJson: { column: 'extra_json', type: 'json', fallback: {} },
       createdAt: { column: 'created_at', type: 'date' },
       updatedAt: { column: 'updated_at', type: 'date' }
     }
@@ -3653,6 +3729,7 @@ const POSTGRES_RELATIONAL_COLLECTIONS = [
       submittedAt: { column: 'submitted_at', type: 'date' },
       archivedAt: { column: 'archived_at', type: 'date' },
       deletedAt: { column: 'deleted_at', type: 'date' },
+      extraJson: { column: 'extra_json', type: 'json', fallback: {} },
       createdAt: { column: 'created_at', type: 'date' },
       updatedAt: { column: 'updated_at', type: 'date' }
     }
@@ -3730,6 +3807,7 @@ const POSTGRES_RELATIONAL_COLLECTIONS = [
       events: { column: 'events_json', type: 'json', fallback: [] },
       secret: 'secret',
       active: { column: 'active', type: 'boolean' },
+      extraJson: { column: 'extra_json', type: 'json', fallback: {} },
       createdAt: { column: 'created_at', type: 'date' },
       updatedAt: { column: 'updated_at', type: 'date' }
     }
@@ -3762,6 +3840,7 @@ const POSTGRES_RELATIONAL_COLLECTIONS = [
       conditionsJson: { column: 'conditions_json', type: 'json', fallback: {} },
       channelsJson: { column: 'channels_json', type: 'json', fallback: {} },
       active: { column: 'active', type: 'boolean' },
+      extraJson: { column: 'extra_json', type: 'json', fallback: {} },
       createdAt: { column: 'created_at', type: 'date' },
       updatedAt: { column: 'updated_at', type: 'date' }
     }
@@ -3907,6 +3986,7 @@ const POSTGRES_RELATIONAL_COLLECTIONS = [
       payloadJson: { column: 'payload_json', type: 'json', fallback: {} },
       lastError: 'last_error',
       completedAt: { column: 'completed_at', type: 'date' },
+      extraJson: { column: 'extra_json', type: 'json', fallback: {} },
       createdAt: { column: 'created_at', type: 'date' },
       updatedAt: { column: 'updated_at', type: 'date' }
     }
@@ -4089,12 +4169,12 @@ async function loadPostgresRelationalCollections(pool, db, state) {
         ...(snapshotById.get(row.id) || {}),
         ...postgresRowToObject(config, row)
       };
-      return config.hydrate ? config.hydrate(item, row) : item;
+      return postgresHydrateItem(config, item, row);
     });
     if (state) {
       const currentById = new Map();
       for (const item of db[config.collection] || []) {
-        const prepared = config.prepare ? config.prepare(item) : item;
+        const prepared = postgresPrepareItem(config, item);
         const { columns, values } = postgresObjectToRow(config, prepared);
         currentById.set(item.id, { columns, values });
       }
@@ -4107,7 +4187,7 @@ async function savePostgresRelationalCollections(client, db, state, nextPgShadow
   for (const config of POSTGRES_RELATIONAL_COLLECTIONS) {
     const currentById = new Map();
     for (const item of db[config.collection] || []) {
-      const prepared = config.prepare ? config.prepare(item) : item;
+      const prepared = postgresPrepareItem(config, item);
       const { columns, values } = postgresObjectToRow(config, prepared);
       currentById.set(item.id, { columns, values });
     }
@@ -4197,6 +4277,102 @@ function postgresPrepareMonthlyReport(item = {}) {
   };
 }
 
+function postgresPrepareItem(config, item) {
+  let base = config.prepare ? config.prepare(item) : item;
+  const extraKeys = POSTGRES_EXTRA_PROPERTIES[config.collection];
+  if (extraKeys && extraKeys.length) {
+    const extra = {};
+    for (const key of extraKeys) {
+      if (item && item[key] !== undefined) {
+        extra[key] = item[key];
+      }
+    }
+    base = { ...base, extraJson: extra };
+  }
+  return base;
+}
+
+function postgresHydrateItem(config, item, row) {
+  let out = config.hydrate ? config.hydrate(item, row) : item;
+  const extraKeys = POSTGRES_EXTRA_PROPERTIES[config.collection];
+  if (extraKeys && extraKeys.length) {
+    const extra = out.extraJson && typeof out.extraJson === 'object' && !Array.isArray(out.extraJson)
+      ? out.extraJson
+      : {};
+    const pickedExtra = {};
+    for (const key of extraKeys) {
+      if (extra[key] !== undefined) {
+        pickedExtra[key] = extra[key];
+      }
+    }
+    out = { ...pickedExtra, ...out };
+    delete out.extraJson;
+  }
+  return out;
+}
+
+function postgresPrepareUser(item = {}) {
+  let twoFactorSecretEncrypted = '';
+  if (item.twoFactorSecret) {
+    if (item.twoFactorSecretEncrypted) {
+      try {
+        const decrypted = decryptConfig(item.twoFactorSecretEncrypted);
+        if (decrypted?.secret === item.twoFactorSecret) {
+          twoFactorSecretEncrypted = item.twoFactorSecretEncrypted;
+        }
+      } catch (_) {}
+    }
+    if (!twoFactorSecretEncrypted) {
+      twoFactorSecretEncrypted = encryptConfig({ secret: item.twoFactorSecret });
+      item.twoFactorSecretEncrypted = twoFactorSecretEncrypted;
+    }
+  } else {
+    twoFactorSecretEncrypted = '';
+    if (item.twoFactorSecretEncrypted) {
+      delete item.twoFactorSecretEncrypted;
+    }
+  }
+
+  const password = item.password && typeof item.password === 'object'
+    ? `v1:${Buffer.from(JSON.stringify(item.password)).toString('base64url')}`
+    : String(item.password || '');
+
+  return {
+    ...item,
+    password,
+    twoFactorSecretEncrypted
+  };
+}
+
+function postgresHydrateUser(item = {}, row = {}) {
+  let password = item.password;
+  if (typeof password === 'string' && password.startsWith('v1:')) {
+    try {
+      password = JSON.parse(Buffer.from(password.slice(3), 'base64url').toString('utf8'));
+    } catch {
+      password = null;
+    }
+  }
+
+  let twoFactorSecret = '';
+  const encrypted = item.twoFactorSecretEncrypted || '';
+  if (encrypted) {
+    try {
+      const decrypted = decryptConfig(encrypted);
+      twoFactorSecret = cleanText(decrypted?.secret || '', 256);
+    } catch (_) {
+      twoFactorSecret = '';
+    }
+  }
+
+  return {
+    ...item,
+    password,
+    twoFactorSecret,
+    twoFactorSecretEncrypted: encrypted
+  };
+}
+
 function postgresHydrateMonthlyReport(item = {}) {
   const report = item.reportJson && typeof item.reportJson === 'object' && !Array.isArray(item.reportJson)
     ? item.reportJson
@@ -4272,6 +4448,12 @@ async function ensurePostgresRuntime(state) {
     const result = await pool.query("SELECT to_regclass('public.platform_settings') AS table_name");
     if (!result.rows[0]?.table_name) {
       throw new Error('PostgreSQL baseline migration has not been applied. Run migrations/0001_initial_postgres.sql before using DATABASE_URL.');
+    }
+    const colResult = await pool.query(
+      "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'surveys' AND column_name = 'published_version_id'"
+    );
+    if (!colResult.rows.length) {
+      throw new Error('PostgreSQL migration 0002 has not been applied. Run npm run migrate.');
     }
     const client = await pool.connect();
     try {
@@ -4362,6 +4544,9 @@ async function processJobRecord(db, job) {
   job.attempts += 1;
   job.updatedAt = new Date().toISOString();
   try {
+    if (job.workspaceId && !['retention_sweep', 'object_delete'].includes(job.type) && db.workspaces.find((item) => item.id === job.workspaceId)?.suspended) {
+      throw new Error('Workspace is suspended.');
+    }
     if (job.type === 'webhook_delivery') {
       await runWebhookJob(db, job);
     } else if (job.type === 'email_delivery') {
@@ -4372,6 +4557,8 @@ async function processJobRecord(db, job) {
       await runMonthlyReportJob(db, job);
     } else if (job.type === 'retention_sweep') {
       await runRetentionJob(db, job);
+    } else if (job.type === 'object_delete') {
+      await deleteObjectStorage(job.payloadJson);
     } else {
       throw new Error(`Unknown job type ${job.type}`);
     }
@@ -4504,7 +4691,7 @@ async function runWebhookJob(db, job) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
-    const response = await fetch(hook.url, {
+    const response = await safeOutboundFetch(hook.url, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -4769,7 +4956,7 @@ async function deliverIntegrationPayload(integration, event, payloadJson) {
   const timeoutMs = Math.max(1000, Number(config.timeoutMs || process.env.INTEGRATION_TIMEOUT_MS || 8000));
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(request.url, {
+    const response = await safeOutboundFetch(request.url, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -4922,13 +5109,15 @@ async function runRetentionJob(db, job) {
   for (const response of db.responses.filter((item) => item.workspaceId === workspaceId && item.status !== 'deleted')) {
     const submitted = new Date(response.submittedAt || response.createdAt).getTime();
     if (submitted < cutoff) {
-      updateResponseRecord(response, { anonymize: true, addTag: 'retention-anonymized' }, 'system');
+      eraseResponse(db, response, 'anonymize', 'system');
+      response.tagsJson = uniqueTags([...(response.tagsJson || []), 'retention-anonymized']);
       anonymized += 1;
     }
   }
   for (const upload of db.fileUploads.filter((item) => item.workspaceId === workspaceId && item.lifecycleStatus !== 'expired')) {
     const expiresAt = new Date(upload.retentionExpiresAt || fileUploadRetentionExpiresAt(db, workspaceId, { createdAt: upload.createdAt })).getTime();
     if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
+      queueObjectDeletion(db, upload);
       upload.lifecycleStatus = 'expired';
       upload.deletedAt = new Date().toISOString();
       upload.dataUrl = '';
@@ -5263,6 +5452,14 @@ function normalizeSurveyAccessRules(db, survey, input) {
     seen.add(userId);
   }
   return output;
+}
+
+function surveyAccessPolicyChanged(db, survey, body = {}) {
+  if (body.accessMode !== undefined && normalizeSurveyAccessMode(body.accessMode) !== normalizeSurveyAccessMode(survey.accessMode)) return true;
+  if (body.accessRules === undefined) return false;
+  const current = normalizeSurveyAccessRules(db, survey, survey.accessRules || []);
+  const next = normalizeSurveyAccessRules(db, survey, body.accessRules);
+  return JSON.stringify(current) !== JSON.stringify(next);
 }
 
 function customDomainToken(workspace) {
@@ -5770,7 +5967,7 @@ function completeGoogleOAuthLogin(db, profile, request) {
       avatarUrl: profile.avatarUrl,
       password: hashPassword(`oauth_${crypto.randomBytes(24).toString('hex')}`),
       emailVerifiedAt: now,
-      platformRole: db.users.length === 0 ? 'super_admin' : 'user',
+      platformRole: bootstrapAdminRole(profile.email),
       timezone: request.timezone || 'Asia/Kolkata',
       notificationPreferences: { emailAlerts: true, weeklyDigest: true },
       termsAcceptedAt: now,
@@ -6098,7 +6295,8 @@ function defaultSurveySettings() {
     inAppTargetPath: '',
     inAppFrequencyDays: 0,
     inAppAudienceProperty: '',
-    inAppAudienceValue: ''
+    inAppAudienceValue: '',
+    inAppAllowedOrigins: []
   };
 }
 
@@ -6123,6 +6321,12 @@ function normalizeSurveySettings(existing, patch = {}) {
     if (patch[key] !== undefined) output[key] = cleanText(patch[key], 160);
   }
   if (patch.inAppFrequencyDays !== undefined) output.inAppFrequencyDays = Math.max(0, Math.min(365, Number(patch.inAppFrequencyDays || 0)));
+  if (patch.inAppAllowedOrigins !== undefined) {
+    const values = Array.isArray(patch.inAppAllowedOrigins) ? patch.inAppAllowedOrigins : String(patch.inAppAllowedOrigins || '').split(/[\s,]+/);
+    output.inAppAllowedOrigins = [...new Set(values.map((value) => {
+      try { return new URL(value).origin; } catch { return ''; }
+    }).filter(Boolean))].slice(0, 20);
+  }
   if (patch.completionRedirectUrl !== undefined) output.completionRedirectUrl = cleanUrl(patch.completionRedirectUrl || '');
   if (patch.password !== undefined && String(patch.password || '').trim()) {
     output.passwordHash = hashToken(String(patch.password));
@@ -6504,6 +6708,7 @@ function publicSurveyPayload(db, survey, language = '') {
 
 function publicSurveyAvailability(db, survey) {
   if (!survey || survey.status !== 'published') return { ok: false, status: 404, code: 'not_found', message: 'Survey is not available.' };
+  if (db.workspaces.find((item) => item.id === survey.workspaceId)?.suspended) return { ok: false, status: 423, code: 'workspace_suspended', message: 'Survey collection is temporarily suspended.' };
   if (survey.settings.opensAt && new Date(survey.settings.opensAt).getTime() > Date.now()) {
     return { ok: false, status: 425, code: 'survey_not_open', message: 'This survey is scheduled but not open yet.' };
   }
@@ -6519,10 +6724,13 @@ function publicSurveyAvailability(db, survey) {
 }
 
 function resolveInAppSurvey(db, body) {
+  const workspaceId = cleanText(body?.workspaceId || '', 120);
+  if (!workspaceId) return null;
   const eventName = cleanText(body?.eventName || body?.event || '', 120);
   const currentPath = cleanText(body?.path || body?.url || '', 240);
   const attributes = body?.attributes && typeof body.attributes === 'object' ? body.attributes : {};
   const candidates = db.surveys
+    .filter((survey) => survey.workspaceId === workspaceId)
     .filter((survey) => survey.type === 'in_app_survey' || survey.settings.inAppTriggerEvent)
     .filter((survey) => publicSurveyAvailability(db, survey).ok)
     .filter((survey) => {
@@ -6545,6 +6753,23 @@ function resolveInAppSurvey(db, body) {
     frequencyDays: Math.max(0, Number(survey.settings.inAppFrequencyDays || 0)),
     triggerEvent: survey.settings.inAppTriggerEvent || '',
     targetPath: survey.settings.inAppTargetPath || ''
+  };
+}
+
+function inAppOriginAllowed(db, workspaceId, origin, requestUrl) {
+  const sameOrigin = `${requestUrl.protocol}//${requestUrl.host}`;
+  if (!origin || origin === sameOrigin) return true;
+  return db.surveys.some((survey) => survey.workspaceId === workspaceId
+    && publicSurveyAvailability(db, survey).ok
+    && (survey.settings.inAppAllowedOrigins || []).includes(origin));
+}
+
+function publicCorsHeaders(origin) {
+  return {
+    'access-control-allow-origin': origin,
+    'access-control-allow-methods': 'POST, OPTIONS',
+    'access-control-allow-headers': 'content-type, x-feedbackos-workspace',
+    vary: 'Origin'
   };
 }
 
@@ -6792,13 +7017,8 @@ function handlePrivacyDeletion(db, workspaceId, body, userId) {
   for (const response of db.responses.filter((item) => item.workspaceId === workspaceId)) {
     if (respondentIds.has(response.respondentId) || (email && answersToText(response.answersJson).toLowerCase().includes(email))) {
       responsesAffected += 1;
-      if (mode === 'delete') {
-        response.status = 'deleted';
-        response.deletedAt = new Date().toISOString();
-      } else {
-        updateResponseRecord(response, { anonymize: true, addTag: 'privacy-request' }, userId);
-        redactPersonalAnswers(db, response);
-      }
+      eraseResponse(db, response, mode, userId);
+      if (mode !== 'delete') response.tagsJson = uniqueTags([...(response.tagsJson || []), 'privacy-request']);
     }
   }
   const beforeContacts = db.contacts.length;
@@ -6822,6 +7042,58 @@ function redactPersonalAnswers(db, response) {
   for (const id of questionIds) {
     if (response.answersJson[id] !== undefined) response.answersJson[id] = '[redacted]';
   }
+}
+
+function eraseResponse(db, response, mode = 'anonymize', userId = 'system') {
+  const now = new Date().toISOString();
+  if (mode === 'delete') {
+    response.status = 'deleted';
+    response.deletedAt = now;
+    response.answersJson = {};
+    response.internalNotes = [];
+  } else {
+    redactPersonalAnswers(db, response);
+    updateResponseRecord(response, { anonymize: true }, userId);
+  }
+  response.respondentId = null;
+  response.resumeTokenHash = '';
+  response.resumeExpiresAt = '';
+  response.metadataJson = { anonymizedAt: now };
+  response.updatedAt = now;
+  for (const upload of db.fileUploads.filter((item) => item.responseId === response.id)) {
+    queueObjectDeletion(db, upload, now);
+    upload.lifecycleStatus = 'deleted';
+    upload.deletedAt = now;
+    upload.dataUrl = '';
+    upload.storageUrl = '';
+  }
+  for (const job of db.jobs.filter((item) => item.type !== 'object_delete' && JSON.stringify(item.payloadJson || {}).includes(response.id))) {
+    const webhookLog = job.payloadJson?.webhookLogId ? db.webhookLogs.find((item) => item.id === job.payloadJson.webhookLogId) : null;
+    if (webhookLog) {
+      webhookLog.responseStatus = 'erased';
+      webhookLog.error = '';
+    }
+    job.status = ['completed', 'failed'].includes(job.status) ? job.status : 'cancelled';
+    job.payloadJson = { erasedResponseId: response.id };
+    job.updatedAt = now;
+  }
+  for (const log of db.integrationLogs.filter((item) => item.payloadJson?.responseId === response.id)) log.payloadJson = { erased: true };
+  for (const job of db.aiJobs.filter((item) => item.responseId === response.id)) {
+    job.inputJson = {};
+    job.outputJson = {};
+  }
+  return response;
+}
+
+function queueObjectDeletion(db, upload, now = new Date().toISOString()) {
+  if (upload.storageProvider !== 's3_compatible' || !upload.storageKey) return;
+  if (db.jobs.some((item) => item.type === 'object_delete' && item.payloadJson?.uploadId === upload.id && !['failed', 'completed'].includes(item.status))) return;
+  db.jobs.push({
+    id: makeId('job'), workspaceId: upload.workspaceId, type: 'object_delete', status: 'queued', attempts: 0,
+    maxAttempts: JOB_MAX_ATTEMPTS, nextRunAt: now,
+    payloadJson: { uploadId: upload.id, bucket: upload.storageBucket, key: upload.storageKey },
+    lastError: '', createdAt: now, updatedAt: now, completedAt: null
+  });
 }
 
 function filterResponses(responses, url, survey, options = {}) {
@@ -8692,24 +8964,69 @@ function applyBillingWebhookEvent(db, provider, event) {
 function applyStripeBillingEvent(db, event) {
   const type = cleanText(event.type || '', 120);
   const object = event.data?.object || {};
+  const eventCreated = Math.max(0, Number(event.created || 0));
+  const existingSubscriptionId = object.subscription || (type.startsWith('customer.subscription.') ? object.id : '');
+  const existingSubscription = db.subscriptions.find((item) => item.providerSubscriptionId === existingSubscriptionId);
+  if (eventCreated && Number(existingSubscription?.billingPolicy?.providerEventCreated || 0) > eventCreated) {
+    return { eventId: event.id || '', eventType: type, action: 'ignored_out_of_order', workspaceId: existingSubscription?.workspaceId || '' };
+  }
   if (type === 'checkout.session.completed') {
     const workspaceId = cleanText(object.metadata?.workspaceId || object.client_reference_id || '', 120);
     const planId = cleanText(object.metadata?.planId || '', 40);
     const subscription = applyProviderSubscription(db, workspaceId, planId, 'stripe', object.subscription || object.id, 'active', object.customer || '', object.metadata || {});
+    recordProviderEvent(subscription, eventCreated);
     return { eventId: event.id || '', eventType: type, action: 'subscription_activated', workspaceId, subscriptionId: subscription?.id || '' };
   }
   if (type === 'invoice.paid') {
     const workspaceId = findWorkspaceIdByProviderSubscription(db, object.subscription);
-    const planId = db.workspaces.find((workspace) => workspace.id === workspaceId)?.planId || '';
-    if (workspaceId) upsertProviderInvoice(db, workspaceId, 'stripe', object.id, 'paid', Number(object.amount_paid || object.amount_due || 0) / 100, planId);
+    const subscription = db.subscriptions.find((item) => item.workspaceId === workspaceId);
+    const planId = subscription?.planId || '';
+    if (workspaceId) {
+      upsertProviderInvoice(db, workspaceId, 'stripe', object.id, 'paid', Number(object.amount_paid || object.amount_due || 0) / 100, planId);
+      if (subscription) {
+        subscription.status = 'active';
+        subscription.updatedAt = new Date().toISOString();
+        recordProviderEvent(subscription, eventCreated);
+        const workspace = db.workspaces.find((item) => item.id === workspaceId);
+        if (workspace) {
+          workspace.planId = subscription.planId;
+          workspace.billingWarning = '';
+          workspace.updatedAt = subscription.updatedAt;
+        }
+      }
+    }
     return { eventId: event.id || '', eventType: type, action: workspaceId ? 'invoice_paid' : 'ignored', workspaceId };
   }
   if (type === 'invoice.payment_failed') {
     const workspaceId = findWorkspaceIdByProviderSubscription(db, object.subscription);
-    if (workspaceId) markProviderPaymentFailed(db, workspaceId, 'stripe', object.id);
+    if (workspaceId) {
+      markProviderPaymentFailed(db, workspaceId, 'stripe', object.id);
+      recordProviderEvent(db.subscriptions.find((item) => item.workspaceId === workspaceId), eventCreated);
+    }
     return { eventId: event.id || '', eventType: type, action: workspaceId ? 'payment_failed' : 'ignored', workspaceId };
   }
+  if (type === 'customer.subscription.deleted') {
+    const workspaceId = findWorkspaceIdByProviderSubscription(db, object.id);
+    const subscription = db.subscriptions.find((item) => item.workspaceId === workspaceId);
+    if (subscription) {
+      subscription.status = 'canceled';
+      subscription.updatedAt = new Date().toISOString();
+      recordProviderEvent(subscription, eventCreated);
+      const workspace = db.workspaces.find((item) => item.id === workspaceId);
+      if (workspace) {
+        workspace.planId = 'starter';
+        workspace.billingWarning = 'Subscription canceled. Workspace moved to Starter limits.';
+        workspace.updatedAt = subscription.updatedAt;
+      }
+    }
+    return { eventId: event.id || '', eventType: type, action: workspaceId ? 'subscription_canceled' : 'ignored', workspaceId };
+  }
   return { eventId: event.id || '', eventType: type || 'unknown', action: 'ignored', workspaceId: '' };
+}
+
+function recordProviderEvent(subscription, eventCreated) {
+  if (!subscription || !eventCreated) return;
+  subscription.billingPolicy = { ...(subscription.billingPolicy || {}), providerEventCreated: eventCreated };
 }
 
 function applyRazorpayBillingEvent(db, event) {
@@ -9326,7 +9643,7 @@ async function putObjectStorage(upload, payload) {
   ].join('/');
   const url = new URL(`${config.endpoint}/${encodeURIComponent(config.bucket)}/${key.split('/').map(encodeURIComponent).join('/')}`);
   const contentType = upload.type || 'application/octet-stream';
-  const headers = signS3PutRequest(config, url, payload, contentType);
+  const headers = signS3Request(config, url, payload, contentType, 'PUT');
   const response = await fetch(url, { method: 'PUT', headers, body: payload });
   if (!response.ok) throw new Error(`Object storage upload failed with HTTP ${response.status}.`);
   return {
@@ -9336,7 +9653,16 @@ async function putObjectStorage(upload, payload) {
   };
 }
 
-function signS3PutRequest(config, url, payload, contentType) {
+async function deleteObjectStorage(input = {}) {
+  if (!input.key) return;
+  const config = objectStorageConfig();
+  const url = new URL(`${config.endpoint}/${encodeURIComponent(input.bucket || config.bucket)}/${String(input.key).split('/').map(encodeURIComponent).join('/')}`);
+  const payload = Buffer.alloc(0);
+  const response = await fetch(url, { method: 'DELETE', headers: signS3Request(config, url, payload, 'application/octet-stream', 'DELETE') });
+  if (!response.ok && response.status !== 404) throw new Error(`Object storage deletion failed with HTTP ${response.status}.`);
+}
+
+function signS3Request(config, url, payload, contentType, method) {
   const amzDate = new Date().toISOString().replace(/[:-]|\.\d{3}/g, '');
   const dateStamp = amzDate.slice(0, 8);
   const payloadHash = crypto.createHash('sha256').update(payload).digest('hex');
@@ -9348,7 +9674,7 @@ function signS3PutRequest(config, url, payload, contentType) {
     ''
   ].join('\n');
   const canonicalRequest = [
-    'PUT',
+    method,
     url.pathname,
     '',
     canonicalHeaders,
@@ -10362,6 +10688,10 @@ function requireApiKey(req, res, db) {
     sendJson(res, 401, { error: { code: 'invalid_api_key', message: 'API key is invalid or revoked.' } });
     return null;
   }
+  if (db.workspaces.find((item) => item.id === apiKey.workspaceId)?.suspended) {
+    sendJson(res, 423, { error: { code: 'workspace_suspended', message: 'Workspace access is suspended.' } });
+    return null;
+  }
   if (!apiRateAllowed(apiKey)) {
     sendJson(res, 429, { error: { code: 'rate_limited', message: 'API key rate limit exceeded.' } });
     return null;
@@ -10387,6 +10717,10 @@ function requireWorkspace(res, db, user, workspaceId, minimumRole = 'viewer') {
   }
   if (user.platformRole === 'super_admin') {
     return { role: 'owner', workspace };
+  }
+  if (workspace.suspended) {
+    sendJson(res, 423, { error: { code: 'workspace_suspended', message: 'Workspace access is suspended.' } });
+    return null;
   }
   const membership = db.workspaceMembers.find((item) => item.workspaceId === workspaceId && item.userId === user.id);
   if (!membership || !roleAtLeast(membership.role, minimumRole)) {
@@ -10484,6 +10818,24 @@ function platformSettings(db) {
 
 function emailVerificationRequiredForUser(db, user) {
   return Boolean(platformSettings(db).requireEmailVerification && user && !user.emailVerifiedAt);
+}
+
+function bootstrapAdminRole(email) {
+  const configuredEmail = cleanEmail(process.env.BOOTSTRAP_ADMIN_EMAIL || '', true);
+  return configuredEmail && cleanEmail(email) === configuredEmail ? 'super_admin' : 'user';
+}
+
+function postIdentityPolicyError(db, user, options = {}) {
+  if (!user || user.disabled) return { code: 'account_disabled', message: 'This account is disabled.' };
+  if (emailVerificationRequiredForUser(db, user)) return { code: 'email_verification_required', message: 'Verify your email before signing in.' };
+  const enforcedSso = enforcedSsoWorkspaceForEmail(db, user.email);
+  if (enforcedSso && db.workspaceMembers.some((member) => member.workspaceId === enforcedSso.id && member.userId === user.id)) {
+    return { code: 'sso_required', message: 'This workspace requires SSO sign-in.', workspaceId: enforcedSso.id };
+  }
+  if (options.federated && user.twoFactorEnabled) {
+    return { code: 'two_factor_required', message: 'Use password sign-in to complete application two-factor authentication.' };
+  }
+  return null;
 }
 
 function billingPlans(db, options = {}) {
@@ -11169,49 +11521,60 @@ function isEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || ''));
 }
 
-const dnsCache = new Map();
+const blockedOutboundIps = new net.BlockList();
+for (const [address, prefix, family] of [
+  ['0.0.0.0', 8, 'ipv4'], ['10.0.0.0', 8, 'ipv4'], ['100.64.0.0', 10, 'ipv4'],
+  ['127.0.0.0', 8, 'ipv4'], ['169.254.0.0', 16, 'ipv4'], ['172.16.0.0', 12, 'ipv4'],
+  ['192.0.0.0', 24, 'ipv4'], ['192.0.2.0', 24, 'ipv4'], ['192.168.0.0', 16, 'ipv4'],
+  ['198.18.0.0', 15, 'ipv4'], ['198.51.100.0', 24, 'ipv4'], ['203.0.113.0', 24, 'ipv4'],
+  ['224.0.0.0', 4, 'ipv4'], ['::', 128, 'ipv6'], ['::1', 128, 'ipv6'], ['fc00::', 7, 'ipv6'],
+  ['fe80::', 10, 'ipv6'], ['ff00::', 8, 'ipv6'], ['2001:db8::', 32, 'ipv6']
+]) blockedOutboundIps.addSubnet(address, prefix, family);
 
-async function cachedDnsLookup(hostname) {
-  const cached = dnsCache.get(hostname);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.ip;
+async function safeOutboundFetch(rawUrl, options = {}) {
+  if (process.env.WEBHOOK_ALLOW_PRIVATE_HOSTS === 'true') {
+    return fetch(rawUrl, { ...options, redirect: 'error' });
   }
-  try {
-    const result = await dns.lookup(hostname);
-    const ip = result.address;
-    dnsCache.set(hostname, { ip, expiresAt: Date.now() + 60000 });
-    return ip;
-  } catch {
-    return null;
-  }
+  const parsed = new URL(rawUrl);
+  if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('destination blocked by SSRF policy');
+  const addresses = await dns.lookup(parsed.hostname, { all: true });
+  if (!addresses.length || addresses.some((item) => isPrivateIp(item.address))) throw new Error('destination blocked by SSRF policy');
+  const selected = addresses[0];
+  const transport = parsed.protocol === 'https:' ? require('node:https') : http;
+  return new Promise((resolve, reject) => {
+    const request = transport.request(parsed, {
+      method: options.method || 'GET',
+      headers: options.headers || {},
+      signal: options.signal,
+      lookup: (_hostname, _lookupOptions, callback) => callback(null, selected.address, selected.family)
+    }, (response) => {
+      const chunks = [];
+      response.on('data', (chunk) => chunks.push(chunk));
+      response.on('end', () => {
+        const payload = Buffer.concat(chunks).toString('utf8');
+        resolve({
+          status: response.statusCode || 0,
+          ok: (response.statusCode || 0) >= 200 && (response.statusCode || 0) < 300,
+          headers: response.headers,
+          text: async () => payload,
+          json: async () => JSON.parse(payload || '{}')
+        });
+      });
+    });
+    request.on('error', reject);
+    if (options.body !== undefined) request.write(options.body);
+    request.end();
+  });
 }
 
 function isPrivateIp(ip) {
   if (!ip) return false;
-  if (ip === 'localhost' || ip === '::1' || ip === '0.0.0.0') return true;
-
-  const ipv4Match = ip.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
-  if (ipv4Match) {
-    const octet1 = parseInt(ipv4Match[1], 10);
-    const octet2 = parseInt(ipv4Match[2], 10);
-    if (octet1 === 127 || octet1 === 10 || octet1 === 0) return true;
-    if (octet1 === 172 && octet2 >= 16 && octet2 <= 31) return true;
-    if (octet1 === 192 && octet2 === 168) return true;
-    if (octet1 === 169 && octet2 === 254) return true;
-    return false;
-  }
-
-  const cleanIp = ip.toLowerCase().trim();
-  if (
-    cleanIp === '::1' ||
-    cleanIp.startsWith('fe80:') ||
-    cleanIp.startsWith('fc00:') ||
-    cleanIp.startsWith('fd00:')
-  ) {
-    return true;
-  }
-
-  return false;
+  const cleanIp = String(ip).toLowerCase().trim();
+  if (cleanIp === 'localhost') return true;
+  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(cleanIp);
+  if (mapped) return blockedOutboundIps.check(mapped[1], 'ipv4');
+  const family = net.isIP(cleanIp);
+  return family ? blockedOutboundIps.check(cleanIp, family === 4 ? 'ipv4' : 'ipv6') : false;
 }
 
 async function isSafeOutboundUrl(rawUrl) {
@@ -11240,8 +11603,8 @@ async function isSafeOutboundUrl(rawUrl) {
     return false;
   }
 
-  const resolvedIp = await cachedDnsLookup(hostname);
-  if (!resolvedIp || isPrivateIp(resolvedIp)) {
+  const addresses = await dns.lookup(hostname, { all: true }).catch(() => []);
+  if (!addresses.length || addresses.some((item) => isPrivateIp(item.address))) {
     return false;
   }
 
@@ -11336,19 +11699,26 @@ async function readJson(req) {
 }
 
 function sendJson(res, status, payload) {
+  sendJsonWithHeaders(res, status, payload);
+}
+
+function sendJsonWithHeaders(res, status, payload, headers = {}) {
   res.writeHead(status, withSecurityHeaders({
     'content-type': 'application/json; charset=utf-8',
-    'cache-control': 'no-store'
+    'cache-control': 'no-store',
+    ...headers
   }));
   res.end(JSON.stringify(payload));
 }
 
-async function sendFile(res, target, contentType) {
+async function sendFile(res, target, contentType, headers = {}) {
   try {
     const stat = await fs.promises.stat(target);
     if (!stat.isFile()) throw Object.assign(new Error('Not found'), { code: 'ENOENT' });
     const type = contentType || mimeType(target);
-    res.writeHead(200, withSecurityHeaders({ 'content-type': type, 'cache-control': 'no-cache' }));
+    const responseHeaders = withSecurityHeaders({ 'content-type': type, 'cache-control': 'no-cache', ...headers });
+    for (const [key, value] of Object.entries(responseHeaders)) if (value === null) delete responseHeaders[key];
+    res.writeHead(200, responseHeaders);
     fs.createReadStream(target).pipe(res);
   } catch (error) {
     if (error.code === 'ENOENT') {
@@ -11502,5 +11872,12 @@ module.exports = {
   validateAnswers,
   visibleQuestions,
   encryptConfig,
-  savePostgresRelationalCollections
+  savePostgresRelationalCollections,
+  POSTGRES_RELATIONAL_COLLECTIONS,
+  POSTGRES_EXTRA_PROPERTIES,
+  POSTGRES_TRANSIENT_PROPERTIES,
+  postgresObjectToRow,
+  postgresRowToObject,
+  postgresPrepareItem,
+  postgresHydrateItem
 };
