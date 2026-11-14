@@ -6377,6 +6377,11 @@ function applySurveySlug(db, survey, value) {
 
 function validateSurveyForPublish(survey) {
   const errors = [];
+  if (process.env.NODE_ENV === 'production' && (!objectStorageConfigured() || !fileScanConfig().providerUrl)) {
+    if (survey.schema?.questions?.some((item) => item.type === 'file_upload')) {
+      errors.push('File upload questions are not available on this deployment.');
+    }
+  }
   if (!survey.title) errors.push('Survey title is required.');
   if (!survey.schema.questions.length) errors.push('At least one question is required.');
   if (survey.settings.passwordProtected && !survey.settings.passwordHash && !survey.settings.password) {
@@ -9479,6 +9484,9 @@ async function persistFileAnswers(db, survey, schema, response, answers) {
 }
 
 async function prepareFileUpload(db, survey, response, questionItem, file) {
+  if (process.env.NODE_ENV === 'production' && (!objectStorageConfigured() || !fileScanConfig().providerUrl)) {
+    throw new UploadScanError('File uploads are not enabled for this deployment.', { reason: 'uploads_disabled' });
+  }
   const payload = decodeDataUrlBuffer(file.dataUrl || '');
   const createdAt = new Date().toISOString();
   const upload = {

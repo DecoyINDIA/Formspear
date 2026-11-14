@@ -39,21 +39,30 @@ File uploads use local JSON records by default and S3/R2-compatible object stora
 
 ## Required Environment
 
-Copy `.env.example` and configure at least:
+Copy `.env.example` and configure at least the core production variables.
 
-Production boot is fail-closed. `NODE_ENV=production` refuses to start unless the durable database, queue, email, AI, Stripe, object-storage, file-scanning, and monitoring configuration is present. Validate the environment before a deploy with:
+Production boot is fail-closed for core services. `NODE_ENV=production` requires the core variables (`APP_URL`, `DATABASE_URL`, `ENCRYPTION_KEY`, `IP_HASH_SALT`, `WEBHOOK_SIGNING_SECRET`, `CRON_SECRET`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, and `SUPER_ADMIN_EMAIL`).
+Optional feature groups (`uploads`, `ai`, `stripe`) must be either fully configured or completely omitted; partially configured groups will cause boot validation to fail. File uploads are rejected in production if object storage and scanning are unconfigured.
+Telemetry (`SENTRY_DSN` or `POSTHOG_KEY`) and uptime monitoring (`UPTIME_CHECK_URL`, `MONITORING_ALERT_WEBHOOK_URL`) are recommended for operations, but are not enforced for boot.
 
-Set `BOOTSTRAP_ADMIN_EMAIL` to the exact verified identity that may receive platform-admin access. Every other public password or Google signup is always a normal user. Leave `ALLOW_MANUAL_PLAN_CHANGES=false`; paid plans are activated only by verified billing webhooks.
+Set `SUPER_ADMIN_EMAIL` to the exact verified identity that receives platform-admin access in production. Every other public password or Google signup is always a normal user. Leave `ALLOW_MANUAL_PLAN_CHANGES=false`; paid plans are activated only by verified billing webhooks.
 
 ```powershell
 npm.cmd run production:check
 ```
 
-- `APP_URL`
-- `ENCRYPTION_KEY`
-- `IP_HASH_SALT`
-- `WEBHOOK_SIGNING_SECRET`
-- `CRON_SECRET`
+Core production variables:
+
+- `APP_URL` (must use HTTPS in production)
+- `DATABASE_URL`
+- `ENCRYPTION_KEY` (at least 16 characters)
+- `IP_HASH_SALT` (at least 16 characters)
+- `WEBHOOK_SIGNING_SECRET` (at least 16 characters)
+- `CRON_SECRET` (at least 16 characters)
+- `SUPER_ADMIN_EMAIL`
+- `SMTP_HOST`
+- `SMTP_USER`
+- `SMTP_PASSWORD` (at least 16 characters)
 
 Production provider cutover variables are already listed in `.env.example`:
 
