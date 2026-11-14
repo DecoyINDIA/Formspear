@@ -1089,7 +1089,7 @@ function renderAi() {
       </form>
     </div>
     ${summary ? `<div class="grid two">
-      <div class="card"><span class="pill good">AI-generated</span><h3>${escapeHtml(summary.headline)}</h3><p class="muted">${escapeHtml(summary.method)} · ${dateLabel(summary.generatedAt)}</p></div>
+      <div class="card">${summary.aiGenerated ? '<span class="pill good">AI-generated</span>' : ''}<h3>${escapeHtml(summary.headline)}</h3><p class="muted">${escapeHtml(summary.method)} · ${dateLabel(summary.generatedAt)}</p><p class="muted">${summary.aiGenerated ? `Based on ${escapeHtml(summary.coverage?.analyzed ?? 0)} of ${escapeHtml(summary.coverage?.total ?? 0)} responses.` : 'Keyword analysis — no AI model was used for this summary.'}</p></div>
       <div class="card"><h3>Recommended actions</h3><ul>${summary.recommendedActions.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>
       <div class="card"><h3>Key themes</h3><div class="pill-row">${summary.keyThemes.map((item) => `<span class="pill">${escapeHtml(item)}</span>`).join('')}</div>${renderThemeEvidence(summary.themeEvidence || [])}</div>
       <div class="card"><h3>Lead quality</h3>${renderBars(objectToBars(summary.leadQualitySummary))}</div>

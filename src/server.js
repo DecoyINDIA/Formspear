@@ -49,7 +49,7 @@ const DB_SAVE_BATCH_DELAY_MS = Number(process.env.DB_SAVE_BATCH_DELAY_MS || 5);
 const JOB_POLL_INTERVAL_MS = Number(process.env.JOB_POLL_INTERVAL_MS || 5000);
 const JOB_MAX_ATTEMPTS = 5;
 const RETENTION_SCHEDULE_INTERVAL_MS = Number(process.env.RETENTION_SCHEDULE_INTERVAL_MS || 24 * 60 * 60 * 1000);
-const AI_PROVIDER_RESPONSE_LIMIT = 25;
+const AI_PROVIDER_RESPONSE_LIMIT = 60;
 const CONTACT_STAGES = ['new', 'qualified', 'contacted', 'proposal', 'won', 'lost', 'nurture'];
 const INTENT_CATEGORIES = ['High intent', 'Medium intent', 'Low intent', 'Support request', 'Complaint', 'Spam'];
 const WORKSPACE_PERMISSION_ACTIONS = [
@@ -1862,6 +1862,7 @@ async function handleSurveys(req, res, url, segments, db, state, user) {
     user,
     survey,
     requireSurveyAccess,
+    checkAiCreditLimit,
     consumeAiCredits,
     sendAiCreditLimitError,
     buildAiSummaryWithProvider,
@@ -7493,6 +7494,23 @@ function buildQuestionStat(q, responses) {
   return { id: q.id, title: q.title, type: q.type, count: values.length, keywords: topKeywords(values.map(formatAnswerText).join(' '), 8) };
 }
 
+function selectResponsesForAi(responses = [], limit = 60) {
+  const withText = responses.filter((r) => answersToText(r.answersJson).trim().length > 0);
+  const byRecent = [...withText].sort((a, b) => new Date(b.submittedAt || b.createdAt || 0) - new Date(a.submittedAt || a.createdAt || 0));
+  const maxNegatives = Math.floor(limit * 0.4);
+  const negatives = byRecent.filter((r) => r.sentiment === 'negative' || r.sentiment === 'mixed').slice(0, maxNegatives);
+  const takenIds = new Set(negatives.map((r) => r.id));
+  const maxHighIntent = Math.floor(limit * 0.2);
+  const highIntent = byRecent.filter((r) => Number(r.leadScore) >= 80 && !takenIds.has(r.id)).slice(0, maxHighIntent);
+  for (const r of highIntent) takenIds.add(r.id);
+  const restLimit = Math.max(0, limit - negatives.length - highIntent.length);
+  const rest = byRecent.filter((r) => !takenIds.has(r.id)).slice(0, restLimit);
+  return {
+    selected: [...negatives, ...highIntent, ...rest],
+    total: responses.length
+  };
+}
+
 function buildAiSummary(survey, responses) {
   const allText = [];
   const urgent = [];
@@ -7513,7 +7531,12 @@ function buildAiSummary(survey, responses) {
   const negativeShare = responses.length ? sentiment.negative / responses.length : 0;
   const positiveShare = responses.length ? sentiment.positive / responses.length : 0;
   return {
-    aiGenerated: true,
+    aiGenerated: false,
+    coverage: {
+      analyzed: responses.length,
+      total: responses.length,
+      strategy: 'all_responses_keyword'
+    },
     method: 'local heuristic summary',
     generatedAt: new Date().toISOString(),
     headline: responses.length
@@ -7561,6 +7584,8 @@ function evidenceExcerpt(text, term) {
 
 async function buildAiSummaryWithProvider(db, survey, responses, workspace) {
   const fallback = buildAiSummary(survey, responses);
+  const sample = selectResponsesForAi(responses, AI_PROVIDER_RESPONSE_LIMIT);
+  const selected = sample.selected;
   const provider = await requestAiProviderJson(db, 'survey_summary', {
     survey: {
       id: survey.id,
@@ -7569,7 +7594,7 @@ async function buildAiSummaryWithProvider(db, survey, responses, workspace) {
       questionTitles: (survey.schema.questions || []).map((questionItem) => questionItem.title).slice(0, 30)
     },
     responseCount: responses.length,
-    responses: responses.slice(0, AI_PROVIDER_RESPONSE_LIMIT).map((response) => ({
+    responses: selected.map((response) => ({
       id: response.id,
       sentiment: response.sentiment,
       leadScore: response.leadScore,
@@ -7581,6 +7606,12 @@ async function buildAiSummaryWithProvider(db, survey, responses, workspace) {
   const data = provider.data || {};
   return {
     ...fallback,
+    aiGenerated: true,
+    coverage: {
+      analyzed: selected.length,
+      total: responses.length,
+      strategy: 'stratified_recent_sample'
+    },
     method: 'openai-compatible provider',
     provider: provider.provider,
     providerModel: provider.model,
@@ -11844,6 +11875,7 @@ module.exports = {
   SURVEY_TEMPLATES,
   buildAnalytics,
   buildAiSummary,
+  selectResponsesForAi,
   validateSurveyForPublish,
   validateAnswers,
   visibleQuestions,

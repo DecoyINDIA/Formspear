@@ -8,6 +8,7 @@ async function handleAiSummaryRoute(context) {
     user,
     survey,
     requireSurveyAccess,
+    checkAiCreditLimit,
     consumeAiCredits,
     sendAiCreditLimitError,
     buildAiSummaryWithProvider,
@@ -30,7 +31,7 @@ async function handleAiSummaryRoute(context) {
 
   if (req.method === 'POST') {
     if (!requireSurveyAccess(res, db, user, survey, 'analyst')) return true;
-    const creditCheck = consumeAiCredits(db, survey.workspaceId, 1);
+    const creditCheck = checkAiCreditLimit(db, survey.workspaceId, 1);
     if (!creditCheck.ok) {
       sendAiCreditLimitError(res, creditCheck);
       return true;
@@ -38,6 +39,9 @@ async function handleAiSummaryRoute(context) {
     const responses = db.responses.filter((item) => item.surveyId === survey.id && item.status === 'completed');
     const workspace = db.workspaces.find((item) => item.id === survey.workspaceId);
     const output = await buildAiSummaryWithProvider(db, survey, responses, workspace);
+    if (output.aiGenerated) {
+      consumeAiCredits(db, survey.workspaceId, 1);
+    }
     const job = {
       id: makeId('ai'),
       workspaceId: survey.workspaceId,
