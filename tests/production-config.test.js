@@ -26,7 +26,8 @@ const PRODUCTION_ENV = {
   FILE_SCAN_FAIL_OPEN: 'false',
   SENTRY_DSN: 'https://public@example.ingest.sentry.io/1',
   UPTIME_CHECK_URL: 'https://formspear.example/api/health',
-  MONITORING_ALERT_WEBHOOK_URL: 'https://alerts.example/formspear'
+  MONITORING_ALERT_WEBHOOK_URL: 'https://alerts.example/formspear',
+  SUPER_ADMIN_EMAIL: 'admin@formspear.example'
 };
 
 function withEnvironment(values, callback) {
@@ -55,6 +56,17 @@ test('production configuration accepts the complete shipped provider set', () =>
   const envWithoutRedis = { ...PRODUCTION_ENV };
   delete envWithoutRedis.REDIS_URL;
   withEnvironment(envWithoutRedis, () => assert.doesNotThrow(() => validateProductionEnvironment()));
+});
+
+test('production configuration requires SUPER_ADMIN_EMAIL', () => {
+  const envWithoutAdmin = { ...PRODUCTION_ENV };
+  delete envWithoutAdmin.SUPER_ADMIN_EMAIL;
+  withEnvironment(envWithoutAdmin, () => {
+    assert.throws(
+      () => validateProductionEnvironment(),
+      /SUPER_ADMIN_EMAIL is required/
+    );
+  });
 });
 
 test('local development remains provider-optional', () => {

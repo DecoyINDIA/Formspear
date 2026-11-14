@@ -748,6 +748,10 @@ async function handleSignup(req, res, db, state) {
   const body = await readJson(req);
   const name = cleanText(body.name, 120);
   const email = cleanEmail(body.email);
+  if (!authRateAllowed(`signup:${clientIp(req)}`)) {
+    sendJson(res, 429, { error: { code: 'rate_limited', message: 'Too many attempts. Try again later.' } });
+    return;
+  }
   const rlKey = `${clientIp(req)}:${email}`;
   if (!authRateAllowed(rlKey)) {
     sendJson(res, 429, { error: { code: 'rate_limited', message: 'Too many attempts. Try again later.' } });
@@ -779,7 +783,7 @@ async function handleSignup(req, res, db, state) {
     avatarUrl: '',
     password: hashPassword(password),
     emailVerifiedAt: platformSettings(db).requireEmailVerification ? null : new Date().toISOString(),
-    platformRole: bootstrapAdminRole(email),
+    platformRole: bootstrapPlatformRole(db, email),
     timezone: cleanTimezone(body.timezone, 'Asia/Kolkata'),
     notificationPreferences: { emailAlerts: true, weeklyDigest: true },
     termsAcceptedAt: new Date().toISOString(),
@@ -826,7 +830,7 @@ async function handleSignup(req, res, db, state) {
   const session = createSession(user.id);
   db.sessions.push(session);
   await saveDb(state);
-  setSessionCookie(res, session.id, new Date(session.expiresAt));
+  setSessionCookie(res, session.token, new Date(session.expiresAt));
   sendJson(res, 201, buildSessionPayload(db, user));
 }
 
@@ -884,7 +888,7 @@ async function handleLogin(req, res, db, state) {
   db.sessions.push(session);
   db.auditLogs.push(audit(null, user.id, 'auth.login', 'user', user.id, { rememberMe }));
   await saveDb(state);
-  setSessionCookie(res, session.id, new Date(session.expiresAt));
+  setSessionCookie(res, session.token, new Date(session.expiresAt));
   sendJson(res, 200, buildSessionPayload(db, user));
 }
 
@@ -918,7 +922,7 @@ async function handleTwoFactorVerify(req, res, db, state) {
   db.sessions.push(session);
   db.auditLogs.push(audit(null, user.id, 'auth.login', 'user', user.id, { twoFactor: true, method: verified, rememberMe: Boolean(challenge.rememberMe) }));
   await saveDb(state);
-  setSessionCookie(res, session.id, new Date(session.expiresAt));
+  setSessionCookie(res, session.token, new Date(session.expiresAt));
   sendJson(res, 200, buildSessionPayload(db, user));
 }
 
@@ -1012,7 +1016,7 @@ async function handleGoogleOAuthCallback(req, res, url, db, state) {
     db.sessions.push(session);
     db.auditLogs.push(audit(result.workspaceId || null, result.user.id, result.created ? 'auth.oauth_signup' : 'auth.oauth_login', 'user', result.user.id, { provider: 'google' }));
     await saveDb(state);
-    setSessionCookie(res, session.id, new Date(session.expiresAt));
+    setSessionCookie(res, session.token, new Date(session.expiresAt));
     if (request.responseMode === 'json') {
       sendJson(res, result.created ? 201 : 200, buildSessionPayload(db, result.user));
       return;
@@ -1145,7 +1149,7 @@ async function completeSsoLogin(req, res, db, state, workspace, request, email, 
   db.sessions.push(session);
   db.auditLogs.push(audit(workspace.id, user.id, auditAction, 'user', user.id, { providerName: workspace.sso.providerName, role: membership.role }));
   await saveDb(state);
-  setSessionCookie(res, session.id, new Date(session.expiresAt));
+  setSessionCookie(res, session.token, new Date(session.expiresAt));
   sendJson(res, 200, buildSessionPayload(db, user));
 }
 
@@ -1219,7 +1223,7 @@ async function handleInviteSignup(req, res, db, state) {
   db.sessions.push(session);
   db.auditLogs.push(audit(invite.workspaceId, user.id, 'workspace.invite_accepted', 'workspace_invite', invite.id, { role: invite.role }));
   await saveDb(state);
-  setSessionCookie(res, session.id, new Date(session.expiresAt));
+  setSessionCookie(res, session.token, new Date(session.expiresAt));
   sendJson(res, 200, buildSessionPayload(db, user));
 }
 
@@ -5989,7 +5993,7 @@ function completeGoogleOAuthLogin(db, profile, request) {
       avatarUrl: profile.avatarUrl,
       password: hashPassword(`oauth_${crypto.randomBytes(24).toString('hex')}`),
       emailVerifiedAt: now,
-      platformRole: bootstrapAdminRole(profile.email),
+      platformRole: bootstrapPlatformRole(db, profile.email),
       timezone: request.timezone || 'Asia/Kolkata',
       notificationPreferences: { emailAlerts: true, weeklyDigest: true },
       termsAcceptedAt: now,
@@ -10553,13 +10557,16 @@ function redactAuditMetadata(value) {
 function createSession(userId, options = {}) {
   const rememberMe = parseBoolean(options.rememberMe);
   const ttlMs = rememberMe ? REMEMBER_SESSION_TTL_MS : SESSION_TTL_MS;
-  return {
-    id: `sess_${crypto.randomBytes(24).toString('hex')}`,
+  const token = `sess_${crypto.randomBytes(24).toString('hex')}`;
+  const record = {
+    id: hashToken(token),
     userId,
     remembered: rememberMe,
     createdAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + ttlMs).toISOString()
   };
+  Object.defineProperty(record, 'token', { value: token, enumerable: false });
+  return record;
 }
 
 function createTwoFactorChallenge(userId, options = {}) {
@@ -10600,12 +10607,15 @@ function twoFactorSetupPayload(user, secret) {
     digits: '6',
     period: '30'
   });
-  return {
+  const payload = {
     secret,
     otpauthUrl: `otpauth://totp/${label}?${query.toString()}`,
-    currentCode: totpCode(secret),
     expiresInSeconds: 30
   };
+  if (process.env.NODE_ENV !== 'production') {
+    payload.currentCode = totpCode(secret);
+  }
+  return payload;
 }
 
 function verifyTwoFactorCode(user, code) {
@@ -10689,7 +10699,7 @@ function getSession(req, db) {
   const cookies = parseCookies(req.headers.cookie || '');
   const sessionId = cookies.fo_session;
   if (!sessionId) return null;
-  const session = db.sessions.find((item) => item.id === sessionId);
+  const session = db.sessions.find((item) => item.id === hashToken(sessionId));
   if (!session || new Date(session.expiresAt).getTime() < Date.now()) return null;
   return session;
 }
@@ -10871,9 +10881,12 @@ function emailVerificationRequiredForUser(db, user) {
   return Boolean(platformSettings(db).requireEmailVerification && user && !user.emailVerifiedAt);
 }
 
-function bootstrapAdminRole(email) {
-  const configuredEmail = cleanEmail(process.env.BOOTSTRAP_ADMIN_EMAIL || '', true);
-  return configuredEmail && cleanEmail(email) === configuredEmail ? 'super_admin' : 'user';
+function bootstrapPlatformRole(db, email) {
+  if (process.env.NODE_ENV === 'production') {
+    const configured = cleanEmail(process.env.SUPER_ADMIN_EMAIL || process.env.BOOTSTRAP_ADMIN_EMAIL || '', true);
+    return configured && configured === cleanEmail(email, true) ? 'super_admin' : 'user';
+  }
+  return db.users.length === 0 ? 'super_admin' : 'user';
 }
 
 function postIdentityPolicyError(db, user, options = {}) {
