@@ -1396,8 +1396,8 @@ async function handleWorkspaces(req, res, url, segments, db, state, user) {
   }
 
   if (segments[1] === 'subscription' && req.method === 'POST') {
-    if (user.platformRole !== 'super_admin' && !(process.env.NODE_ENV !== 'production' && process.env.ALLOW_MANUAL_PLAN_CHANGES === 'true')) {
-      sendJson(res, 403, { error: { code: 'verified_billing_required', message: 'Paid plans must be activated through a verified billing provider.' } });
+    if (!manualBillingAllowed(user)) {
+      sendJson(res, 403, { error: { code: 'checkout_required', message: 'Plan changes require checkout.' } });
       return;
     }
     const body = await readJson(req);
@@ -2269,7 +2269,8 @@ async function handleBilling(req, res, url, segments, db, state, user) {
   return handleBillingRoute({
     req, res, url, segments, db, state, user,
     requireWorkspacePermission, billingPlans, readJson, createInvoice, audit, saveDb, sendJson,
-    findBillingPlan, createBillingCheckoutSession, createBillingPortalSession, applyGracefulDowngrade
+    findBillingPlan, createBillingCheckoutSession, createBillingPortalSession, applyGracefulDowngrade,
+    manualBillingAllowed
   });
 }
 
@@ -8921,6 +8922,16 @@ function billingProviderConfigured(provider) {
   if (provider === 'stripe') return envConfigured('STRIPE_SECRET_KEY');
   if (provider === 'razorpay') return envConfigured('RAZORPAY_KEY_ID') && envConfigured('RAZORPAY_SECRET');
   return false;
+}
+
+function anyBillingProviderConfigured() {
+  return Boolean(chooseBillingProvider());
+}
+
+function manualBillingAllowed(user) {
+  if (user?.platformRole === 'super_admin') return true;
+  if (process.env.NODE_ENV === 'production') return false;
+  return !anyBillingProviderConfigured();
 }
 
 function verifyBillingWebhookSignature(provider, rawBody, headers) {

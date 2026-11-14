@@ -2,7 +2,8 @@ async function handleBillingRoute(context) {
   const {
     req, res, url, segments, db, state, user,
     requireWorkspacePermission, billingPlans, readJson, createInvoice, audit, saveDb, sendJson,
-    findBillingPlan, createBillingCheckoutSession, createBillingPortalSession, applyGracefulDowngrade
+    findBillingPlan, createBillingCheckoutSession, createBillingPortalSession, applyGracefulDowngrade,
+    manualBillingAllowed
   } = context;
   const workspaceId = url.searchParams.get('workspaceId') || segments[0];
   if (!requireWorkspacePermission(res, db, user, workspaceId, 'billingManagement')) return;
@@ -16,6 +17,10 @@ async function handleBillingRoute(context) {
   }
 
   if (segments[1] === 'invoices' && req.method === 'POST') {
+    if (typeof manualBillingAllowed === 'function' && !manualBillingAllowed(user)) {
+      sendJson(res, 403, { error: { code: 'forbidden', message: 'Manual invoice creation requires super admin access.' } });
+      return;
+    }
     const body = await readJson(req);
     const invoice = createInvoice(workspaceId, body);
     db.invoices.push(invoice);
