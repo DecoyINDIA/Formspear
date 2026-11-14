@@ -263,20 +263,25 @@ function renderAuth() {
   `;
 }
 
+function isLocalDemoHost() {
+  return ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
+}
+
 function renderSignupForm() {
+  const demo = isLocalDemoHost();
   return `
     <form data-form="signup">
       <h2>Create your first workspace</h2>
-      <p>First account becomes the platform super admin for this local install.</p>
-      <div class="field"><label for="signup-name">Name</label><input id="signup-name" name="name" autocomplete="name" required value="FeedbackOS Admin" /></div>
-      <div class="field"><label for="signup-email">Email</label><input id="signup-email" name="email" type="email" autocomplete="email" required value="admin@feedbackos.local" /></div>
-      <div class="field"><label for="signup-password">Password</label><input id="signup-password" name="password" type="password" autocomplete="new-password" required value="FeedbackOS123" /></div>
-      <div class="field"><label for="signup-workspace">Workspace name</label><input id="signup-workspace" name="workspaceName" required value="Demo Feedback Workspace" /></div>
+      ${demo ? '<p>First account becomes the platform super admin for this local install.</p>' : '<p>Set up your workspace in under a minute.</p>'}
+      <div class="field"><label for="signup-name">Name</label><input id="signup-name" name="name" autocomplete="name" required${demo ? ' value="FeedbackOS Admin"' : ''} /></div>
+      <div class="field"><label for="signup-email">Email</label><input id="signup-email" name="email" type="email" autocomplete="email" required${demo ? ' value="admin@feedbackos.local"' : ''} /></div>
+      <div class="field"><label for="signup-password">Password</label><input id="signup-password" name="password" type="password" autocomplete="new-password" required${demo ? ' value="FeedbackOS123"' : ''} /></div>
+      <div class="field"><label for="signup-workspace">Workspace name</label><input id="signup-workspace" name="workspaceName" required${demo ? ' value="Demo Feedback Workspace"' : ''} /></div>
       <div class="grid two">
         <div class="field"><label for="signup-industry">Industry</label><select id="signup-industry" name="industry"><option>Clinics</option><option>Coaching Center</option><option>Real Estate</option><option>SaaS</option><option>Agency</option></select></div>
         <div class="field"><label for="signup-company-size">Company size</label><select id="signup-company-size" name="companySize"><option>1-10</option><option>11-50</option><option>51-200</option><option>200+</option></select></div>
       </div>
-      <label class="choice"><input name="acceptTerms" type="checkbox" required checked /> I accept the <a href="/terms" target="_blank" rel="noreferrer">Terms</a> and <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</label>
+      <label class="choice"><input name="acceptTerms" type="checkbox" required${demo ? ' checked' : ''} /> I accept the <a href="/terms" target="_blank" rel="noreferrer">Terms</a> and <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</label>
       <button class="btn" type="button" data-action="oauth-google" data-mode="signup">Continue with Google</button>
       <button class="btn primary" type="submit">Start FeedbackOS</button>
     </form>
@@ -286,12 +291,13 @@ function renderSignupForm() {
 function renderLoginForm() {
   if (state.emailVerification) return renderEmailVerificationForm();
   if (state.twoFactorChallenge) return renderTwoFactorForm();
+  const demo = isLocalDemoHost();
   return `
     <form data-form="login">
       <h2>Sign in</h2>
-      <p>Use the account you created for this local workspace.</p>
-      <div class="field"><label>Email</label><input name="email" type="email" required value="admin@feedbackos.local" /></div>
-      <div class="field"><label>Password</label><input name="password" type="password" required value="FeedbackOS123" /></div>
+      ${demo ? '<p>Use the account you created for this local workspace.</p>' : '<p>Sign in to your account.</p>'}
+      <div class="field"><label>Email</label><input name="email" type="email" required${demo ? ' value="admin@feedbackos.local"' : ''} /></div>
+      <div class="field"><label>Password</label><input name="password" type="password" required${demo ? ' value="FeedbackOS123"' : ''} /></div>
       <label class="choice"><input name="rememberMe" type="checkbox" /> Remember this device</label>
       <button class="btn" type="button" data-action="oauth-google" data-mode="login">Continue with Google</button>
       <button class="btn primary" type="submit">Sign in</button>
@@ -650,7 +656,7 @@ function renderBuilder() {
         <div class="code">${survey.status === 'published' ? `${location.origin}/s/${survey.slug}` : 'Publish to generate a live public link.'}</div>
         ${survey.status === 'published' ? `<img class="qr-img" src="/api/surveys/${survey.id}/qr.svg" alt="Survey share code" />` : ''}
         ${survey.status === 'published' ? `<div class="field"><label>Website embed</label><div class="code">&lt;script async src="${location.origin}/embed.js" data-feedbackos-slug="${survey.slug}" data-feedbackos-mode="inline"&gt;&lt;/script&gt;</div></div>
-        <div class="field"><label>In-app SDK</label><div class="code">&lt;script async src="${location.origin}/sdk.js"&gt;&lt;/script&gt;<br>FeedbackOS.identify("user_123", { plan: "pro" });<br>FeedbackOS.trigger("${escapeHtml(survey.settings.inAppTriggerEvent || 'onboarding_complete')}")</div></div>` : ''}
+        <div class="field"><label>In-app SDK</label><div class="code">&lt;script async src="${location.origin}/sdk.js" data-feedbackos-workspace="${escapeAttr(survey.workspaceId)}"&gt;&lt;/script&gt;<br>FeedbackOS.identify("user_123", { plan: "pro" });<br>FeedbackOS.trigger("${escapeHtml(survey.settings.inAppTriggerEvent || 'onboarding_complete')}")</div></div>` : ''}
         <h3>In-app targeting</h3>
         <div class="grid two">
           <div class="field"><label>Trigger event</label><input data-edit="settings.inAppTriggerEvent" value="${escapeAttr(survey.settings.inAppTriggerEvent || '')}" placeholder="onboarding_complete" /></div>
@@ -658,6 +664,7 @@ function renderBuilder() {
           <div class="field"><label>User property</label><input data-edit="settings.inAppAudienceProperty" value="${escapeAttr(survey.settings.inAppAudienceProperty || '')}" placeholder="plan" /></div>
           <div class="field"><label>User property value</label><input data-edit="settings.inAppAudienceValue" value="${escapeAttr(survey.settings.inAppAudienceValue || '')}" placeholder="pro" /></div>
           <div class="field"><label>Frequency days</label><input type="number" min="0" max="365" data-edit="settings.inAppFrequencyDays" value="${Number(survey.settings.inAppFrequencyDays || 0)}" /></div>
+          <div class="field"><label>Allowed website origins</label><input data-edit="settings.inAppAllowedOrigins" value="${escapeAttr((survey.settings.inAppAllowedOrigins || []).join(', '))}" placeholder="https://www.example.com" /></div>
         </div>
         <h3>Language variants</h3>
         <div class="grid two">
