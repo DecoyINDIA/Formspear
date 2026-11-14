@@ -10,6 +10,7 @@ const writeExcelFile = require('write-excel-file/node');
 const { validateProductionEnvironment } = require('./production-config');
 const { clientIp } = require('./lib/client-ip');
 const { readBodyBuffer } = require('./lib/http-body');
+const { isSafeOutboundUrl } = require('./lib/outbound');
 const {
   withSecurityHeaders,
   embeddableSecurityHeaders,
@@ -4707,7 +4708,7 @@ async function runWebhookJob(db, job) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
-    const response = await safeOutboundFetch(hook.url, {
+    const response = await fetch(hook.url, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -4715,8 +4716,10 @@ async function runWebhookJob(db, job) {
         'x-feedbackos-signature': signPayload(body, hookSecret)
       },
       body,
-      signal: controller.signal
+      signal: controller.signal,
+      redirect: 'manual'
     });
+    if (response.status >= 300 && response.status < 400) throw new Error('redirect blocked by SSRF policy');
     if (!response.ok) throw new Error(`Webhook returned HTTP ${response.status}`);
     if (log) {
       log.responseStatus = String(response.status);
@@ -4972,7 +4975,7 @@ async function deliverIntegrationPayload(integration, event, payloadJson) {
   const timeoutMs = Math.max(1000, Number(config.timeoutMs || process.env.INTEGRATION_TIMEOUT_MS || 8000));
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await safeOutboundFetch(request.url, {
+    const response = await fetch(request.url, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -4982,8 +4985,10 @@ async function deliverIntegrationPayload(integration, event, payloadJson) {
         ...request.headers
       },
       body,
-      signal: controller.signal
+      signal: controller.signal,
+      redirect: 'manual'
     });
+    if (response.status >= 300 && response.status < 400) throw new Error('redirect blocked by SSRF policy');
     if (!response.ok) {
       const text = await response.text().catch(() => '');
       throw new Error(`${request.provider} returned HTTP ${response.status}${text ? `: ${cleanText(text, 200)}` : ''}`);
@@ -11545,96 +11550,6 @@ function cleanEmail(value, optional = false) {
 
 function isEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || ''));
-}
-
-const blockedOutboundIps = new net.BlockList();
-for (const [address, prefix, family] of [
-  ['0.0.0.0', 8, 'ipv4'], ['10.0.0.0', 8, 'ipv4'], ['100.64.0.0', 10, 'ipv4'],
-  ['127.0.0.0', 8, 'ipv4'], ['169.254.0.0', 16, 'ipv4'], ['172.16.0.0', 12, 'ipv4'],
-  ['192.0.0.0', 24, 'ipv4'], ['192.0.2.0', 24, 'ipv4'], ['192.168.0.0', 16, 'ipv4'],
-  ['198.18.0.0', 15, 'ipv4'], ['198.51.100.0', 24, 'ipv4'], ['203.0.113.0', 24, 'ipv4'],
-  ['224.0.0.0', 4, 'ipv4'], ['::', 128, 'ipv6'], ['::1', 128, 'ipv6'], ['fc00::', 7, 'ipv6'],
-  ['fe80::', 10, 'ipv6'], ['ff00::', 8, 'ipv6'], ['2001:db8::', 32, 'ipv6']
-]) blockedOutboundIps.addSubnet(address, prefix, family);
-
-async function safeOutboundFetch(rawUrl, options = {}) {
-  if (process.env.WEBHOOK_ALLOW_PRIVATE_HOSTS === 'true') {
-    return fetch(rawUrl, { ...options, redirect: 'error' });
-  }
-  const parsed = new URL(rawUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('destination blocked by SSRF policy');
-  const addresses = await dns.lookup(parsed.hostname, { all: true });
-  if (!addresses.length || addresses.some((item) => isPrivateIp(item.address))) throw new Error('destination blocked by SSRF policy');
-  const selected = addresses[0];
-  const transport = parsed.protocol === 'https:' ? require('node:https') : http;
-  return new Promise((resolve, reject) => {
-    const request = transport.request(parsed, {
-      method: options.method || 'GET',
-      headers: options.headers || {},
-      signal: options.signal,
-      lookup: (_hostname, _lookupOptions, callback) => callback(null, selected.address, selected.family)
-    }, (response) => {
-      const chunks = [];
-      response.on('data', (chunk) => chunks.push(chunk));
-      response.on('end', () => {
-        const payload = Buffer.concat(chunks).toString('utf8');
-        resolve({
-          status: response.statusCode || 0,
-          ok: (response.statusCode || 0) >= 200 && (response.statusCode || 0) < 300,
-          headers: response.headers,
-          text: async () => payload,
-          json: async () => JSON.parse(payload || '{}')
-        });
-      });
-    });
-    request.on('error', reject);
-    if (options.body !== undefined) request.write(options.body);
-    request.end();
-  });
-}
-
-function isPrivateIp(ip) {
-  if (!ip) return false;
-  const cleanIp = String(ip).toLowerCase().trim();
-  if (cleanIp === 'localhost') return true;
-  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(cleanIp);
-  if (mapped) return blockedOutboundIps.check(mapped[1], 'ipv4');
-  const family = net.isIP(cleanIp);
-  return family ? blockedOutboundIps.check(cleanIp, family === 4 ? 'ipv4' : 'ipv6') : false;
-}
-
-async function isSafeOutboundUrl(rawUrl) {
-  if (process.env.WEBHOOK_ALLOW_PRIVATE_HOSTS === 'true') {
-    return true;
-  }
-  if (!rawUrl || typeof rawUrl !== 'string') return false;
-  let parsed;
-  try {
-    parsed = new URL(rawUrl);
-  } catch {
-    return false;
-  }
-
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    return false;
-  }
-
-  const hostname = parsed.hostname.toLowerCase();
-  
-  if (hostname === 'localhost' || hostname.endsWith('.local') || hostname.endsWith('.internal')) {
-    return false;
-  }
-
-  if (isPrivateIp(hostname)) {
-    return false;
-  }
-
-  const addresses = await dns.lookup(hostname, { all: true }).catch(() => []);
-  if (!addresses.length || addresses.some((item) => isPrivateIp(item.address))) {
-    return false;
-  }
-
-  return true;
 }
 
 function cleanUrl(value) {
