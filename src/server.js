@@ -2439,7 +2439,10 @@ async function handleAdmin(req, res, url, segments, db, state, user) {
     }
     const body = await readJson(req);
     if (body.suspended !== undefined) workspace.suspended = Boolean(body.suspended);
-    if (body.planId && findBillingPlan(db, body.planId)) workspace.planId = cleanText(body.planId, 80);
+    if (body.planId && findBillingPlan(db, body.planId)) {
+      workspace.planId = cleanText(body.planId, 80);
+      unlockOverLimitResponses(db, workspace.id);
+    }
     if (Object.prototype.hasOwnProperty.call(body, 'aiCreditLimitOverride')) {
       const parsed = parseOptionalLimit(body.aiCreditLimitOverride);
       if (!parsed.ok) {
@@ -2770,10 +2773,7 @@ async function handleApiV1(req, res, url, segments, db, state) {
         return;
       }
       const limitCheck = checkPlanLimit(db, workspaceId, 'responsesPerMonth');
-      if (!limitCheck.ok) {
-        sendJson(res, 402, { error: { code: 'plan_limit', message: limitCheck.message } });
-        return;
-      }
+      const isOverLimit = !limitCheck.ok;
       const metadata = captureMetadata(req, body.metadata || { source: 'api' }, survey);
       const duplicate = findDuplicateResponse(db, survey, schema, answers, metadata);
       if (duplicate) {
@@ -2800,7 +2800,7 @@ async function handleApiV1(req, res, url, segments, db, state) {
         important: false
       };
       db.responses.push(response);
-      if (!(await completeResponseForSubmission(res, db, survey, schema, response, answers, response.metadataJson, { removeOnFailure: true }))) return;
+      if (!(await completeResponseForSubmission(res, db, survey, schema, response, answers, response.metadataJson, { overLimit: isOverLimit, removeOnFailure: true }))) return;
       await saveDb(state);
       sendJson(res, 201, { response: buildResponseDetail(db, survey, response) });
       return;
@@ -3224,10 +3224,7 @@ async function handlePublic(req, res, url, segments, db, state) {
         return;
       }
       const limitCheck = checkPlanLimit(db, survey.workspaceId, 'responsesPerMonth');
-      if (!limitCheck.ok) {
-        sendJson(res, 402, { error: { code: 'plan_limit', message: limitCheck.message } });
-        return;
-      }
+      const isOverLimit = !limitCheck.ok;
       const availabilityNow = publicSurveyAvailability(db, survey);
       if (!availabilityNow.ok && availabilityNow.code === 'response_limit_reached') {
         sendJson(res, 409, { error: { code: availabilityNow.code, message: availabilityNow.message } });
@@ -3238,7 +3235,7 @@ async function handlePublic(req, res, url, segments, db, state) {
         sendJson(res, 409, { error: { code: 'duplicate_response', message: duplicate.message, responseId: duplicate.response.id } });
         return;
       }
-      if (!(await completeResponseForSubmission(res, db, survey, schema, response, answers, response.metadataJson))) return;
+      if (!(await completeResponseForSubmission(res, db, survey, schema, response, answers, response.metadataJson, { overLimit: isOverLimit }))) return;
       response.resumeTokenHash = '';
       response.resumeExpiresAt = '';
     }
@@ -3273,10 +3270,7 @@ async function handlePublic(req, res, url, segments, db, state) {
       return;
     }
     const limitCheck = checkPlanLimit(db, survey.workspaceId, 'responsesPerMonth');
-    if (!limitCheck.ok) {
-      sendJson(res, 402, { error: { code: 'plan_limit', message: limitCheck.message } });
-      return;
-    }
+    const isOverLimit = !limitCheck.ok;
     const metadata = captureMetadata(req, body.metadata || {}, survey);
     const duplicate = findDuplicateResponse(db, survey, schema, answers, metadata);
     if (duplicate) {
@@ -3303,7 +3297,7 @@ async function handlePublic(req, res, url, segments, db, state) {
       important: false
     };
     db.responses.push(response);
-    if (!(await completeResponseForSubmission(res, db, survey, schema, response, answers, metadata, { removeOnFailure: true }))) return;
+    if (!(await completeResponseForSubmission(res, db, survey, schema, response, answers, metadata, { overLimit: isOverLimit, removeOnFailure: true }))) return;
     await saveDb(state);
     sendJson(res, 201, { responseId: response.id, completion: responseCompletion(survey, schema, response) });
     return;
@@ -7191,7 +7185,11 @@ function filterResponses(responses, url, survey, options = {}) {
   const answer = cleanText(params.get('answer') || '', 500).toLowerCase();
   if (from) items = items.filter((item) => responseTime(item) >= from);
   if (to) items = items.filter((item) => responseTime(item) <= to + 24 * 60 * 60 * 1000 - 1);
-  if (status) items = items.filter((item) => item.status === status);
+  if (status) {
+    items = items.filter((item) => item.status === status);
+  } else if (!options.includeOverLimit) {
+    items = items.filter((item) => item.status !== 'over_limit');
+  }
   if (sentiment) items = items.filter((item) => item.sentiment === sentiment);
   if (source) items = items.filter((item) => String(item.metadataJson?.source || '').toLowerCase() === source);
   if (tag) items = items.filter((item) => (item.tagsJson || []).some((value) => String(value).toLowerCase() === tag));
@@ -9207,7 +9205,23 @@ function applyProviderSubscription(db, workspaceId, planId, provider, providerSu
   workspace.planId = plan.id;
   workspace.billingWarning = '';
   workspace.updatedAt = subscription.updatedAt;
+  unlockOverLimitResponses(db, workspaceId);
   return subscription;
+}
+
+function unlockOverLimitResponses(db, workspaceId) {
+  const limitCheck = checkPlanLimit(db, workspaceId, 'responsesPerMonth');
+  if (limitCheck.ok) {
+    for (const response of db.responses) {
+      if (response.workspaceId === workspaceId && response.status === 'over_limit') {
+        response.status = 'completed';
+        response.updatedAt = new Date().toISOString();
+        const survey = db.surveys.find((s) => s.id === response.surveyId);
+        if (survey) survey.metrics.completions += 1;
+        updateUsage(db, workspaceId, { responsesCount: 1, storageUsed: response.fileUploadBytes || 0 });
+      }
+    }
+  }
 }
 
 function findWorkspaceIdByProviderSubscription(db, providerSubscriptionId) {
@@ -9362,21 +9376,22 @@ function inferQuestionType(text) {
   return 'long_text';
 }
 
-async function completeResponse(db, survey, schema, response, answers, metadata) {
+async function completeResponse(db, survey, schema, response, answers, metadata, options = {}) {
   const wasCompleted = response.status === 'completed';
+  const isOverLimit = Boolean(options.overLimit);
   const storedAnswers = await persistFileAnswers(db, survey, schema, response, answers);
   response.answersJson = survey.settings.anonymousMode ? anonymizeResponseAnswers(schema, storedAnswers) : storedAnswers;
   response.metadataJson = survey.settings.anonymousMode ? anonymizeResponseMetadata(metadata) : metadata;
-  response.status = 'completed';
+  response.status = isOverLimit ? 'over_limit' : 'completed';
   response.sentiment = classifySentiment(answersToText(response.answersJson));
   response.leadScore = calculateLeadScore(schema, response.answersJson, response.metadataJson);
-  const logicEffects = applyResponseLogic(db, survey, schema, response, response.answersJson, !wasCompleted);
+  const logicEffects = applyResponseLogic(db, survey, schema, response, response.answersJson, !wasCompleted && !isOverLimit);
   if (logicEffects.scoreDelta) response.leadScore = Math.max(0, Math.min(100, response.leadScore + logicEffects.scoreDelta));
   response.logicCompletionJson = logicEffects.completion || null;
   response.submittedAt = response.submittedAt || new Date().toISOString();
   response.updatedAt = new Date().toISOString();
   response.tagsJson = uniqueTags([...(response.tagsJson || []), ...logicEffects.tags, ...defaultTags(response)]);
-  if (!wasCompleted) {
+  if (!wasCompleted && !isOverLimit) {
     survey.metrics.completions += 1;
     const storageBytes = response.fileUploadBytes || 0;
     updateUsage(db, survey.workspaceId, { responsesCount: 1, storageUsed: storageBytes });
@@ -9421,7 +9436,7 @@ function anonymizeResponseMetadata(metadata) {
 async function completeResponseForSubmission(res, db, survey, schema, response, answers, metadata, options = {}) {
   const initialFileUploadCount = db.fileUploads.length;
   try {
-    await completeResponse(db, survey, schema, response, answers, metadata);
+    await completeResponse(db, survey, schema, response, answers, metadata, options);
     return true;
   } catch (error) {
     db.fileUploads.splice(initialFileUploadCount);
@@ -9913,10 +9928,15 @@ function buildResponseDetail(db, survey, response) {
     response.archivedAt ? { label: 'Archived', at: response.archivedAt } : null,
     response.deletedAt ? { label: 'Deleted', at: response.deletedAt } : null
   ].filter(Boolean);
+  const isOverLimit = response.status === 'over_limit';
+  const planOk = survey ? checkPlanLimit(db, survey.workspaceId, 'responsesPerMonth').ok : true;
+  const locked = isOverLimit && !planOk;
   return {
     ...response,
-    respondent,
-    contact,
+    locked,
+    answersJson: locked ? { _locked: true, message: 'Upgrade your workspace plan to unlock this response.' } : response.answersJson,
+    respondent: locked ? null : respondent,
+    contact: locked ? null : contact,
     survey: { id: survey.id, title: survey.title, type: survey.type },
     aiSummary: {
       aiGenerated: true,
