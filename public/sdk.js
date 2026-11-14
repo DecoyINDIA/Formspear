@@ -1,6 +1,7 @@
 (function (global) {
   var script = document.currentScript;
   var origin = script ? new URL(script.src).origin : location.origin;
+  var workspaceId = script && script.getAttribute('data-feedbackos-workspace');
   var state = { user: null, attributes: {}, shown: {} };
 
   function showSurvey(slug, options) {
@@ -52,12 +53,14 @@
   }
 
   function trigger(eventName, payload) {
+    if (!workspaceId) throw new Error('FeedbackOS data-feedbackos-workspace is required.');
     var detail = { eventName: eventName, payload: payload || {}, user: state.user, attributes: state.attributes };
     global.dispatchEvent(new CustomEvent('feedbackos:event', { detail: detail }));
     fetch(origin + '/api/public/in-app/resolve', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'x-formspear-workspace': workspaceId, 'x-feedbackos-workspace': workspaceId },
       body: JSON.stringify({
+        workspaceId: workspaceId,
         eventName: eventName,
         payload: payload || {},
         userId: state.user,

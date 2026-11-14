@@ -251,7 +251,7 @@ function renderAuth() {
     <div class="auth-shell">
       <aside class="auth-aside">
         <div>
-          <div class="logo-row"><span class="mark">F</span><span>FeedbackOS</span></div>
+          <div class="logo-row"><span class="mark">F</span><span>Formspear</span></div>
           <h1>Turn forms and surveys into business intelligence.</h1>
           <p>Launch branded feedback systems, collect responses, catch complaints early, and package insights for clients without building the same stack again.</p>
         </div>
@@ -282,9 +282,9 @@ function renderSignupForm() {
     <form data-form="signup">
       <h2>Create your first workspace</h2>
       ${demo ? '<p>First account becomes the platform super admin for this local install.</p>' : '<p>Set up your workspace in under a minute.</p>'}
-      <div class="field"><label for="signup-name">Name</label><input id="signup-name" name="name" autocomplete="name" required${demo ? ' value="FeedbackOS Admin"' : ''} /></div>
+      <div class="field"><label for="signup-name">Name</label><input id="signup-name" name="name" autocomplete="name" required${demo ? ' value="Formspear Admin"' : ''} /></div>
       <div class="field"><label for="signup-email">Email</label><input id="signup-email" name="email" type="email" autocomplete="email" required${demo ? ' value="admin@feedbackos.local"' : ''} /></div>
-      <div class="field"><label for="signup-password">Password</label><input id="signup-password" name="password" type="password" autocomplete="new-password" required${demo ? ' value="FeedbackOS123"' : ''} /></div>
+      <div class="field"><label for="signup-password">Password</label><input id="signup-password" name="password" type="password" autocomplete="new-password" required${demo ? ' value="Formspear123"' : ''} /></div>
       <div class="field"><label for="signup-workspace">Workspace name</label><input id="signup-workspace" name="workspaceName" required${demo ? ' value="Demo Feedback Workspace"' : ''} /></div>
       <div class="grid two">
         <div class="field"><label for="signup-industry">Industry</label><select id="signup-industry" name="industry"><option>Clinics</option><option>Coaching Center</option><option>Real Estate</option><option>SaaS</option><option>Agency</option></select></div>
@@ -292,7 +292,7 @@ function renderSignupForm() {
       </div>
       <label class="choice"><input name="acceptTerms" type="checkbox" required${demo ? ' checked' : ''} /> I accept the <a href="/terms" target="_blank" rel="noreferrer">Terms</a> and <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</label>
       <button class="btn" type="button" data-action="oauth-google" data-mode="signup">Continue with Google</button>
-      <button class="btn primary" type="submit">Start FeedbackOS</button>
+      <button class="btn primary" type="submit">Start Formspear</button>
     </form>
   `;
 }
@@ -306,7 +306,7 @@ function renderLoginForm() {
       <h2>Sign in</h2>
       ${demo ? '<p>Use the account you created for this local workspace.</p>' : '<p>Sign in to your account.</p>'}
       <div class="field"><label>Email</label><input name="email" type="email" required${demo ? ' value="admin@feedbackos.local"' : ''} /></div>
-      <div class="field"><label>Password</label><input name="password" type="password" required${demo ? ' value="FeedbackOS123"' : ''} /></div>
+      <div class="field"><label>Password</label><input name="password" type="password" required${demo ? ' value="Formspear123"' : ''} /></div>
       <label class="choice"><input name="rememberMe" type="checkbox" /> Remember this device</label>
       <button class="btn" type="button" data-action="oauth-google" data-mode="login">Continue with Google</button>
       <button class="btn primary" type="submit">Sign in</button>
@@ -355,7 +355,7 @@ function render() {
   app.innerHTML = `
     <div class="app-shell">
       <aside class="sidebar">
-        <div class="logo-row"><span class="mark">F</span><span>FeedbackOS</span></div>
+        <div class="logo-row"><span class="mark">F</span><span>Formspear</span></div>
         <nav class="nav">${navItems().map((item) => `<button class="${state.view === item.id ? 'active' : ''}" data-action="nav" data-view="${item.id}"><span>${icons[item.id] || '·'}</span>${item.label}</button>`).join('')}</nav>
         <div class="card compact">
           <strong>${escapeHtml(workspace?.subscription?.planId || 'starter')}</strong>
@@ -1766,7 +1766,7 @@ function renderPublicSurvey() {
           ${state.publicPage > 0 ? '<button class="btn" type="button" data-action="public-prev-page">Back</button>' : ''}
           ${isLastPage ? '<button class="btn primary" type="submit">Submit response</button>' : '<button class="btn primary" type="button" data-action="public-next-page">Next</button>'}
           <span class="muted" data-public-autosave-status>${publicAutosaveLabel()}</span>
-          ${brand.platformBrandingHidden ? '' : '<span class="muted">Powered by FeedbackOS</span>'}
+          ${brand.platformBrandingHidden ? '' : '<span class="muted">Powered by Formspear</span>'}
         </div>
         ${renderPublicResumeEmailControl()}
         ${publicBrandFooter(brand)}

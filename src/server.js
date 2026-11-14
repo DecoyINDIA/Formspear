@@ -4760,6 +4760,8 @@ async function runWebhookJob(db, job) {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
+        'x-formspear-event': event,
+        'x-formspear-signature': signPayload(body, hookSecret),
         'x-feedbackos-event': event,
         'x-feedbackos-signature': signPayload(body, hookSecret)
       },
@@ -5027,6 +5029,9 @@ async function deliverIntegrationPayload(integration, event, payloadJson) {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
+        'x-formspear-event': cleanText(event || 'response.completed', 80),
+        'x-formspear-integration': integration.type,
+        ...(request.signingSecret ? { 'x-formspear-signature': signPayload(body, request.signingSecret) } : {}),
         'x-feedbackos-event': cleanText(event || 'response.completed', 80),
         'x-feedbackos-integration': integration.type,
         ...(request.signingSecret ? { 'x-feedbackos-signature': signPayload(body, request.signingSecret) } : {}),
@@ -6844,7 +6849,7 @@ function publicCorsHeaders(origin) {
   return {
     'access-control-allow-origin': origin,
     'access-control-allow-methods': 'POST, OPTIONS',
-    'access-control-allow-headers': 'content-type, x-feedbackos-workspace',
+    'access-control-allow-headers': 'content-type, x-formspear-workspace, x-feedbackos-workspace',
     vary: 'Origin'
   };
 }

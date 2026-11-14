@@ -307,4 +307,4 @@ Remaining external verification before paid traffic:
 
 ## License
 
-No license has been declared yet. Add one before distributing the project publicly.
+Proprietary. Copyright © 2026 Formspear. All rights reserved.
