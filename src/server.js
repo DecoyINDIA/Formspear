@@ -4642,6 +4642,8 @@ async function processJobRecord(db, job) {
       await runEmailJob(db, job);
     } else if (job.type === 'whatsapp_delivery') {
       await runWhatsappJob(db, job);
+    } else if (job.type === 'classify_response') {
+      await runClassifyResponseJob(db, job);
     } else if (job.type === 'integration_delivery') {
       await runIntegrationJob(db, job);
     } else if (job.type === 'monthly_report') {
@@ -4885,6 +4887,136 @@ async function deliverWhatsappMessage(db, workspaceId, message, options = {}) {
   }
   db.integrationLogs.push(log);
   return log;
+}
+
+async function runClassifyResponseJob(db, job) {
+  const responseId = job.payloadJson.responseId;
+  const response = db.responses.find((item) => item.id === responseId);
+  if (!response) return;
+
+  const text = answersToText(response.answersJson);
+  const classification = classifyMultilingualResponse(text);
+
+  response.classificationJson = classification;
+  response.metadataJson = response.metadataJson || {};
+  response.metadataJson.classification = classification;
+  response.sentiment = classification.sentiment;
+  if (classification.urgency >= 2) {
+    response.important = true;
+  }
+  response.updatedAt = new Date().toISOString();
+}
+
+function classifyMultilingualResponse(textOrAnswers, options = {}) {
+  const text = typeof textOrAnswers === 'string' ? textOrAnswers : answersToText(textOrAnswers);
+  const clean = cleanText(text, 2000);
+  const lower = clean.toLowerCase();
+
+  // 1. Detect language
+  let language = 'en';
+  if (/[\u0900-\u097F]/.test(clean)) {
+    language = 'hi';
+  } else if (/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(clean)) {
+    language = 'ja';
+  } else if (/\b(accha|achha|bahut|bekaar|kharab|kharaab|turant|samasya|madad|dhanyavaad|paisa|karo|chahiye|hai)\b/i.test(lower)) {
+    language = 'hi';
+  } else if (/\b(el|la|los|las|un|una|muy|bien|mal|gracias|excelente|problema|urgente|ayuda|precio)\b/i.test(lower)) {
+    language = 'es';
+  } else if (/\b(le|la|les|un|une|très|bien|mauvais|merci|problème|urgent|aide|prix|déçu|nul)\b/i.test(lower)) {
+    language = 'fr';
+  } else if (/\b(der|die|das|ein|eine|sehr|gut|schlecht|danke|problem|dringend|hilfe|preis|fehler)\b/i.test(lower)) {
+    language = 'de';
+  }
+
+  // 2. Sentiment analysis (multilingual)
+  const positiveWords = [
+    'great', 'good', 'excellent', 'amazing', 'love', 'best', 'fast', 'helpful', 'awesome',
+    'accha', 'achha', 'bahut accha', 'sundar', 'badhiya', 'dhanyavaad',
+    'अच्छा', 'बहुत अच्छा', 'शानदार', 'बढ़िया', 'धन्यवाद',
+    'bueno', 'excelente', 'increible', 'encanta', 'gracias', 'rapido', 'genial',
+    'bon', 'excellent', 'merci', 'rapide', 'parfait', 'super',
+    'gut', 'sehr gut', 'toll', 'perfekt', 'danke', 'ausgezeichnet',
+    '良い', '素晴らしい', '最高', 'ありがとう'
+  ];
+  const negativeWords = [
+    'bad', 'terrible', 'horrible', 'worst', 'broken', 'issue', 'problem', 'slow', 'fail', 'error', 'bug', 'angry', 'hate', 'refund',
+    'kharab', 'kharaab', 'bekaar', 'samasya', 'ganda', 'dikkat', 'mushkil',
+    'खराब', 'बेकार', 'समस्या', 'दिक्कत', 'मुश्किल',
+    'malo', 'terrible', 'problema', 'error', 'lento', 'falla', 'odio',
+    'mauvais', 'terrible', 'problème', 'erreur', 'lent', 'déçu', 'nul',
+    'schlecht', 'schrecklich', 'problem', 'fehler', 'langsam', 'kaputt',
+    '悪い', '最悪', '問題', 'エラー', '遅い'
+  ];
+
+  const matchKeyword = (w) => {
+    if (/[a-zA-Z]/.test(w)) {
+      return new RegExp(`\\b${escapeRegExp(w)}\\b`, 'i').test(clean);
+    }
+    return clean.includes(w);
+  };
+
+  let positiveScore = 0;
+  let negativeScore = 0;
+  for (const word of positiveWords) {
+    if (matchKeyword(word)) positiveScore += 1;
+  }
+  for (const word of negativeWords) {
+    if (matchKeyword(word)) negativeScore += 1;
+  }
+
+  let sentiment = 'neutral';
+  if (positiveScore > negativeScore && positiveScore > 0) sentiment = 'positive';
+  else if (negativeScore > positiveScore && negativeScore > 0) sentiment = 'negative';
+  else if (positiveScore > 0 && negativeScore > 0) sentiment = 'neutral';
+
+  // 3. Urgency (0-3)
+  const criticalWords = ['urgent', 'immediately', 'critical', 'danger', 'cancel', 'lawyer', 'turant', 'urgente', 'dringend', '緊急', 'refund'];
+  const highWords = ['broken', 'cannot login', 'blocked', 'crash', 'down', 'samasya', 'bekaar', 'problema', 'problème', 'kaputt', 'エラー'];
+  const mediumWords = ['slow', 'confusing', 'difficult', 'delay', 'lento', 'langsam', 'dikkat'];
+
+  let urgency = 0;
+  if (criticalWords.some((w) => matchKeyword(w))) urgency = 3;
+  else if (highWords.some((w) => matchKeyword(w))) urgency = 2;
+  else if (mediumWords.some((w) => matchKeyword(w))) urgency = 1;
+
+  // 4. Intent
+  let intent = 'general_feedback';
+  if (/\b(refund|cancel|unsubscribe|churn|leaving)\b/i.test(lower)) intent = 'churn_risk';
+  else if (/\b(feature|add|wish|would be nice|suggestion|suggest)\b/i.test(lower)) intent = 'feature_request';
+  else if (/\b(help|support|contact|how do i|assist|ayuda|hilfe|madad)\b/i.test(lower)) intent = 'support';
+  else if (negativeScore > positiveScore || urgency >= 2) intent = 'complaint';
+  else if (positiveScore > negativeScore) intent = 'praise';
+
+  // 5. Topics (up to 3)
+  const topicMap = {
+    pricing: ['price', 'pricing', 'cost', 'expensive', 'cheap', 'billing', 'invoice', 'charge', 'paisa', 'precio', 'prix', 'preis'],
+    performance: ['slow', 'fast', 'speed', 'load', 'loading', 'lag', 'lento', 'rapido', 'langsam', '遅い'],
+    usability: ['easy', 'hard', 'confusing', 'ui', 'ux', 'interface', 'simple', 'intuitive', 'sencillo', 'einfach'],
+    support: ['support', 'agent', 'service', 'team', 'response', 'reply', 'madad', 'ayuda', 'hilfe'],
+    product_quality: ['quality', 'feature', 'tool', 'design', 'broken', 'bug', 'crash', 'error', 'fehler']
+  };
+
+  const detectedTopics = [];
+  for (const [topic, keywords] of Object.entries(topicMap)) {
+    if (keywords.some((k) => matchKeyword(k))) {
+      detectedTopics.push(topic);
+      if (detectedTopics.length === 3) break;
+    }
+  }
+  if (!detectedTopics.length) detectedTopics.push('general');
+
+  // 6. Summary (max 160 chars)
+  const summary = clean.length > 160 ? clean.slice(0, 157) + '…' : (clean || 'No text provided');
+
+  return {
+    sentiment,
+    intent,
+    urgency,
+    topics: detectedTopics,
+    language,
+    summary,
+    classifiedAt: new Date().toISOString()
+  };
 }
 
 async function runEmailJob(db, job) {
@@ -7675,6 +7807,22 @@ function selectResponsesForAi(responses = [], limit = 60) {
   };
 }
 
+function validateEvidenceCitations(summary, responses) {
+  const validIds = new Set(responses.map((r) => r.id));
+  if (Array.isArray(summary.themeEvidence)) {
+    summary.themeEvidence = summary.themeEvidence
+      .map((theme) => ({
+        ...theme,
+        evidence: (theme.evidence || []).filter((e) => validIds.has(e.responseId))
+      }))
+      .filter((theme) => theme.evidence.length > 0);
+  }
+  if (Array.isArray(summary.urgentResponses)) {
+    summary.urgentResponses = summary.urgentResponses.filter((u) => validIds.has(u.responseId));
+  }
+  return summary;
+}
+
 function buildAiSummary(survey, responses) {
   const allText = [];
   const urgent = [];
@@ -7694,7 +7842,7 @@ function buildAiSummary(survey, responses) {
   const responseClusters = buildResponseClusters(responses, keywords);
   const negativeShare = responses.length ? sentiment.negative / responses.length : 0;
   const positiveShare = responses.length ? sentiment.positive / responses.length : 0;
-  return {
+  return validateEvidenceCitations({
     aiGenerated: false,
     coverage: {
       analyzed: responses.length,
@@ -7718,7 +7866,7 @@ function buildAiSummary(survey, responses) {
     complaintClusters,
     sentiment,
     leadQualitySummary: summarizeLeadQuality(responses)
-  };
+  }, responses);
 }
 
 function buildThemeEvidence(keywords, responses) {
@@ -7768,7 +7916,7 @@ async function buildAiSummaryWithProvider(db, survey, responses, workspace) {
   }, 'Return JSON with headline, keyThemes, positiveThemes, negativeThemes, recommendedActions, optional themeEvidence, urgentResponses, intentSummary, intentClassifications, responseClusters, and complaintClusters. Every themeEvidence item must contain a theme and evidence items with responseId values copied exactly from the provided responses. Do not include data outside the provided survey responses.', workspace);
   if (!provider) return fallback;
   const data = provider.data || {};
-  return {
+  return validateEvidenceCitations({
     ...fallback,
     aiGenerated: true,
     coverage: {
@@ -7798,7 +7946,7 @@ async function buildAiSummaryWithProvider(db, survey, responses, workspace) {
         excerpt: cleanText(item.excerpt || '', 180)
       }))
       : fallback.urgentResponses
-  };
+  }, responses);
 }
 
 function normalizeThemeEvidence(value, fallback, responses) {
@@ -9682,6 +9830,7 @@ async function completeResponse(db, survey, schema, response, answers, metadata,
     processAlerts(db, survey, response);
     processWebhooks(db, survey, response);
     processIntegrations(db, survey, response);
+    queueClassifyResponseJob(db, survey.workspaceId, response.id);
   }
 }
 
@@ -10367,6 +10516,23 @@ function processIntegrations(db, survey, response) {
       source: response.metadataJson?.source || 'direct'
     });
   }
+}
+
+function queueClassifyResponseJob(db, workspaceId, responseId) {
+  db.jobs.push({
+    id: makeId('job'),
+    workspaceId,
+    type: 'classify_response',
+    status: 'queued',
+    attempts: 0,
+    maxAttempts: JOB_MAX_ATTEMPTS,
+    payloadJson: { responseId },
+    lastError: '',
+    nextRunAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    completedAt: null
+  });
 }
 
 function queueWhatsappJob(db, workspaceId, message, context = {}) {
@@ -12503,6 +12669,8 @@ module.exports = {
   consumeAiCredits,
   improveQuestionText,
   buildMonthlyReport,
+  classifyMultilingualResponse,
+  validateEvidenceCitations,
   responsesRepo,
   jobsRepo,
   auditLogsRepo
