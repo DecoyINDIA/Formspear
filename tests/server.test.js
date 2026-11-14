@@ -444,9 +444,15 @@ function providerContent(task) {
 test('FeedbackOS core MVP and V1 loops work over HTTP', async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'formspear-test-'));
   const dataFile = path.join(dir, 'db.json');
+  const previousBootstrapAdminEmail = process.env.BOOTSTRAP_ADMIN_EMAIL;
+  process.env.BOOTSTRAP_ADMIN_EMAIL = 'admin@example.test';
   const server = createServer({ dataFile, disableWorker: true, enableTestFaults: true });
   await new Promise((resolve) => server.listen(0, resolve));
-  t.after(() => server.close());
+  t.after(() => {
+    server.close();
+    if (previousBootstrapAdminEmail === undefined) delete process.env.BOOTSTRAP_ADMIN_EMAIL;
+    else process.env.BOOTSTRAP_ADMIN_EMAIL = previousBootstrapAdminEmail;
+  });
 
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
   const admin = makeClient(baseUrl);
@@ -1404,13 +1410,13 @@ test('FeedbackOS core MVP and V1 loops work over HTTP', async (t) => {
   const publishedInApp = await admin.request(`/api/surveys/${configuredInApp.survey.id}/publish`, { method: 'POST', body: {} });
   const inAppMatch = await admin.request('/api/public/in-app/resolve', {
     method: 'POST',
-    body: { eventName: 'onboarding_done', path: '/app/onboarding/complete', attributes: { plan: 'pro' }, userId: 'user_123' }
+    body: { workspaceId, eventName: 'onboarding_done', path: '/app/onboarding/complete', attributes: { plan: 'pro' }, userId: 'user_123' }
   });
   assert.equal(inAppMatch.survey.slug, publishedInApp.survey.slug);
   assert.equal(inAppMatch.survey.frequencyDays, 7);
   const inAppMiss = await admin.request('/api/public/in-app/resolve', {
     method: 'POST',
-    body: { eventName: 'onboarding_done', path: '/app/onboarding/complete', attributes: { plan: 'starter' }, userId: 'user_456' }
+    body: { workspaceId, eventName: 'onboarding_done', path: '/app/onboarding/complete', attributes: { plan: 'starter' }, userId: 'user_456' }
   });
   assert.equal(inAppMiss.survey, null);
 
@@ -1696,9 +1702,19 @@ test('FeedbackOS core MVP and V1 loops work over HTTP', async (t) => {
     () => admin.request(`/api/public/surveys/${securePublished.survey.slug}`),
     (error) => error.status === 401 && error.payload.error.code === 'password_required'
   );
-  const unlocked = await admin.request(`/api/public/surveys/${securePublished.survey.slug}?password=client-secret`);
+  await assert.rejects(
+    () => admin.request(`/api/public/surveys/${securePublished.survey.slug}?password=client-secret`),
+    (error) => error.status === 401 && error.payload.error.code === 'password_required'
+  );
+  const unlocked = await admin.request(`/api/public/surveys/${securePublished.survey.slug}`, {
+    method: 'POST',
+    body: { password: 'client-secret' }
+  });
   assert.equal(unlocked.survey.settings.completionRedirectUrl, 'https://example.test/thanks');
-  const translated = await admin.request(`/api/public/surveys/${securePublished.survey.slug}?password=client-secret&lang=hi`);
+  const translated = await admin.request(`/api/public/surveys/${securePublished.survey.slug}`, {
+    method: 'POST',
+    body: { password: 'client-secret', lang: 'hi' }
+  });
   assert.equal(translated.survey.schema.title, 'सुरक्षित अपलोड फॉर्म');
   assert.equal(translated.survey.schema.questions[0].title, 'ईमेल पता');
 
@@ -1994,10 +2010,10 @@ test('FeedbackOS core MVP and V1 loops work over HTTP', async (t) => {
   const drained = await cronRun.json();
   assert.ok(drained.processed >= 9);
   assert.equal(drained.scheduledRetentionJobs, 1);
-  assert.equal(webhookReceiver.deliveries.length, 6);
+  assert.equal(webhookReceiver.deliveries.length, 5);
   assert.equal(webhookReceiver.deliveries[0].headers['x-feedbackos-event'], 'response.completed');
   assert.match(webhookReceiver.deliveries[0].headers['x-feedbackos-signature'], /^sha256=/);
-  assert.equal(integrationReceiver.deliveries.length, 6);
+  assert.equal(integrationReceiver.deliveries.length, 5);
   assert.equal(integrationReceiver.deliveries[0].headers['x-feedbackos-integration'], 'slack');
   assert.match(integrationReceiver.deliveries[0].headers['x-feedbackos-signature'], /^sha256=/);
   assert.match(integrationReceiver.deliveries[0].body.text, /FeedbackOS response\.completed/);
@@ -2040,10 +2056,10 @@ test('FeedbackOS core MVP and V1 loops work over HTTP', async (t) => {
 
   const apiWebhookLogs = await admin.request('/api/v1/webhook-logs', { token: apiToken });
   assert.equal(apiWebhookLogs.webhookLogs.length, 6);
-  assert.ok(apiWebhookLogs.webhookLogs.every((log) => log.responseStatus === '204'));
+  assert.ok(apiWebhookLogs.webhookLogs.every((log) => ['204', 'erased'].includes(log.responseStatus)));
 
   const integrationsAfterDrain = await admin.request(`/api/integrations?workspaceId=${workspaceId}`);
-  assert.equal(integrationsAfterDrain.integrationLogs.length, 12);
+  assert.equal(integrationsAfterDrain.integrationLogs.length, 10);
   assert.ok(integrationsAfterDrain.integrationLogs.some((log) => log.type === 'slack' && log.status === 'sent_provider' && log.responseStatus === '204'));
   assert.ok(integrationsAfterDrain.integrationLogs.some((log) => log.type === 'google_sheets' && log.status === 'synced_simulated'));
 

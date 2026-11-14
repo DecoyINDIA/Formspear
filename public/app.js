@@ -157,12 +157,19 @@ async function init() {
 async function initPublic(slug) {
   app.innerHTML = `<div class="public-shell"><div class="public-form"><p class="muted">Loading survey...</p></div></div>`;
   try {
-    const publicParams = new URLSearchParams();
-    if (state.publicPassword) publicParams.set('password', state.publicPassword);
     const lang = new URLSearchParams(location.search).get('lang');
-    if (lang) publicParams.set('lang', lang);
-    const query = publicParams.toString() ? `?${publicParams.toString()}` : '';
-    const payload = await api(`/api/public/surveys/${encodeURIComponent(slug)}${query}`);
+    let payload;
+    if (state.publicPassword) {
+      payload = await api(`/api/public/surveys/${encodeURIComponent(slug)}`, {
+        method: 'POST',
+        body: { password: state.publicPassword, lang }
+      });
+    } else {
+      const publicParams = new URLSearchParams();
+      if (lang) publicParams.set('lang', lang);
+      const query = publicParams.toString() ? `?${publicParams.toString()}` : '';
+      payload = await api(`/api/public/surveys/${encodeURIComponent(slug)}${query}`);
+    }
     state.publicSurvey = payload.survey;
     state.publicAnswers = {};
     state.publicPage = 0;
@@ -3178,10 +3185,17 @@ async function restorePublicPartial() {
   const urlResume = publicResumeFromUrl();
   const saved = urlResume || readPublicResume(survey?.slug || '');
   if (!survey || !saved?.responseId || !saved?.resumeToken) return;
-  const params = new URLSearchParams({ resumeToken: saved.resumeToken });
-  if (state.publicPassword) params.set('password', state.publicPassword);
   try {
-    const payload = await api(`/api/public/surveys/${encodeURIComponent(survey.slug)}/responses/${encodeURIComponent(saved.responseId)}?${params.toString()}`);
+    let payload;
+    if (state.publicPassword) {
+      payload = await api(`/api/public/surveys/${encodeURIComponent(survey.slug)}/responses/${encodeURIComponent(saved.responseId)}`, {
+        method: 'POST',
+        body: { password: state.publicPassword, resumeToken: saved.resumeToken }
+      });
+    } else {
+      const params = new URLSearchParams({ resumeToken: saved.resumeToken });
+      payload = await api(`/api/public/surveys/${encodeURIComponent(survey.slug)}/responses/${encodeURIComponent(saved.responseId)}?${params.toString()}`);
+    }
     state.publicPartialResponseId = payload.responseId;
     state.publicResumeToken = saved.resumeToken;
     state.publicAnswers = payload.answers || {};

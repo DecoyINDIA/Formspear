@@ -3042,8 +3042,16 @@ async function handlePublic(req, res, url, segments, db, state) {
     return;
   }
 
-  if (req.method === 'GET' && segments.length === 2) {
-    if (!surveyPasswordAllowed(survey, url.searchParams.get('password') || '')) {
+  if ((req.method === 'GET' || req.method === 'POST') && segments.length === 2) {
+    if (!publicRateAllowed(req, slug)) {
+      sendJson(res, 429, { error: { code: 'rate_limited', message: 'Too many survey requests. Please try again shortly.' } });
+      return;
+    }
+    let body = {};
+    if (req.method === 'POST') {
+      body = await readJson(req).catch(() => ({}));
+    }
+    if (survey.settings.passwordProtected && (req.method !== 'POST' || !surveyPasswordAllowed(survey, body.password || ''))) {
       sendJson(res, 401, { error: { code: 'password_required', message: 'This survey is password protected.' } });
       return;
     }
@@ -3055,7 +3063,8 @@ async function handlePublic(req, res, url, segments, db, state) {
       state.surveyViewLastSaved?.set(survey.id, now);
       saveDb(state).catch((error) => console.error('Throttled survey view save failed', error));
     }
-    sendJson(res, 200, { survey: publicSurveyPayload(db, survey, url.searchParams.get('lang') || '') });
+    const requestedLang = (req.method === 'POST' ? body.lang : null) || url.searchParams.get('lang') || '';
+    sendJson(res, 200, { survey: publicSurveyPayload(db, survey, requestedLang) });
     return;
   }
 
@@ -3118,17 +3127,22 @@ async function handlePublic(req, res, url, segments, db, state) {
     return;
   }
 
-  if (segments[2] === 'responses' && segments[3] && req.method === 'GET') {
+  if (segments[2] === 'responses' && segments[3] && (req.method === 'GET' || req.method === 'POST') && segments.length === 4) {
     if (!publicRateAllowed(req, slug)) {
       sendJson(res, 429, { error: { code: 'rate_limited', message: 'Too many survey events. Please try again shortly.' } });
       return;
     }
-    if (!surveyPasswordAllowed(survey, url.searchParams.get('password') || '')) {
+    let body = {};
+    if (req.method === 'POST') {
+      body = await readJson(req).catch(() => ({}));
+    }
+    if (survey.settings.passwordProtected && (req.method !== 'POST' || !surveyPasswordAllowed(survey, body.password || ''))) {
       sendJson(res, 401, { error: { code: 'password_required', message: 'This survey is password protected.' } });
       return;
     }
+    const resumeToken = (req.method === 'POST' ? body.resumeToken : null) || url.searchParams.get('resumeToken') || '';
     const response = db.responses.find((item) => item.id === segments[3] && item.surveyId === survey.id && ['started', 'partial'].includes(item.status));
-    if (!response || !publicResumeAllowed(response, url.searchParams.get('resumeToken') || '')) {
+    if (!response || !publicResumeAllowed(response, resumeToken)) {
       sendJson(res, 404, { error: { code: 'response_not_found', message: 'Partial response not found.' } });
       return;
     }
@@ -6352,7 +6366,6 @@ function defaultSurveySettings() {
     responseLimit: 0,
     expiresAt: '',
     passwordProtected: false,
-    password: '',
     passwordHash: '',
     completionRedirectUrl: '',
     inAppTriggerEvent: '',
@@ -6394,11 +6407,11 @@ function normalizeSurveySettings(existing, patch = {}) {
   if (patch.completionRedirectUrl !== undefined) output.completionRedirectUrl = cleanUrl(patch.completionRedirectUrl || '');
   if (patch.password !== undefined && String(patch.password || '').trim()) {
     output.passwordHash = hashToken(String(patch.password));
-    output.password = '';
+    delete output.password;
   }
   if (patch.passwordProtected === false) {
     output.passwordHash = '';
-    output.password = '';
+    delete output.password;
   }
   return output;
 }
@@ -6421,7 +6434,7 @@ function validateSurveyForPublish(survey) {
   }
   if (!survey.title) errors.push('Survey title is required.');
   if (!survey.schema.questions.length) errors.push('At least one question is required.');
-  if (survey.settings.passwordProtected && !survey.settings.passwordHash && !survey.settings.password) {
+  if (survey.settings.passwordProtected && !survey.settings.passwordHash) {
     errors.push('Password-protected surveys need a password before publishing.');
   }
   for (const item of survey.schema.questions) {
@@ -6963,8 +6976,7 @@ function surveyPasswordAllowed(survey, password) {
   if (!survey.settings.passwordProtected) return true;
   const input = String(password || '');
   if (!input) return false;
-  if (survey.settings.passwordHash) return survey.settings.passwordHash === hashToken(input);
-  return Boolean(survey.settings.password && survey.settings.password === input);
+  return Boolean(survey.settings.passwordHash && survey.settings.passwordHash === hashToken(input));
 }
 
 function publicResumeAllowed(response, resumeToken) {
