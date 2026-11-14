@@ -12,6 +12,7 @@ const { clientIp } = require('./lib/client-ip');
 const { readBodyBuffer } = require('./lib/http-body');
 const { isSafeOutboundUrl } = require('./lib/outbound');
 const { loadAsset, isCompressible, negotiateEncoding } = require('./lib/static-assets');
+const { ALL_FEATURES, enabledFeatures, featureEnabled } = require('./lib/features');
 const {
   withSecurityHeaders,
   embeddableSecurityHeaders,
@@ -498,6 +499,12 @@ async function routeRequest(req, res, state) {
   await sendFile(req, res, target);
 }
 
+function requireFeature(res, name) {
+  if (featureEnabled(name)) return true;
+  sendJson(res, 404, { error: { code: 'feature_disabled', message: 'This feature is not enabled.' } });
+  return false;
+}
+
 async function handleApi(req, res, url, state) {
   const isPublicApi = url.pathname === '/api/public' || url.pathname.startsWith('/api/public/');
   if (isPublicApi) {
@@ -550,6 +557,8 @@ async function handleApi(req, res, url, state) {
     return;
   }
 
+  if (segments[0] === 'auth' && segments[1] === 'sso' && !requireFeature(res, 'sso')) return;
+
   if (segments[0] === 'auth' && segments[1] === 'sso' && segments[2] === 'start' && method === 'POST') {
     await handleSsoStart(req, res, url, db, state);
     return;
@@ -591,6 +600,7 @@ async function handleApi(req, res, url, state) {
   }
 
   if (segments[0] === 'v1') {
+    if (!requireFeature(res, 'apiV1')) return;
     await handleApiV1(req, res, url, segments.slice(1), db, state);
     return;
   }
@@ -609,6 +619,9 @@ async function handleApi(req, res, url, state) {
     await handleCronRun(req, res, state);
     return;
   }
+
+  if (segments[0] === 'agency' && !requireFeature(res, 'agency')) return;
+  if (segments[0] === 'campaigns' && !requireFeature(res, 'campaigns')) return;
 
   const auth = requireUser(req, res, db);
   if (!auth) return;
@@ -862,10 +875,12 @@ async function handleLogin(req, res, db, state) {
     return;
   }
 
-  const enforcedSso = enforcedSsoWorkspaceForEmail(db, user.email);
-  if (enforcedSso && db.workspaceMembers.some((member) => member.workspaceId === enforcedSso.id && member.userId === user.id)) {
-    sendJson(res, 403, { error: { code: 'sso_required', message: 'This workspace requires SSO sign-in.', workspaceId: enforcedSso.id } });
-    return;
+  if (featureEnabled('sso')) {
+    const enforcedSso = enforcedSsoWorkspaceForEmail(db, user.email);
+    if (enforcedSso && db.workspaceMembers.some((member) => member.workspaceId === enforcedSso.id && member.userId === user.id)) {
+      sendJson(res, 403, { error: { code: 'sso_required', message: 'This workspace requires SSO sign-in.', workspaceId: enforcedSso.id } });
+      return;
+    }
   }
 
   if (user.twoFactorEnabled) {
@@ -1599,23 +1614,26 @@ async function handleWorkspaces(req, res, url, segments, db, state, user) {
     return;
   }
 
-  if (segments[1] === 'sso' && segments.length === 2 && req.method === 'GET') {
-    const workspace = db.workspaces.find((item) => item.id === workspaceId);
-    workspace.sso = normalizeSsoConfig(workspace.sso || {});
-    sendJson(res, 200, { sso: workspace.sso, metadataUrl: `/api/auth/sso/metadata/${workspace.id}` });
-    return;
-  }
+  if (segments[1] === 'sso') {
+    if (!requireFeature(res, 'sso')) return;
+    if (segments.length === 2 && req.method === 'GET') {
+      const workspace = db.workspaces.find((item) => item.id === workspaceId);
+      workspace.sso = normalizeSsoConfig(workspace.sso || {});
+      sendJson(res, 200, { sso: workspace.sso, metadataUrl: `/api/auth/sso/metadata/${workspace.id}` });
+      return;
+    }
 
-  if (segments[1] === 'sso' && segments.length === 2 && req.method === 'PUT') {
-    if (!requireWorkspace(res, db, user, workspaceId, 'admin')) return;
-    const body = await readJson(req);
-    const workspace = db.workspaces.find((item) => item.id === workspaceId);
-    workspace.sso = normalizeSsoConfig({ ...(workspace.sso || {}), ...body });
-    workspace.updatedAt = new Date().toISOString();
-    db.auditLogs.push(audit(workspace.id, user.id, 'workspace.sso_updated', 'workspace', workspace.id, { enabled: workspace.sso.enabled, enforce: workspace.sso.enforce }));
-    await saveDb(state);
-    sendJson(res, 200, { sso: workspace.sso, metadataUrl: `/api/auth/sso/metadata/${workspace.id}` });
-    return;
+    if (segments.length === 2 && req.method === 'PUT') {
+      if (!requireWorkspace(res, db, user, workspaceId, 'admin')) return;
+      const body = await readJson(req);
+      const workspace = db.workspaces.find((item) => item.id === workspaceId);
+      workspace.sso = normalizeSsoConfig({ ...(workspace.sso || {}), ...body });
+      workspace.updatedAt = new Date().toISOString();
+      db.auditLogs.push(audit(workspace.id, user.id, 'workspace.sso_updated', 'workspace', workspace.id, { enabled: workspace.sso.enabled, enforce: workspace.sso.enforce }));
+      await saveDb(state);
+      sendJson(res, 200, { sso: workspace.sso, metadataUrl: `/api/auth/sso/metadata/${workspace.id}` });
+      return;
+    }
   }
 
   if (segments[1] === 'members' && req.method === 'GET') {
@@ -1712,68 +1730,71 @@ async function handleWorkspaces(req, res, url, segments, db, state, user) {
     return;
   }
 
-  if (segments[1] === 'api-keys' && segments.length === 2 && req.method === 'GET') {
-    const keys = db.apiKeys
-      .filter((item) => item.workspaceId === workspaceId && !item.revokedAt)
-      .map((item) => ({ ...item, tokenHash: '[hidden]' }));
-    sendJson(res, 200, { apiKeys: keys });
-    return;
-  }
-
-  if (segments[1] === 'api-keys' && segments[2] && segments[3] === 'rotate' && segments.length === 4 && req.method === 'POST') {
-    const apiKey = db.apiKeys.find((item) => item.id === segments[2] && item.workspaceId === workspaceId && !item.revokedAt);
-    if (!apiKey) {
-      sendJson(res, 404, { error: { code: 'api_key_not_found', message: 'API key not found.' } });
+  if (segments[1] === 'api-keys') {
+    if (!requireFeature(res, 'apiV1')) return;
+    if (segments.length === 2 && req.method === 'GET') {
+      const keys = db.apiKeys
+        .filter((item) => item.workspaceId === workspaceId && !item.revokedAt)
+        .map((item) => ({ ...item, tokenHash: '[hidden]' }));
+      sendJson(res, 200, { apiKeys: keys });
       return;
     }
-    const rawToken = `fo_live_${crypto.randomBytes(24).toString('hex')}`;
-    apiKey.tokenHash = hashToken(rawToken);
-    apiKey.tokenPreview = `${rawToken.slice(0, 12)}...`;
-    apiKey.rotatedAt = new Date().toISOString();
-    apiKey.lastUsedAt = null;
-    apiKey.updatedAt = apiKey.rotatedAt;
-    db.auditLogs.push(audit(workspaceId, user.id, 'api_key.rotated', 'api_key', apiKey.id, { name: apiKey.name }));
-    await saveDb(state);
-    sendJson(res, 200, { apiKey: { ...apiKey, tokenHash: '[hidden]' }, token: rawToken });
-    return;
-  }
 
-  if (segments[1] === 'api-keys' && segments.length === 2 && req.method === 'POST') {
-    const body = await readJson(req);
-    const rawToken = `fo_live_${crypto.randomBytes(24).toString('hex')}`;
-    const apiKey = {
-      id: makeId('key'),
-      workspaceId,
-      name: cleanText(body.name || 'Workspace API key', 120),
-      tokenHash: hashToken(rawToken),
-      tokenPreview: `${rawToken.slice(0, 12)}...`,
-      scopes: normalizeScopes(body.scopes || ['surveys:read', 'responses:read', 'responses:write', 'analytics:read']),
-      rateLimitPerMinute: Math.max(10, Math.min(1000, Number(body.rateLimitPerMinute || 120))),
-      createdBy: user.id,
-      lastUsedAt: null,
-      revokedAt: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    db.apiKeys.push(apiKey);
-    db.auditLogs.push(audit(workspaceId, user.id, 'api_key.created', 'api_key', apiKey.id, { name: apiKey.name, scopes: apiKey.scopes }));
-    await saveDb(state);
-    sendJson(res, 201, { apiKey: { ...apiKey, tokenHash: '[hidden]' }, token: rawToken });
-    return;
-  }
-
-  if (segments[1] === 'api-keys' && segments[2] && segments.length === 3 && req.method === 'DELETE') {
-    const apiKey = db.apiKeys.find((item) => item.id === segments[2] && item.workspaceId === workspaceId);
-    if (!apiKey) {
-      sendJson(res, 404, { error: { code: 'api_key_not_found', message: 'API key not found.' } });
+    if (segments[2] && segments[3] === 'rotate' && segments.length === 4 && req.method === 'POST') {
+      const apiKey = db.apiKeys.find((item) => item.id === segments[2] && item.workspaceId === workspaceId && !item.revokedAt);
+      if (!apiKey) {
+        sendJson(res, 404, { error: { code: 'api_key_not_found', message: 'API key not found.' } });
+        return;
+      }
+      const rawToken = `fo_live_${crypto.randomBytes(24).toString('hex')}`;
+      apiKey.tokenHash = hashToken(rawToken);
+      apiKey.tokenPreview = `${rawToken.slice(0, 12)}...`;
+      apiKey.rotatedAt = new Date().toISOString();
+      apiKey.lastUsedAt = null;
+      apiKey.updatedAt = apiKey.rotatedAt;
+      db.auditLogs.push(audit(workspaceId, user.id, 'api_key.rotated', 'api_key', apiKey.id, { name: apiKey.name }));
+      await saveDb(state);
+      sendJson(res, 200, { apiKey: { ...apiKey, tokenHash: '[hidden]' }, token: rawToken });
       return;
     }
-    apiKey.revokedAt = new Date().toISOString();
-    apiKey.updatedAt = new Date().toISOString();
-    db.auditLogs.push(audit(workspaceId, user.id, 'api_key.revoked', 'api_key', apiKey.id, {}));
-    await saveDb(state);
-    sendJson(res, 200, { ok: true });
-    return;
+
+    if (segments.length === 2 && req.method === 'POST') {
+      const body = await readJson(req);
+      const rawToken = `fo_live_${crypto.randomBytes(24).toString('hex')}`;
+      const apiKey = {
+        id: makeId('key'),
+        workspaceId,
+        name: cleanText(body.name || 'Workspace API key', 120),
+        tokenHash: hashToken(rawToken),
+        tokenPreview: `${rawToken.slice(0, 12)}...`,
+        scopes: normalizeScopes(body.scopes || ['surveys:read', 'responses:read', 'responses:write', 'analytics:read']),
+        rateLimitPerMinute: Math.max(10, Math.min(1000, Number(body.rateLimitPerMinute || 120))),
+        createdBy: user.id,
+        lastUsedAt: null,
+        revokedAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      db.apiKeys.push(apiKey);
+      db.auditLogs.push(audit(workspaceId, user.id, 'api_key.created', 'api_key', apiKey.id, { name: apiKey.name, scopes: apiKey.scopes }));
+      await saveDb(state);
+      sendJson(res, 201, { apiKey: { ...apiKey, tokenHash: '[hidden]' }, token: rawToken });
+      return;
+    }
+
+    if (segments[2] && segments.length === 3 && req.method === 'DELETE') {
+      const apiKey = db.apiKeys.find((item) => item.id === segments[2] && item.workspaceId === workspaceId);
+      if (!apiKey) {
+        sendJson(res, 404, { error: { code: 'api_key_not_found', message: 'API key not found.' } });
+        return;
+      }
+      apiKey.revokedAt = new Date().toISOString();
+      apiKey.updatedAt = new Date().toISOString();
+      db.auditLogs.push(audit(workspaceId, user.id, 'api_key.revoked', 'api_key', apiKey.id, {}));
+      await saveDb(state);
+      sendJson(res, 200, { ok: true });
+      return;
+    }
   }
 
   sendJson(res, 404, { error: { code: 'not_found', message: 'Workspace route not found.' } });
@@ -2980,19 +3001,23 @@ async function handleApiV1(req, res, url, segments, db, state) {
 
 async function handlePublic(req, res, url, segments, db, state) {
   if (segments[0] === 'campaigns') {
+    if (!requireFeature(res, 'campaigns')) return;
     await handlePublicCampaignTracking(req, res, url, segments.slice(1), db, state);
     return;
   }
 
-  if (segments[0] === 'in-app' && segments[1] === 'resolve' && req.method === 'POST') {
-    if (!publicRateAllowed(req, 'in-app')) {
-      sendJson(res, 429, { error: { code: 'rate_limited', message: 'Too many in-app survey events. Please try again shortly.' } });
+  if (segments[0] === 'in-app') {
+    if (!requireFeature(res, 'inAppSdk')) return;
+    if (segments[1] === 'resolve' && req.method === 'POST') {
+      if (!publicRateAllowed(req, 'in-app')) {
+        sendJson(res, 429, { error: { code: 'rate_limited', message: 'Too many in-app survey events. Please try again shortly.' } });
+        return;
+      }
+      const body = await readJson(req);
+      const match = resolveInAppSurvey(db, body);
+      sendJson(res, 200, match ? { survey: match } : { survey: null });
       return;
     }
-    const body = await readJson(req);
-    const match = resolveInAppSurvey(db, body);
-    sendJson(res, 200, match ? { survey: match } : { survey: null });
-    return;
   }
 
   if (segments[0] !== 'surveys' || !segments[1]) {
@@ -10898,7 +10923,8 @@ function buildSessionPayload(db, user) {
   return {
     user: publicUser(user),
     workspaces: visibleWorkspaces(db, user),
-    plans: billingPlans(db)
+    plans: billingPlans(db),
+    features: enabledFeatures()
   };
 }
 

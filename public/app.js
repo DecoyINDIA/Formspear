@@ -14,6 +14,7 @@ function enhanceFieldLabels() {
 
 const state = {
   session: null,
+  features: ['sso', 'apiV1', 'campaigns', 'agency', 'inAppSdk'],
   workspaces: [],
   workspaceId: '',
   plans: [],
@@ -142,6 +143,7 @@ async function init() {
 
   try {
     state.session = await api('/api/session');
+    if (state.session.features) state.features = state.session.features;
     state.workspaces = state.session.workspaces;
     state.plans = state.session.plans;
     state.workspaceId = localStorage.getItem('formspear.workspaceId') || state.workspaces[0]?.id || '';
@@ -373,10 +375,17 @@ function render() {
   `;
 }
 
+function isFeatureEnabled(name) {
+  const list = (state.session && Array.isArray(state.session.features))
+    ? state.session.features
+    : (Array.isArray(state.features) ? state.features : ['sso', 'apiV1', 'campaigns', 'agency', 'inAppSdk']);
+  return list.includes(name);
+}
+
 function navItems() {
   const items = [
     ['dashboard', 'Dashboard'],
-    ...(canUseAgencyView() ? [['agency', 'Agency']] : []),
+    ...(canUseAgencyView() && isFeatureEnabled('agency') ? [['agency', 'Agency']] : []),
     ['surveys', 'Surveys'],
     ['builder', 'Builder'],
     ['responses', 'Responses'],
@@ -384,10 +393,10 @@ function navItems() {
     ['ai', 'AI Insights'],
     ['alerts', 'Alerts'],
     ['integrations', 'Integrations'],
-    ['campaigns', 'Campaigns'],
+    ...(isFeatureEnabled('campaigns') ? [['campaigns', 'Campaigns']] : []),
     ['contacts', 'Contacts'],
     ['team', 'Team'],
-    ['api', 'API'],
+    ...(isFeatureEnabled('apiV1') ? [['api', 'API']] : []),
     ['reports', 'Reports'],
     ['branding', 'Branding'],
     ['billing', 'Billing'],
@@ -1267,7 +1276,7 @@ function renderTeam() {
     </div>
     ${renderMemberManagement()}
     ${renderPermissionPolicy()}
-    ${renderSsoSettings()}
+    ${isFeatureEnabled('sso') ? renderSsoSettings() : ''}
     <section class="section">
       <h2>Pending invites</h2>
       ${state.invites.length ? state.invites.map((invite) => `<div class="card compact"><strong>${escapeHtml(invite.email)}</strong><p class="muted">${escapeHtml(invite.role)} · expires ${dateLabel(invite.expiresAt)} · ${escapeHtml(invite.tokenPreview || '')}</p></div>`).join('') : empty('No pending invites.')}

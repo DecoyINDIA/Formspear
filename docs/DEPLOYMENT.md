@@ -64,6 +64,20 @@ Core production variables:
 - `SMTP_USER`
 - `SMTP_PASSWORD` (at least 16 characters)
 
+## Feature Flags
+
+Formspear provides server-enforced feature flags to control parked features:
+- `sso`: Single Sign-On (start, assertion, dev-login, metadata, and workspace SSO settings).
+- `apiV1`: Public API v1 endpoints (`/api/v1/*`) and workspace API key management.
+- `campaigns`: Email campaigns API and public campaign open/click tracking.
+- `agency`: Agency portal overview endpoints and UI view.
+- `inAppSdk`: In-app SDK resolution endpoints (`/api/public/in-app/resolve`).
+
+In non-production environments (`NODE_ENV !== 'production'`), all features are enabled by default.
+In production, features default to none unless configured via `FORMSPEAR_FEATURES`.
+Set `FORMSPEAR_FEATURES=all`, `FORMSPEAR_FEATURES=none`, or a comma-separated list (e.g. `FORMSPEAR_FEATURES=apiV1,inAppSdk`).
+When a feature is disabled, its endpoints return HTTP 404 (`feature_disabled`) and its links are omitted from UI navigation.
+
 Production provider cutover variables are already listed in `.env.example`:
 
 - `DATABASE_URL`
