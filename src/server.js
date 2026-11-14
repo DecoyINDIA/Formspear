@@ -10,6 +10,7 @@ const writeExcelFile = require('write-excel-file/node');
 const { validateProductionEnvironment } = require('./production-config');
 const {
   withSecurityHeaders,
+  embeddableSecurityHeaders,
   encryptConfig,
   decryptConfig,
   publicWebhook,
@@ -463,11 +464,13 @@ async function routeRequest(req, res, state) {
     return;
   }
 
-  if (url.pathname === '/' || url.pathname.startsWith('/s/') || url.pathname === '/app') {
-    const publicFrameHeaders = url.pathname.startsWith('/s/')
-      ? { 'x-frame-options': null, 'content-security-policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; frame-ancestors *; base-uri 'self'; form-action 'self'" }
-      : {};
-    await sendFile(res, path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8', publicFrameHeaders);
+  if (url.pathname === '/' || url.pathname === '/app') {
+    await sendFile(res, path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8');
+    return;
+  }
+
+  if (url.pathname.startsWith('/s/')) {
+    await sendFile(res, path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8', embeddableSecurityHeaders);
     return;
   }
 
@@ -483,6 +486,19 @@ async function routeRequest(req, res, state) {
 }
 
 async function handleApi(req, res, url, state) {
+  const isPublicApi = url.pathname === '/api/public' || url.pathname.startsWith('/api/public/');
+  if (isPublicApi) {
+    res.setHeader('access-control-allow-origin', '*');
+    if ((req.method || 'GET') === 'OPTIONS') {
+      res.writeHead(204, withSecurityHeaders({
+        'access-control-allow-methods': 'GET,POST,PATCH,OPTIONS',
+        'access-control-allow-headers': 'content-type',
+        'access-control-max-age': '600'
+      }));
+      res.end();
+      return;
+    }
+  }
   if (!sameOriginAllowed(req, url)) {
     sendJson(res, 403, { error: { code: 'csrf_blocked', message: 'Cross-site state changing requests are blocked.' } });
     return;
@@ -2950,33 +2966,14 @@ async function handlePublic(req, res, url, segments, db, state) {
     return;
   }
 
-  if (segments[0] === 'in-app' && segments[1] === 'resolve' && req.method === 'OPTIONS') {
-    const workspaceId = cleanText(req.headers['x-feedbackos-workspace'] || '', 120);
-    const origin = cleanText(req.headers.origin || '', 300);
-    if (!inAppOriginAllowed(db, workspaceId, origin, url)) {
-      sendJson(res, 403, { error: { code: 'origin_not_allowed', message: 'This origin is not allowed for the installation.' } });
-      return;
-    }
-    res.writeHead(204, publicCorsHeaders(origin));
-    res.end();
-    return;
-  }
-
   if (segments[0] === 'in-app' && segments[1] === 'resolve' && req.method === 'POST') {
     if (!publicRateAllowed(req, 'in-app')) {
       sendJson(res, 429, { error: { code: 'rate_limited', message: 'Too many in-app survey events. Please try again shortly.' } });
       return;
     }
     const body = await readJson(req);
-    const workspaceId = cleanText(body.workspaceId || req.headers['x-feedbackos-workspace'] || '', 120);
-    const origin = cleanText(req.headers.origin || '', 300);
-    if (!workspaceId || workspaceId !== cleanText(req.headers['x-feedbackos-workspace'] || workspaceId, 120) || !inAppOriginAllowed(db, workspaceId, origin, url)) {
-      sendJson(res, 403, { error: { code: 'invalid_installation', message: 'The SDK installation or origin is not allowed.' } });
-      return;
-    }
-    body.workspaceId = workspaceId;
     const match = resolveInAppSurvey(db, body);
-    sendJsonWithHeaders(res, 200, match ? { survey: match } : { survey: null }, publicCorsHeaders(origin));
+    sendJson(res, 200, match ? { survey: match } : { survey: null });
     return;
   }
 
@@ -11722,12 +11719,14 @@ function sendJsonWithHeaders(res, status, payload, headers = {}) {
   res.end(JSON.stringify(payload));
 }
 
-async function sendFile(res, target, contentType, headers = {}) {
+async function sendFile(res, target, contentType, headerBuilder = withSecurityHeaders) {
   try {
     const stat = await fs.promises.stat(target);
     if (!stat.isFile()) throw Object.assign(new Error('Not found'), { code: 'ENOENT' });
     const type = contentType || mimeType(target);
-    const responseHeaders = withSecurityHeaders({ 'content-type': type, 'cache-control': 'no-cache', ...headers });
+    const builder = typeof headerBuilder === 'function' ? headerBuilder : withSecurityHeaders;
+    const extraHeaders = typeof headerBuilder === 'object' && headerBuilder !== null ? headerBuilder : {};
+    const responseHeaders = builder({ 'content-type': type, 'cache-control': 'no-cache', ...extraHeaders });
     for (const [key, value] of Object.entries(responseHeaders)) if (value === null) delete responseHeaders[key];
     res.writeHead(200, responseHeaders);
     fs.createReadStream(target).pipe(res);

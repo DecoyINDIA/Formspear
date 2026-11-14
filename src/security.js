@@ -12,6 +12,13 @@ function withSecurityHeaders(headers = {}) {
   return { ...SECURITY_HEADERS, ...headers };
 }
 
+function embeddableSecurityHeaders(headers = {}) {
+  const base = { ...SECURITY_HEADERS };
+  delete base['x-frame-options'];
+  base['content-security-policy'] = base['content-security-policy'].replace("frame-ancestors 'self'", 'frame-ancestors *');
+  return { ...base, ...headers };
+}
+
 function encryptionKey(env = process.env) {
   const raw = env.ENCRYPTION_KEY;
   if ((!raw || raw === 'replace-with-32-byte-secret') && env.NODE_ENV === 'production') {
@@ -80,6 +87,7 @@ function hashIp(ip, env = process.env) {
 module.exports = {
   SECURITY_HEADERS,
   withSecurityHeaders,
+  embeddableSecurityHeaders,
   encryptConfig,
   decryptConfig,
   publicWebhook,
