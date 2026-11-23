@@ -1,48 +1,56 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 360" width="100%" height="100%" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 380" width="100%" height="100%" fill="none">
   <defs>
-    <radialGradient id="cta-glow" cx="50%" cy="40%" r="65%">
-      <stop offset="0%" stop-color="#10B981" stop-opacity="0.22" />
-      <stop offset="50%" stop-color="#059669" stop-opacity="0.08" />
-      <stop offset="100%" stop-color="#060E0C" stop-opacity="0" />
+    <radialGradient id="cta-aurora" cx="50%" cy="36%" r="65%">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0.25" />
+      <stop offset="45%" stop-color="#059669" stop-opacity="0.08" />
+      <stop offset="100%" stop-color="#030806" stop-opacity="0" />
     </radialGradient>
-    <linearGradient id="cta-border" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#34D399" stop-opacity="0.6" />
-      <stop offset="50%" stop-color="#1F4D41" stop-opacity="0.2" />
-      <stop offset="100%" stop-color="#0D241F" stop-opacity="0.6" />
+    <linearGradient id="cta-frame-border" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34D399" stop-opacity="0.5" />
+      <stop offset="50%" stop-color="#194D40" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#0D2C24" stop-opacity="0.6" />
     </linearGradient>
-    <linearGradient id="cta-spear" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#6EE7B7" />
+    <linearGradient id="cta-spear-head" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#A7F3D0" />
+      <stop offset="50%" stop-color="#34D399" />
       <stop offset="100%" stop-color="#059669" />
     </linearGradient>
 
     <style>
-      @keyframes cta-pulse {
-        0%, 100% { transform: scale(1); filter: drop-shadow(0 0 12px rgba(16, 185, 129, 0.4)); }
-        50% { transform: scale(1.06); filter: drop-shadow(0 0 24px rgba(52, 211, 153, 0.8)); }
+      @keyframes cta-emblem-pulse {
+        0%, 100% { transform: scale(1); filter: drop-shadow(0 0 12px rgba(16, 185, 129, 0.45)); }
+        50% { transform: scale(1.06); filter: drop-shadow(0 0 26px rgba(52, 211, 153, 0.9)); }
       }
-      @keyframes glow-orbit {
+      @keyframes cta-orbit-spin {
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
       }
-      @keyframes blink-cursor {
+      @keyframes cta-cursor-blink {
         0%, 100% { opacity: 0; }
         50% { opacity: 1; }
       }
+      @keyframes copy-box-shimmer {
+        0%, 100% { stroke: #1E5C4A; }
+        50% { stroke: #34D399; }
+      }
 
-      .cta-spear-mark {
-        transform-origin: 550px 75px;
-        animation: cta-pulse 4s ease-in-out infinite;
+      .cta-emblem {
+        transform-origin: 550px 72px;
+        animation: cta-emblem-pulse 4.2s ease-in-out infinite;
       }
-      .orbit-ring {
-        transform-origin: 550px 75px;
-        animation: glow-orbit 12s linear infinite;
+      .cta-orbit {
+        transform-origin: 550px 72px;
+        animation: cta-orbit-spin 14s linear infinite;
       }
-      .cursor-blink {
-        animation: blink-cursor 1s steps(2, start) infinite;
+      .cta-cursor {
+        animation: cta-cursor-blink 1s steps(2, start) infinite;
+      }
+      .copy-container {
+        animation: copy-box-shimmer 4s ease-in-out infinite;
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .cta-spear-mark, .orbit-ring, .cursor-blink {
+        .cta-emblem, .cta-orbit, .cta-cursor, .copy-container {
           animation: none !important;
         }
       }
@@ -50,65 +58,82 @@
   </defs>
 
   <!-- Frame Background -->
-  <rect width="1100" height="360" rx="16" fill="#070E0C" />
-  <rect width="1100" height="360" rx="16" fill="url(#cta-glow)" />
-  <rect width="1100" height="360" rx="16" stroke="url(#cta-border)" stroke-width="1.5" />
+  <rect width="1100" height="380" rx="16" fill="#040907" />
+  <rect width="1100" height="380" rx="16" fill="url(#cta-aurora)" />
+  <rect width="1100" height="380" rx="16" stroke="url(#cta-frame-border)" stroke-width="1.5" />
 
-  <!-- Orbit Telemetry Rings -->
-  <g class="orbit-ring">
-    <circle cx="550" cy="75" r="48" stroke="#164336" stroke-width="1" stroke-dasharray="3, 6" />
-    <circle cx="550" cy="27" r="3" fill="#34D399" />
-    <circle cx="550" cy="123" r="2.5" fill="#38BDF8" />
+  <!-- Orbiting Telemetry Celestial Rings -->
+  <g class="cta-orbit">
+    <circle cx="550" cy="72" r="54" stroke="#144336" stroke-width="1" stroke-dasharray="3, 8" />
+    <circle cx="550" cy="18" r="3" fill="#34D399" />
+    <circle cx="550" cy="126" r="2.5" fill="#38BDF8" />
+    <circle cx="496" cy="72" r="2" fill="#F59E0B" />
   </g>
 
-  <!-- Spearhead Symbol at Center Top -->
-  <g class="cta-spear-mark">
-    <polygon points="550,45 572,75 550,98 528,75" fill="#0C201A" stroke="url(#cta-spear)" stroke-width="2" />
-    <polygon points="550,52 566,75 550,90 540,75" fill="url(#cta-spear)" />
-    <circle cx="550" cy="75" r="3" fill="#FFFFFF" />
+  <!-- Central Spearhead Emblem -->
+  <g class="cta-emblem">
+    <polygon points="550,38 576,72 550,102 524,72" fill="#061F18" stroke="url(#cta-spear-head)" stroke-width="2" />
+    <polygon points="550,46 568,72 550,92 538,72" fill="url(#cta-spear-head)" />
+    <circle cx="550" cy="72" r="3.5" fill="#FFFFFF" />
   </g>
 
-  <!-- Headings & Typography -->
+  <!-- Typographic Call to Action -->
   <g text-anchor="middle">
-    <text x="550" y="145" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="800" fill="#FFFFFF" letter-spacing="0.5">
-      Ready to Transform Raw Feedback into Operational Intelligence?
+    <text x="550" y="146" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="900" fill="#FFFFFF" letter-spacing="0.5">
+      Ready to Spearhead Your Feedback Intelligence?
     </text>
-    <text x="550" y="172" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="500" fill="#94A3B8">
-      Clone, run, and explore the complete full-stack feedback OS in under 30 seconds.
+    <text x="550" y="174" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14.5" font-weight="500" fill="#CBD5E1">
+      Deploy the complete, zero-framework feedback operating system in under 30 seconds.
     </text>
   </g>
 
-  <!-- Interactive-Looking Terminal Box -->
-  <g transform="translate(230, 200)">
-    <rect width="640" height="48" rx="8" fill="#040B09" stroke="#1A4739" stroke-width="1.2" />
-    <circle cx="20" cy="24" r="5" fill="#EF4444" />
-    <circle cx="36" cy="24" r="5" fill="#F59E0B" />
-    <circle cx="52" cy="24" r="5" fill="#10B981" />
-
-    <text x="76" y="29" font-family="ui-monospace, monospace" font-size="12" font-weight="600" fill="#E2E8F0">
-      git clone https://github.com/DecoyINDIA/Formspear.git &amp;&amp; cd Formspear &amp;&amp; npm install &amp;&amp; npm start
+  <!-- Interactive-Looking Terminal Copy Box -->
+  <g transform="translate(230, 208)">
+    <rect width="640" height="52" rx="8" fill="#030A08" stroke="#1E5C4A" stroke-width="1.2" class="copy-container" />
+    
+    <!-- Shell Prompt -->
+    <text x="24" y="32" font-family="ui-monospace, monospace" font-size="12.5" font-weight="600" fill="#34D399">
+      $ git clone https://github.com/DecoyINDIA/Formspear.git &amp;&amp; npm start
     </text>
-    <text x="618" y="29" font-family="ui-monospace, monospace" font-size="12" font-weight="700" fill="#34D399" class="cursor-blink">_</text>
+    <text x="525" y="32" font-family="ui-monospace, monospace" font-size="12.5" fill="#34D399" class="cta-cursor">_</text>
+
+    <!-- Copy Button Action Pill (Right) -->
+    <g transform="translate(535, 12)">
+      <rect width="90" height="28" rx="5" fill="#0A2C22" stroke="#1E6552" stroke-width="1" />
+      <circle cx="14" cy="14" r="3" fill="#34D399" />
+      <text x="24" y="18" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="700" fill="#ECFDF5">CLONE</text>
+    </g>
   </g>
 
-  <!-- Action Badges Cluster -->
-  <g transform="translate(550, 290)" text-anchor="middle">
-    <!-- Primary CTA: Quickstart -->
-    <g transform="translate(-170, 0)">
-      <rect x="-85" y="-16" width="170" height="34" rx="17" fill="#10B981" />
-      <text x="0" y="5" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11.5" font-weight="700" fill="#042F24">QUICKSTART GUIDE →</text>
+  <!-- Secondary Documentation & Runbook Navigation Pills -->
+  <g transform="translate(550, 302)" text-anchor="middle">
+    <!-- Doc Link 1 -->
+    <g transform="translate(-255, 0)">
+      <rect x="-80" y="-14" width="160" height="28" rx="14" fill="#071E18" stroke="#144A3A" stroke-width="0.8" />
+      <text x="0" y="4" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" font-weight="600" fill="#6EE7B7">📖 REST API Docs</text>
     </g>
+    <!-- Doc Link 2 -->
+    <g transform="translate(-85, 0)">
+      <rect x="-75" y="-14" width="150" height="28" rx="14" fill="#071E18" stroke="#144A3A" stroke-width="0.8" />
+      <text x="0" y="4" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" font-weight="600" fill="#7DD3FC">🏛️ Architecture</text>
+    </g>
+    <!-- Doc Link 3 -->
+    <g transform="translate(85, 0)">
+      <rect x="-80" y="-14" width="160" height="28" rx="14" fill="#071E18" stroke="#144A3A" stroke-width="0.8" />
+      <text x="0" y="4" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" font-weight="600" fill="#C7D2FE">🚀 Production Runbook</text>
+    </g>
+    <!-- Doc Link 4 -->
+    <g transform="translate(255, 0)">
+      <rect x="-75" y="-14" width="150" height="28" rx="14" fill="#071E18" stroke="#144A3A" stroke-width="0.8" />
+      <text x="0" y="4" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" font-weight="600" fill="#FCD34D">🛡️ Security Model</text>
+    </g>
+  </g>
 
-    <!-- Secondary CTA: API Docs -->
-    <g transform="translate(0, 0)">
-      <rect x="-75" y="-16" width="150" height="34" rx="17" fill="#0D201A" stroke="#1F4D3F" stroke-width="1.2" />
-      <text x="0" y="5" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11.5" font-weight="600" fill="#E2E8F0">API REFERENCE</text>
-    </g>
-
-    <!-- Tertiary CTA: Architecture -->
-    <g transform="translate(170, 0)">
-      <rect x="-85" y="-16" width="170" height="34" rx="17" fill="#0D201A" stroke="#1F4D3F" stroke-width="1.2" />
-      <text x="0" y="5" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11.5" font-weight="600" fill="#E2E8F0">ARCHITECTURE SPEC</text>
-    </g>
+  <!-- Bottom Sub-Footer License Stripe -->
+  <g transform="translate(550, 350)" text-anchor="middle">
+    <circle cx="-135" cy="-3" r="3" fill="#10B981" />
+    <text x="0" y="0" font-family="ui-monospace, monospace" font-size="10" fill="#64748B">
+      FORMSPEAR FEEDBACKOS • ZERO EXTERNAL DEPENDENCIES • RELEASED UNDER MIT LICENSE
+    </text>
   </g>
 </svg>

@@ -1,65 +1,84 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 100" width="100%" height="100%" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 110" width="100%" height="100%" fill="none">
   <defs>
-    <radialGradient id="ribbon-glow" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#10B981" stop-opacity="0.1" />
-      <stop offset="100%" stop-color="#071310" stop-opacity="0" />
+    <radialGradient id="ribbon-glow-bg" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#0E2E24" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#040907" stop-opacity="0" />
     </radialGradient>
-    <linearGradient id="metric-card-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0F241F" />
-      <stop offset="100%" stop-color="#091714" />
+    <linearGradient id="ribbon-card-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#09201A" />
+      <stop offset="100%" stop-color="#05120E" />
     </linearGradient>
 
     <style>
-      @keyframes metric-pulse {
+      @keyframes metric-box-glow {
         0%, 100% { filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.2)); }
-        50% { filter: drop-shadow(0 0 10px rgba(52, 211, 153, 0.6)); }
+        50% { filter: drop-shadow(0 0 12px rgba(52, 211, 153, 0.6)); }
       }
-      .metric-box {
-        animation: metric-pulse 5s ease-in-out infinite;
+      @keyframes live-blip-dot {
+        0%, 100% { opacity: 0.3; }
+        50% { opacity: 1; }
       }
+
+      .metric-cell {
+        animation: metric-box-glow 4.8s ease-in-out infinite;
+      }
+      .live-dot-pulse {
+        animation: live-blip-dot 1.8s ease-in-out infinite;
+      }
+
       @media (prefers-reduced-motion: reduce) {
-        .metric-box { animation: none !important; }
+        .metric-cell, .live-dot-pulse {
+          animation: none !important;
+        }
       }
     </style>
   </defs>
 
-  <!-- Base Plate -->
-  <rect width="1040" height="100" rx="12" fill="#060E0C" />
-  <rect width="1040" height="100" rx="12" fill="url(#ribbon-glow)" />
-  <rect width="1040" height="100" rx="12" stroke="#16382E" stroke-width="1.2" />
+  <!-- Base Plate Frame -->
+  <rect width="1100" height="110" rx="12" fill="#040907" />
+  <rect width="1100" height="110" rx="12" fill="url(#ribbon-glow-bg)" />
+  <rect width="1100" height="110" rx="12" stroke="#16382E" stroke-width="1.2" />
 
-  <!-- 4 Metrics Columns -->
-  <!-- Col 1: Throughput -->
-  <g transform="translate(40, 20)" class="metric-box">
-    <text x="0" y="14" font-family="ui-monospace, monospace" font-size="10" font-weight="600" fill="#94A3B8" letter-spacing="1">CONCURRENT INGESTION</text>
-    <text x="0" y="44" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" font-weight="900" fill="#34D399">100 subs/s</text>
-    <text x="0" y="60" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" fill="#6EE7B7">Smoke verified load</text>
+  <!-- 4 Telemetry Metrics Columns -->
+
+  <!-- Col 1: Concurrent Ingestion Throughput -->
+  <g transform="translate(36, 22)" class="metric-cell">
+    <circle cx="4" cy="8" r="3.5" fill="#10B981" class="live-dot-pulse" />
+    <text x="14" y="11" font-family="ui-monospace, monospace" font-size="9.5" font-weight="700" fill="#94A3B8" letter-spacing="1">CONCURRENT INGESTION</text>
+    <text x="0" y="46" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="27" font-weight="900" fill="#34D399">100 subs/s</text>
+    <text x="0" y="65" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" fill="#6EE7B7">Smoke verified • 0 packets dropped</text>
   </g>
 
-  <line x1="260" y1="20" x2="260" y2="80" stroke="#16382E" stroke-width="1" />
+  <!-- Vertical Divider 1 -->
+  <line x1="285" y1="20" x2="285" y2="90" stroke="#143A2F" stroke-width="1" stroke-dasharray="2, 4" />
 
-  <!-- Col 2: Benchmarked Scale -->
-  <g transform="translate(290, 20)">
-    <text x="0" y="14" font-family="ui-monospace, monospace" font-size="10" font-weight="600" fill="#94A3B8" letter-spacing="1">DASHBOARD PAGINATION</text>
-    <text x="0" y="44" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" font-weight="900" fill="#FFFFFF">100,000</text>
-    <text x="0" y="60" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" fill="#94A3B8">Responses in memory</text>
+  <!-- Col 2: In-Memory Pagination Scale -->
+  <g transform="translate(315, 22)">
+    <circle cx="4" cy="8" r="3.5" fill="#38BDF8" />
+    <text x="14" y="11" font-family="ui-monospace, monospace" font-size="9.5" font-weight="700" fill="#94A3B8" letter-spacing="1">DASHBOARD PAGINATION</text>
+    <text x="0" y="46" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="27" font-weight="900" fill="#FFFFFF">100,000</text>
+    <text x="0" y="65" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" fill="#94A3B8">Responses indexed in RAM (&lt;18ms)</text>
   </g>
 
-  <line x1="510" y1="20" x2="510" y2="80" stroke="#16382E" stroke-width="1" />
+  <!-- Vertical Divider 2 -->
+  <line x1="565" y1="20" x2="565" y2="90" stroke="#143A2F" stroke-width="1" stroke-dasharray="2, 4" />
 
-  <!-- Col 3: Question Types -->
-  <g transform="translate(540, 20)">
-    <text x="0" y="14" font-family="ui-monospace, monospace" font-size="10" font-weight="600" fill="#94A3B8" letter-spacing="1">BUILDER VERSATILITY</text>
-    <text x="0" y="44" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" font-weight="900" fill="#38BDF8">23 Types</text>
-    <text x="0" y="60" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" fill="#7DD3FC">Logic • Branching • QR</text>
+  <!-- Col 3: Builder Input Primitives -->
+  <g transform="translate(595, 22)">
+    <circle cx="4" cy="8" r="3.5" fill="#F59E0B" />
+    <text x="14" y="11" font-family="ui-monospace, monospace" font-size="9.5" font-weight="700" fill="#94A3B8" letter-spacing="1">BUILDER PRIMITIVES</text>
+    <text x="0" y="46" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="27" font-weight="900" fill="#38BDF8">23 Types</text>
+    <text x="0" y="65" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" fill="#7DD3FC">Logic • Branching • Localization</text>
   </g>
 
-  <line x1="760" y1="20" x2="760" y2="80" stroke="#16382E" stroke-width="1" />
+  <!-- Vertical Divider 3 -->
+  <line x1="840" y1="20" x2="840" y2="90" stroke="#143A2F" stroke-width="1" stroke-dasharray="2, 4" />
 
-  <!-- Col 4: Engine Purity -->
-  <g transform="translate(790, 20)">
-    <text x="0" y="14" font-family="ui-monospace, monospace" font-size="10" font-weight="600" fill="#94A3B8" letter-spacing="1">RUNTIME ARCHITECTURE</text>
-    <text x="0" y="44" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" font-weight="900" fill="#F59E0B">Node 20+</text>
-    <text x="0" y="60" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" fill="#FCD34D">Zero external web frameworks</text>
+  <!-- Col 4: Engine Architecture Purity -->
+  <g transform="translate(870, 22)">
+    <circle cx="4" cy="8" r="3.5" fill="#A78BFA" />
+    <text x="14" y="11" font-family="ui-monospace, monospace" font-size="9.5" font-weight="700" fill="#94A3B8" letter-spacing="1">RUNTIME PURITY</text>
+    <text x="0" y="46" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="27" font-weight="900" fill="#F59E0B">Node 20+</text>
+    <text x="0" y="65" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" fill="#FCD34D">Zero external web frameworks</text>
   </g>
 </svg>

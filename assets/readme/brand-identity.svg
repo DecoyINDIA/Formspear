@@ -1,152 +1,220 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 300" width="100%" height="100%" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 380" width="100%" height="100%" fill="none">
   <defs>
-    <radialGradient id="mark-glow" cx="50%" cy="50%" r="55%">
-      <stop offset="0%" stop-color="#10B981" stop-opacity="0.3" />
+    <radialGradient id="mark-aura" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0.32" />
       <stop offset="50%" stop-color="#059669" stop-opacity="0.1" />
-      <stop offset="100%" stop-color="#071310" stop-opacity="0" />
+      <stop offset="100%" stop-color="#040907" stop-opacity="0" />
     </radialGradient>
-    <linearGradient id="blade-grad-1" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#6EE7B7" />
-      <stop offset="60%" stop-color="#10B981" />
-      <stop offset="100%" stop-color="#047857" />
+    <linearGradient id="facet-grad-a" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#A7F3D0" />
+      <stop offset="50%" stop-color="#34D399" />
+      <stop offset="100%" stop-color="#059669" />
     </linearGradient>
-    <linearGradient id="blade-grad-2" x1="100%" y1="0%" x2="0%" y2="100%">
+    <linearGradient id="facet-grad-b" x1="100%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#34D399" />
-      <stop offset="70%" stop-color="#059669" />
+      <stop offset="60%" stop-color="#10B981" />
       <stop offset="100%" stop-color="#022C22" />
     </linearGradient>
-    <linearGradient id="orbit-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#10B981" stop-opacity="0" />
+    <linearGradient id="blueprint-line" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0.1" />
       <stop offset="50%" stop-color="#38BDF8" stop-opacity="0.8" />
-      <stop offset="100%" stop-color="#10B981" stop-opacity="0" />
+      <stop offset="100%" stop-color="#10B981" stop-opacity="0.1" />
     </linearGradient>
 
-    <filter id="core-glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="6" result="blur" />
-      <feComposite in="SourceGraphic" in2="blur" operator="over" />
-    </filter>
+    <pattern id="diag-blueprint-grid" width="24" height="24" patternUnits="userSpaceOnUse">
+      <path d="M 24 0 L 0 0 0 24" fill="none" stroke="#0E2D24" stroke-width="0.6" stroke-opacity="0.5" />
+      <circle cx="24" cy="24" r="0.8" fill="#1C5E4B" />
+    </pattern>
 
     <style>
-      @keyframes stroke-draw {
-        0% { stroke-dashoffset: 450; opacity: 0.2; }
-        50% { stroke-dashoffset: 0; opacity: 1; }
-        100% { stroke-dashoffset: 0; opacity: 1; }
+      @keyframes stroke-blueprint {
+        0% { stroke-dashoffset: 560; opacity: 0.15; }
+        45% { stroke-dashoffset: 0; opacity: 1; }
+        90%, 100% { stroke-dashoffset: 0; opacity: 0.8; }
       }
-      @keyframes orbit-spin {
+      @keyframes compass-rotate-cw {
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
       }
-      @keyframes orbit-counter-spin {
+      @keyframes compass-rotate-ccw {
         0% { transform: rotate(360deg); }
         100% { transform: rotate(0deg); }
       }
-      @keyframes blade-pulse {
-        0%, 100% { transform: scale(1); filter: drop-shadow(0 0 12px rgba(16, 185, 129, 0.35)); }
-        50% { transform: scale(1.02); filter: drop-shadow(0 0 24px rgba(52, 211, 153, 0.7)); }
+      @keyframes emblem-breathe {
+        0%, 100% { transform: scale(1); filter: drop-shadow(0 0 14px rgba(16, 185, 129, 0.4)); }
+        50% { transform: scale(1.03); filter: drop-shadow(0 0 28px rgba(52, 211, 153, 0.8)); }
       }
-      @keyframes beam-spark {
-        0%, 100% { opacity: 0.2; transform: scaleY(0.7); }
-        50% { opacity: 0.85; transform: scaleY(1.3); }
+      @keyframes measurement-flash {
+        0%, 100% { opacity: 0.4; }
+        50% { opacity: 1; }
+      }
+      @keyframes cursor-beacon {
+        0%, 100% { opacity: 0.2; }
+        50% { opacity: 1; }
       }
 
-      .stroke-anim {
-        stroke-dasharray: 450;
-        animation: stroke-draw 4.5s ease-in-out infinite;
+      .blueprint-draw {
+        stroke-dasharray: 560;
+        animation: stroke-blueprint 5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
       }
-      .orbit-cw {
-        transform-origin: 180px 150px;
-        animation: orbit-spin 14s linear infinite;
+      .compass-cw {
+        transform-origin: 210px 190px;
+        animation: compass-rotate-cw 18s linear infinite;
       }
-      .orbit-ccw {
-        transform-origin: 180px 150px;
-        animation: orbit-counter-spin 10s linear infinite;
+      .compass-ccw {
+        transform-origin: 210px 190px;
+        animation: compass-rotate-ccw 14s linear infinite;
       }
-      .blade-group {
-        transform-origin: 180px 150px;
-        animation: blade-pulse 4s ease-in-out infinite;
+      .spear-emblem-core {
+        transform-origin: 210px 190px;
+        animation: emblem-breathe 4s ease-in-out infinite;
       }
-      .spark-line {
-        transform-origin: 180px 150px;
-        animation: beam-spark 3s ease-in-out infinite;
+      .dim-callout {
+        animation: measurement-flash 3s ease-in-out infinite;
+      }
+      .pulse-dot {
+        animation: cursor-beacon 1.6s ease-in-out infinite;
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .stroke-anim, .orbit-cw, .orbit-ccw, .blade-group, .spark-line {
+        .blueprint-draw, .compass-cw, .compass-ccw, .spear-emblem-core, .dim-callout, .pulse-dot {
           animation: none !important;
         }
       }
     </style>
   </defs>
 
-  <!-- Background Base -->
-  <rect width="800" height="300" rx="14" fill="#08110F" />
-  <rect width="800" height="300" rx="14" stroke="#16382E" stroke-width="1.2" />
+  <!-- Frame Background -->
+  <rect width="940" height="380" rx="16" fill="#040907" />
+  <rect width="940" height="380" rx="16" fill="url(#diag-blueprint-grid)" />
+  <rect width="940" height="380" rx="16" stroke="#16382E" stroke-width="1.2" />
 
-  <!-- Background Glow behind Mark -->
-  <circle cx="180" cy="150" r="130" fill="url(#mark-glow)" />
-
-  <!-- Animated Telemetry Coordinates Circles -->
-  <g class="orbit-cw">
-    <circle cx="180" cy="150" r="105" stroke="#1A4A3C" stroke-width="1" stroke-dasharray="3, 8" />
-    <circle cx="180" cy="45" r="3.5" fill="#34D399" />
-    <circle cx="180" cy="255" r="3" fill="#38BDF8" />
-  </g>
-  <g class="orbit-ccw">
-    <circle cx="180" cy="150" r="85" stroke="#1F5A49" stroke-width="1.2" stroke-dasharray="6, 14" opacity="0.7" />
-    <circle cx="95" cy="150" r="2.5" fill="#F59E0B" />
-    <circle cx="265" cy="150" r="3" fill="#6EE7B7" />
+  <!-- Top Technical Header -->
+  <g transform="translate(36, 28)">
+    <circle cx="6" cy="6" r="4.5" fill="#10B981" class="pulse-dot" />
+    <text x="20" y="10" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="700" fill="#34D399" letter-spacing="1.2">BRAND ANATOMY &amp; GEOMETRIC SYNTHESIS</text>
+    <text x="350" y="10" font-family="ui-monospace, monospace" font-size="10.5" fill="#64748B">SPEC_REV: 04 • CARTESIAN_LATTICE: LOCKED • ANGLE_OF_THRUST: 54.7°</text>
   </g>
 
-  <!-- Vertical Telemetry Calibration Line -->
-  <line x1="180" y1="20" x2="180" y2="280" stroke="#12362B" stroke-width="1" stroke-dasharray="4, 4" class="spark-line" />
-  <line x1="50" y1="150" x2="310" y2="150" stroke="#12362B" stroke-width="1" stroke-dasharray="4, 4" opacity="0.4" />
+  <!-- Vertical Divider Dividing Blueprint and Typographic Exposition -->
+  <line x1="420" y1="56" x2="420" y2="350" stroke="#14362C" stroke-width="1.2" stroke-dasharray="4, 6" />
 
-  <!-- Spearhead Emblem Choreography -->
-  <g class="blade-group">
-    <!-- Outer Contour Drawn by Laser Stroke -->
-    <polygon points="180,65 245,150 180,218 115,150" fill="none" stroke="url(#blade-grad-1)" stroke-width="2" class="stroke-anim" />
+  <!-- ==================== LEFT CHAMBER: BLUEPRINT CONSTRUCTION ==================== -->
+  <!-- Ambient Glow -->
+  <circle cx="210" cy="190" r="140" fill="url(#mark-aura)" />
 
-    <!-- Left Wing Facet (Form Geometry) -->
-    <polygon points="180,75 125,150 180,205 162,150" fill="url(#blade-grad-2)" opacity="0.9" />
-
-    <!-- Right Wing Facet (Spear Thrust Geometry) -->
-    <polygon points="180,75 235,150 180,205 198,150" fill="url(#blade-grad-1)" opacity="0.95" />
-
-    <!-- Center Spine & Penetration Arrow -->
-    <polygon points="180,72 190,150 180,185 170,150" fill="#ECFDF5" opacity="0.9" />
-
-    <!-- Central Telemetry Dot -->
-    <circle cx="180" cy="150" r="4.5" fill="#FFFFFF" filter="url(#core-glow)" />
+  <!-- Rotating Compass Rings with Vernier Calibrations -->
+  <g class="compass-cw">
+    <circle cx="210" cy="190" r="130" stroke="#154235" stroke-width="1" stroke-dasharray="3, 9" />
+    <circle cx="210" cy="60" r="3.5" fill="#34D399" />
+    <circle cx="210" cy="320" r="3.5" fill="#38BDF8" />
+  </g>
+  <g class="compass-ccw">
+    <circle cx="210" cy="190" r="105" stroke="#1D5A48" stroke-width="1.2" stroke-dasharray="8, 16" opacity="0.75" />
+    <circle cx="105" cy="190" r="2.5" fill="#F59E0B" />
+    <circle cx="315" cy="190" r="2.5" fill="#6EE7B7" />
   </g>
 
-  <!-- Typography & Brand Hierarchy Lockup -->
-  <g transform="translate(330, 85)">
-    <!-- Brand Tagline Badge -->
-    <g transform="translate(0, 0)">
-      <rect x="0" y="0" width="168" height="22" rx="11" fill="#0E241F" stroke="#1F5646" stroke-width="1" />
-      <text x="14" y="15" font-family="ui-monospace, monospace" font-size="9.5" font-weight="700" fill="#34D399" letter-spacing="1">BRAND ANATOMY</text>
-      <circle cx="152" cy="11" r="3" fill="#10B981" />
+  <!-- Cartesian Coordinate Grid Axis -->
+  <line x1="60" y1="190" x2="360" y2="190" stroke="#184739" stroke-width="1" stroke-dasharray="2, 4" />
+  <line x1="210" y1="55" x2="210" y2="325" stroke="#184739" stroke-width="1" stroke-dasharray="2, 4" />
+
+  <!-- Blueprint Dynamic Construction Stroke -->
+  <g class="blueprint-draw">
+    <!-- Diamond Shield Envelope -->
+    <polygon points="210,105 285,190 210,275 135,190" fill="none" stroke="#34D399" stroke-width="1.5" stroke-dasharray="6, 6" />
+    <!-- Angular Force Rays -->
+    <line x1="135" y1="190" x2="285" y2="190" stroke="#38BDF8" stroke-width="1.2" />
+    <line x1="210" y1="105" x2="210" y2="275" stroke="#38BDF8" stroke-width="1.2" />
+  </g>
+
+  <!-- Assembled Core Emblem -->
+  <g class="spear-emblem-core">
+    <!-- Left Facet -->
+    <polygon points="210,118 208,190 148,190" fill="url(#facet-grad-a)" opacity="0.95" />
+    <polygon points="210,262 208,190 148,190" fill="#047857" opacity="0.8" />
+    <!-- Right Facet -->
+    <polygon points="210,118 212,190 272,190" fill="url(#facet-grad-b)" opacity="0.95" />
+    <polygon points="210,262 212,190 272,190" fill="#024434" opacity="0.85" />
+    <!-- Center Spine & Core Sensor -->
+    <line x1="210" y1="114" x2="210" y2="266" stroke="#FFFFFF" stroke-width="2" />
+    <circle cx="210" cy="190" r="5" fill="#FFFFFF" />
+    <circle cx="210" cy="190" r="2.5" fill="#10B981" />
+  </g>
+
+  <!-- Dimension Annotation Callouts -->
+  <g class="dim-callout" transform="translate(68, 120)">
+    <rect width="66" height="20" rx="4" fill="#09201A" stroke="#195443" stroke-width="0.8" />
+    <text x="33" y="14" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" font-weight="600" fill="#34D399">θ = 54.7°</text>
+  </g>
+  <g class="dim-callout" transform="translate(285, 255)">
+    <rect width="78" height="20" rx="4" fill="#09201A" stroke="#195443" stroke-width="0.8" />
+    <text x="39" y="14" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" font-weight="600" fill="#38BDF8">ΔX = 142mm</text>
+  </g>
+
+  <!-- ==================== RIGHT CHAMBER: TYPOGRAPHIC SYNTHESIS ==================== -->
+  <g transform="translate(450, 70)">
+    <!-- Master Brand Typographic Lockup -->
+    <text x="0" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="36" font-weight="900" fill="#FFFFFF" letter-spacing="3.5">
+      FORMSPEAR
+    </text>
+    <circle cx="270" cy="30" r="5" fill="#10B981" class="pulse-dot" />
+
+    <!-- Etymology Synthesis: The Tension Solved -->
+    <g transform="translate(0, 68)">
+      <!-- Form Box -->
+      <rect x="0" y="0" width="215" height="74" rx="8" fill="#071B16" stroke="#194F40" stroke-width="1" />
+      <text x="14" y="22" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="800" fill="#34D399" letter-spacing="1">FORM [Structure]</text>
+      <text x="14" y="40" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="500" fill="#CBD5E1">Cartesian question schema, 23 input</text>
+      <text x="14" y="55" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="500" fill="#94A3B8">primitives &amp; deterministic logic graphs.</text>
+
+      <!-- Spear Box -->
+      <rect x="230" y="0" width="225" height="74" rx="8" fill="#071B16" stroke="#194F40" stroke-width="1" />
+      <text x="244" y="22" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="800" fill="#38BDF8" letter-spacing="1">SPEAR [Velocity]</text>
+      <text x="244" y="40" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="500" fill="#CBD5E1">Kinetic trajectory: &lt;1ms ingestion,</text>
+      <text x="244" y="55" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="500" fill="#94A3B8">sub-12ms alerts &amp; instant synthesis.</text>
     </g>
 
-    <!-- Wordmark -->
-    <text x="0" y="62" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif" font-size="42" font-weight="900" fill="#FFFFFF" letter-spacing="2">
-      Formspear
-    </text>
+    <!-- Chromatic & Material Palette -->
+    <g transform="translate(0, 162)">
+      <text x="0" y="14" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#64748B" letter-spacing="1">CHROMATIC SIGNATURE</text>
+      
+      <!-- Swatch 1: Obsidian Base -->
+      <g transform="translate(0, 24)">
+        <rect width="98" height="34" rx="6" fill="#040907" stroke="#1F473B" stroke-width="1" />
+        <circle cx="16" cy="17" r="5" fill="#040907" stroke="#475569" stroke-width="1" />
+        <text x="28" y="16" font-family="sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">OBSIDIAN</text>
+        <text x="28" y="26" font-family="ui-monospace, monospace" font-size="8" fill="#94A3B8">#040907</text>
+      </g>
 
-    <!-- Descriptor -->
-    <text x="0" y="94" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="600" fill="#6EE7B7" letter-spacing="0.8">
-      PRECISION ARCHITECTURE FOR ENTERPRISE FEEDBACK
-    </text>
+      <!-- Swatch 2: Precision Emerald -->
+      <g transform="translate(110, 24)">
+        <rect width="105" height="34" rx="6" fill="#06241D" stroke="#10B981" stroke-width="1" />
+        <circle cx="16" cy="17" r="5" fill="#10B981" />
+        <text x="28" y="16" font-family="sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">EMERALD</text>
+        <text x="28" y="26" font-family="ui-monospace, monospace" font-size="8" fill="#6EE7B7">#10B981</text>
+      </g>
 
-    <text x="0" y="122" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12.5" font-weight="400" fill="#94A3B8">
-      Spearhead velocity: collect, categorize, and act on multi-branch signals in real time.
-    </text>
+      <!-- Swatch 3: Velocity Cyan -->
+      <g transform="translate(228, 24)">
+        <rect width="98" height="34" rx="6" fill="#08222A" stroke="#38BDF8" stroke-width="1" />
+        <circle cx="16" cy="17" r="5" fill="#38BDF8" />
+        <text x="28" y="16" font-family="sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">CYAN</text>
+        <text x="28" y="26" font-family="ui-monospace, monospace" font-size="8" fill="#7DD3FC">#38BDF8</text>
+      </g>
 
-    <!-- Specifications Micro-Grid -->
-    <g transform="translate(0, 142)">
-      <text x="0" y="12" font-family="ui-monospace, monospace" font-size="10.5" fill="#64748B">ASPECT: <tspan fill="#CBD5E1">Vector SVG</tspan></text>
-      <text x="120" y="12" font-family="ui-monospace, monospace" font-size="10.5" fill="#64748B">CORE: <tspan fill="#34D399">Dynamic SMIL+CSS</tspan></text>
-      <text x="270" y="12" font-family="ui-monospace, monospace" font-size="10.5" fill="#64748B">CANVAS: <tspan fill="#CBD5E1">Adaptive Contrast</tspan></text>
+      <!-- Swatch 4: Alert Amber -->
+      <g transform="translate(338, 24)">
+        <rect width="98" height="34" rx="6" fill="#241B08" stroke="#F59E0B" stroke-width="1" />
+        <circle cx="16" cy="17" r="5" fill="#F59E0B" />
+        <text x="28" y="16" font-family="sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">AMBER</text>
+        <text x="28" y="26" font-family="ui-monospace, monospace" font-size="8" fill="#FCD34D">#F59E0B</text>
+      </g>
     </g>
+
+    <!-- Philosophy Tagline -->
+    <text x="0" y="250" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="500" fill="#64748B">
+      Architectural structure meets directional speed — engineered for mission-critical feedback networks.
+    </text>
   </g>
 </svg>

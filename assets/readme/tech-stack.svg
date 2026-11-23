@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 240" width="100%" height="100%" fill="none">
+  <defs>
+    <radialGradient id="ts-glow" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#0E2D24" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#040907" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="ts-card-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#081E18" />
+      <stop offset="100%" stop-color="#05120E" />
+    </linearGradient>
+
+    <style>
+      @keyframes tech-pulse {
+        0%, 100% { filter: drop-shadow(0 0 2px rgba(16, 185, 129, 0.2)); }
+        50% { filter: drop-shadow(0 0 8px rgba(52, 211, 153, 0.6)); }
+      }
+      .tech-card {
+        animation: tech-pulse 4.5s ease-in-out infinite;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .tech-card { animation: none !important; }
+      }
+    </style>
+  </defs>
+
+  <!-- Frame Background -->
+  <rect width="1100" height="240" rx="14" fill="#040907" />
+  <rect width="1100" height="240" rx="14" fill="url(#ts-glow)" />
+  <rect width="1100" height="240" rx="14" stroke="#16382E" stroke-width="1.2" />
+
+  <!-- Instrument Header Bar -->
+  <g transform="translate(36, 24)">
+    <circle cx="6" cy="6" r="4.5" fill="#10B981" />
+    <text x="20" y="10" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="700" fill="#34D399" letter-spacing="1.2">ZERO-FRAMEWORK ENTERPRISE STACK</text>
+    <text x="310" y="10" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" fill="#64748B">Engineered without heavy ORMs, monolithic frameworks, or client bundlers</text>
+  </g>
+
+  <!-- 4 Primary Architecture Pillars (2x2 or 4x1) -->
+  <!-- Pillar 1: Runtime Engine -->
+  <g transform="translate(36, 54)">
+    <rect width="240" height="155" rx="8" fill="url(#ts-card-grad)" stroke="#1B5544" stroke-width="1" class="tech-card" />
+    <circle cx="20" cy="24" r="4" fill="#22C55E" />
+    <text x="32" y="28" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="800" fill="#FFFFFF">Node.js 20+ Runtime</text>
+    <text x="20" y="46" font-family="ui-monospace, monospace" font-size="9" font-weight="700" fill="#34D399">ZERO-FRAMEWORK HTTP</text>
+    
+    <text x="20" y="72" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• Native <tspan font-family="ui-monospace">node:http</tspan> &amp; <tspan font-family="ui-monospace">node:crypto</tspan></text>
+    <text x="20" y="92" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• Built-in test runner (<tspan font-family="ui-monospace">node:test</tspan>)</text>
+    <text x="20" y="112" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• Native Gzip/Deflate compression</text>
+    <text x="20" y="132" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• Vanilla JS client (no bundler)</text>
+  </g>
+
+  <!-- Pillar 2: Dual-Store Persistence -->
+  <g transform="translate(296, 54)">
+    <rect width="240" height="155" rx="8" fill="url(#ts-card-grad)" stroke="#1B5544" stroke-width="1" class="tech-card" />
+    <circle cx="20" cy="24" r="4" fill="#38BDF8" />
+    <text x="32" y="28" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="800" fill="#FFFFFF">Dual-Store Persistence</text>
+    <text x="20" y="46" font-family="ui-monospace, monospace" font-size="9" font-weight="700" fill="#38BDF8">RAM + POSTGRESQL 15+</text>
+    
+    <text x="20" y="72" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• 36 synchronous RAM collections</text>
+    <text x="20" y="92" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• 39 relational tables &amp; 13 indexes</text>
+    <text x="20" y="112" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• Single-writer advisory lock</text>
+    <text x="20" y="132" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• 5ms debounced shadow diffs</text>
+  </g>
+
+  <!-- Pillar 3: Distributed Jobs & Queues -->
+  <g transform="translate(556, 54)">
+    <rect width="240" height="155" rx="8" fill="url(#ts-card-grad)" stroke="#1B5544" stroke-width="1" class="tech-card" />
+    <circle cx="20" cy="24" r="4" fill="#818CF8" />
+    <text x="32" y="28" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="800" fill="#FFFFFF">Job Queue &amp; Workers</text>
+    <text x="20" y="46" font-family="ui-monospace, monospace" font-size="9" font-weight="700" fill="#818CF8">BULLMQ + REDIS</text>
+    
+    <text x="20" y="72" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• BullMQ queue orchestration</text>
+    <text x="20" y="92" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• In-process fallback runner</text>
+    <text x="20" y="112" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• Exponential backoff retries</text>
+    <text x="20" y="132" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• Background AI sentiment sweeps</text>
+  </g>
+
+  <!-- Pillar 4: Integrations & Cloud Deployment -->
+  <g transform="translate(816, 54)">
+    <rect width="248" height="155" rx="8" fill="url(#ts-card-grad)" stroke="#1B5544" stroke-width="1" class="tech-card" />
+    <circle cx="20" cy="24" r="4" fill="#F59E0B" />
+    <text x="32" y="28" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="800" fill="#FFFFFF">Integrations &amp; Cloud</text>
+    <text x="20" y="46" font-family="ui-monospace, monospace" font-size="9" font-weight="700" fill="#F59E0B">ENTERPRISE CONNECTORS</text>
+    
+    <text x="20" y="72" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• OpenAI GPT-4o-mini sentiment</text>
+    <text x="20" y="92" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• AWS S3 / Cloudflare R2 SigV4</text>
+    <text x="20" y="112" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• Stripe &amp; Razorpay webhooks</text>
+    <text x="20" y="132" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• Railway ready (<tspan font-family="ui-monospace">numReplicas: 1</tspan>)</text>
+  </g>
+</svg>
