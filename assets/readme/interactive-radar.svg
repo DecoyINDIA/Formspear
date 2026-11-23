@@ -1,0 +1,179 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 380" width="100%" height="100%" fill="none">
+  <defs>
+    <radialGradient id="radar-screen" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#0E2D25" stop-opacity="0.9" />
+      <stop offset="60%" stop-color="#081A15" stop-opacity="0.95" />
+      <stop offset="100%" stop-color="#040D0A" />
+    </radialGradient>
+    <linearGradient id="wave-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0.1" />
+      <stop offset="50%" stop-color="#34D399" stop-opacity="1" />
+      <stop offset="100%" stop-color="#38BDF8" stop-opacity="0.1" />
+    </linearGradient>
+
+    <pattern id="radar-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#123B2F" stroke-width="0.6" stroke-opacity="0.4" />
+    </pattern>
+
+    <style>
+      @keyframes full-radar-sweep {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      @keyframes osc-wave {
+        0% { transform: scaleY(0.8) translateY(4px); }
+        50% { transform: scaleY(1.2) translateY(-4px); }
+        100% { transform: scaleY(0.8) translateY(4px); }
+      }
+      @keyframes pulse-signal-node {
+        0%, 100% { transform: scale(1); opacity: 0.4; }
+        50% { transform: scale(1.6); opacity: 1; }
+      }
+      @keyframes toggle-glow {
+        0%, 100% { fill: #064E3B; stroke: #34D399; }
+        50% { fill: #047857; stroke: #6EE7B7; }
+      }
+
+      .radar-sweep-beam {
+        transform-origin: 220px 200px;
+        animation: full-radar-sweep 5s linear infinite;
+      }
+      .waveform {
+        transform-origin: 600px 180px;
+        animation: osc-wave 2.8s ease-in-out infinite;
+      }
+      .branch-signal {
+        animation: pulse-signal-node 2.2s ease-in-out infinite;
+      }
+      .active-pill {
+        animation: toggle-glow 4s ease-in-out infinite;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .radar-sweep-beam, .waveform, .branch-signal, .active-pill {
+          animation: none !important;
+        }
+      }
+    </style>
+  </defs>
+
+  <!-- Frame Background -->
+  <rect width="900" height="380" rx="14" fill="#050C0A" />
+  <rect width="900" height="380" rx="14" stroke="#1B4237" stroke-width="1.2" />
+
+  <!-- Instrument Header Bar -->
+  <g transform="translate(32, 28)">
+    <circle cx="6" cy="6" r="5" fill="#10B981" />
+    <text x="22" y="10" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="700" fill="#34D399" letter-spacing="1.2">SPEAR TELEMETRY CALIBRATION RADAR</text>
+    <text x="320" y="10" font-family="ui-monospace, monospace" font-size="10.5" fill="#64748B">[SYS_DIAG: ONLINE] • ADVISORY_LOCK: GRANTED • SINGLE_PROCESS: OPTIMAL</text>
+  </g>
+
+  <!-- Interactive-Looking Control Modes -->
+  <g transform="translate(32, 60)">
+    <!-- Pill 1: Live Telemetry (Active) -->
+    <g class="active-pill">
+      <rect x="0" y="0" width="130" height="26" rx="13" fill="#064E3B" stroke="#34D399" stroke-width="1" />
+      <circle cx="14" cy="13" r="3.5" fill="#34D399" />
+      <text x="26" y="17" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="700" fill="#ECFDF5">⚡ LIVE RADAR</text>
+    </g>
+
+    <!-- Pill 2: 14 Branch Nodes -->
+    <g transform="translate(140, 0)">
+      <rect x="0" y="0" width="145" height="26" rx="13" fill="#0C201A" stroke="#1F4A3C" stroke-width="1" />
+      <circle cx="14" cy="13" r="3.5" fill="#38BDF8" />
+      <text x="26" y="17" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="600" fill="#E2E8F0">📍 14 BRANCH HUBS</text>
+    </g>
+
+    <!-- Pill 3: Zero-Trust Anonymity -->
+    <g transform="translate(295, 0)">
+      <rect x="0" y="0" width="170" height="26" rx="13" fill="#0C201A" stroke="#1F4A3C" stroke-width="1" />
+      <circle cx="14" cy="13" r="3.5" fill="#F59E0B" />
+      <text x="26" y="17" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="600" fill="#E2E8F0">🛡️ ZERO-TRUST HASH</text>
+    </g>
+
+    <text x="560" y="17" font-family="ui-monospace, monospace" font-size="10" fill="#94A3B8">PULSE: <tspan fill="#34D399">60 FPS</tspan> | LATENCY: <tspan fill="#34D399">8.4ms</tspan></text>
+  </g>
+
+  <!-- ==================== RADAR SCOPE (LEFT) ==================== -->
+  <g transform="translate(32, 105)">
+    <!-- Radar Circle Chamber -->
+    <rect width="360" height="240" rx="10" fill="#071410" stroke="#183E32" stroke-width="1" />
+    <circle cx="180" cy="120" r="105" fill="url(#radar-screen)" stroke="#1F5444" stroke-width="1.2" />
+    <circle cx="180" cy="120" r="75" stroke="#164336" stroke-width="1" stroke-dasharray="2, 4" />
+    <circle cx="180" cy="120" r="40" stroke="#164336" stroke-width="1" />
+
+    <!-- Crosshairs -->
+    <line x1="75" y1="120" x2="285" y2="120" stroke="#184D3D" stroke-width="0.8" />
+    <line x1="180" y1="15" x2="180" y2="225" stroke="#184D3D" stroke-width="0.8" />
+
+    <!-- Branch Nodes Detected on Radar -->
+    <circle cx="150" cy="95" r="4" fill="#34D399" class="branch-signal" />
+    <text x="158" y="98" font-family="ui-monospace, monospace" font-size="8" fill="#6EE7B7">BLR #01</text>
+
+    <circle cx="215" cy="85" r="3.5" fill="#38BDF8" class="branch-signal" />
+    <text x="223" y="88" font-family="ui-monospace, monospace" font-size="8" fill="#7DD3FC">BOM #04</text>
+
+    <circle cx="140" cy="155" r="3" fill="#F59E0B" class="branch-signal" />
+    <text x="148" y="158" font-family="ui-monospace, monospace" font-size="8" fill="#FBBF24">DEL #02</text>
+
+    <circle cx="220" cy="145" r="3.5" fill="#34D399" class="branch-signal" />
+    <text x="228" y="148" font-family="ui-monospace, monospace" font-size="8" fill="#6EE7B7">HYD #07</text>
+
+    <!-- Spinning Radar Sweep Arm -->
+    <g class="radar-sweep-beam">
+      <line x1="220" y1="200" x2="220" y2="95" stroke="#34D399" stroke-width="2" opacity="0.9" />
+      <polygon points="220,200 250,95 220,95" fill="#10B981" opacity="0.18" />
+    </g>
+  </g>
+
+  <!-- ==================== OSCILLOSCOPE & SIGNAL GAUGES (RIGHT) ==================== -->
+  <g transform="translate(415, 105)">
+    <rect width="453" height="240" rx="10" fill="#071410" stroke="#183E32" stroke-width="1" />
+
+    <!-- Waveform Monitor Header -->
+    <text x="20" y="26" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11.5" font-weight="700" fill="#FFFFFF">Sentiment Resonance Oscilloscope</text>
+    <text x="20" y="42" font-family="ui-monospace, monospace" font-size="9.5" fill="#64748B">Real-time keyword &amp; tone harmonics across branch streams</text>
+
+    <!-- Oscilloscope Grid Screen -->
+    <g transform="translate(20, 55)">
+      <rect width="413" height="85" rx="6" fill="#040D0A" stroke="#133328" stroke-width="1" />
+      <rect width="413" height="85" rx="6" fill="url(#radar-grid)" />
+
+      <!-- Center Zero Line -->
+      <line x1="0" y1="42.5" x2="413" y2="42.5" stroke="#154234" stroke-width="1" stroke-dasharray="2, 4" />
+
+      <!-- Animated Sine Wave Harmonic -->
+      <path class="waveform" d="M 0 42.5 Q 30 10, 60 42.5 T 120 42.5 T 180 42.5 T 240 42.5 T 300 42.5 T 360 42.5 T 413 42.5" fill="none" stroke="url(#wave-grad)" stroke-width="2.2" />
+    </g>
+
+    <!-- Calibration Dials / Telemetry Grid -->
+    <g transform="translate(20, 158)">
+      <!-- Metric 1 -->
+      <g>
+        <text x="0" y="12" font-family="ui-monospace, monospace" font-size="9" fill="#94A3B8">STREAM INGESTION</text>
+        <text x="0" y="32" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="16" font-weight="800" fill="#34D399">100 subs/sec</text>
+        <text x="0" y="46" font-family="ui-monospace, monospace" font-size="8.5" fill="#6EE7B7">Zero packet drop</text>
+      </g>
+
+      <!-- Metric 2 -->
+      <g transform="translate(140, 0)">
+        <text x="0" y="12" font-family="ui-monospace, monospace" font-size="9" fill="#94A3B8">SIGNAL INTEGRITY</text>
+        <text x="0" y="32" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="16" font-weight="800" fill="#38BDF8">99.8% Valid</text>
+        <text x="0" y="46" font-family="ui-monospace, monospace" font-size="8.5" fill="#7DD3FC">Schema verified</text>
+      </g>
+
+      <!-- Metric 3: Easter Egg / Purity -->
+      <g transform="translate(280, 0)">
+        <text x="0" y="12" font-family="ui-monospace, monospace" font-size="9" fill="#94A3B8">ENGINE RUNTIME</text>
+        <text x="0" y="32" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="16" font-weight="800" fill="#F59E0B">Node 20 Pure</text>
+        <text x="0" y="46" font-family="ui-monospace, monospace" font-size="8.5" fill="#FCD34D">Zero extra bloat</text>
+      </g>
+    </g>
+
+    <!-- Diagnostics Footer -->
+    <g transform="translate(20, 222)">
+      <circle cx="4" cy="4" r="3" fill="#34D399" />
+      <text x="14" y="7" font-family="ui-monospace, monospace" font-size="9" fill="#6EE7B7">CALIBRATION EASTER EGG: Single-Writer Architecture handles 100,000 response benchmarks with ease.</text>
+    </g>
+  </g>
+</svg>

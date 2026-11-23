@@ -1,0 +1,247 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 500" width="100%" height="100%" fill="none">
+  <defs>
+    <!-- Background Gradients -->
+    <radialGradient id="hero-glow" cx="50%" cy="30%" r="65%">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0.22" />
+      <stop offset="45%" stop-color="#047857" stop-opacity="0.08" />
+      <stop offset="100%" stop-color="#060D0B" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="spear-core-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#34D399" stop-opacity="0.6" />
+      <stop offset="60%" stop-color="#059669" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#059669" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="spear-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6EE7B7" />
+      <stop offset="50%" stop-color="#10B981" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+    <linearGradient id="amber-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCD34D" />
+      <stop offset="100%" stop-color="#F59E0B" />
+    </linearGradient>
+    <linearGradient id="card-border" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34D399" stop-opacity="0.4" />
+      <stop offset="50%" stop-color="#1F4A40" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#0D241F" stop-opacity="0.6" />
+    </linearGradient>
+    <linearGradient id="beam-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0" />
+      <stop offset="50%" stop-color="#34D399" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#10B981" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- Grid Pattern -->
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#16382E" stroke-width="0.8" stroke-opacity="0.45" />
+      <circle cx="40" cy="40" r="1" fill="#235D4D" fill-opacity="0.6" />
+    </pattern>
+
+    <filter id="glow-blur" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    <filter id="soft-blur" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="16" />
+    </filter>
+
+    <style>
+      @keyframes pulse-rings {
+        0% { transform: scale(0.92); opacity: 0.25; }
+        50% { transform: scale(1.08); opacity: 0.65; }
+        100% { transform: scale(0.92); opacity: 0.25; }
+      }
+      @keyframes float-slow {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-8px); }
+      }
+      @keyframes float-reverse {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(8px); }
+      }
+      @keyframes spear-shimmer {
+        0% { filter: drop-shadow(0 0 10px rgba(52, 211, 153, 0.4)); }
+        50% { filter: drop-shadow(0 0 26px rgba(52, 211, 153, 0.85)); }
+        100% { filter: drop-shadow(0 0 10px rgba(52, 211, 153, 0.4)); }
+      }
+      @keyframes scan-horizontal {
+        0% { transform: translateX(-1200px); }
+        100% { transform: translateX(1200px); }
+      }
+      @keyframes radar-sweep {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      @keyframes data-stream {
+        0% { stroke-dashoffset: 240; }
+        100% { stroke-dashoffset: 0; }
+      }
+      @keyframes dot-blink {
+        0%, 100% { opacity: 0.3; }
+        50% { opacity: 1; }
+      }
+
+      .pulse-ring-anim {
+        transform-origin: 600px 145px;
+        animation: pulse-rings 5s ease-in-out infinite;
+      }
+      .spear-anim {
+        transform-origin: 600px 145px;
+        animation: spear-shimmer 3.8s ease-in-out infinite;
+      }
+      .float-card-1 {
+        animation: float-slow 6s ease-in-out infinite;
+      }
+      .float-card-2 {
+        animation: float-reverse 7s ease-in-out infinite;
+      }
+      .float-card-3 {
+        animation: float-slow 8s ease-in-out 1s infinite;
+      }
+      .stream-line {
+        stroke-dasharray: 12, 12;
+        animation: data-stream 4s linear infinite;
+      }
+      .live-dot {
+        animation: dot-blink 1.8s ease-in-out infinite;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .pulse-ring-anim, .spear-anim, .float-card-1, .float-card-2, .float-card-3, .stream-line, .live-dot {
+          animation: none !important;
+        }
+      }
+    </style>
+  </defs>
+
+  <!-- Canvas Floor -->
+  <rect width="1200" height="500" rx="16" fill="#070E0C" />
+  <rect width="1200" height="500" rx="16" fill="url(#hero-glow)" />
+  <rect width="1200" height="500" rx="16" fill="url(#grid)" />
+
+  <!-- Outer Border -->
+  <rect x="1" y="1" width="1198" height="498" rx="15" fill="none" stroke="#1F473B" stroke-width="1.5" stroke-opacity="0.6" />
+
+  <!-- Background Telemetry Radar Ring -->
+  <circle cx="600" cy="145" r="180" stroke="#13362C" stroke-width="1" stroke-dasharray="4, 6" opacity="0.4" />
+  <circle cx="600" cy="145" r="120" stroke="#19473A" stroke-width="1" stroke-dasharray="2, 4" opacity="0.6" />
+  <circle class="pulse-ring-anim" cx="600" cy="145" r="75" stroke="#34D399" stroke-width="1.5" fill="none" opacity="0.3" />
+
+  <!-- Glowing Aura Backing the Spear -->
+  <circle cx="600" cy="145" r="90" fill="url(#spear-core-glow)" filter="url(#soft-blur)" />
+
+  <!-- Data Flow Streams Leading to Spear Center -->
+  <path d="M 120 145 L 530 145" stroke="#10B981" stroke-width="1.2" opacity="0.4" class="stream-line" />
+  <path d="M 1080 145 L 670 145" stroke="#10B981" stroke-width="1.2" opacity="0.4" class="stream-line" />
+  <path d="M 280 400 Q 420 300 550 180" stroke="#38BDF8" stroke-width="1" opacity="0.3" class="stream-line" />
+  <path d="M 920 400 Q 780 300 650 180" stroke="#F59E0B" stroke-width="1" opacity="0.3" class="stream-line" />
+
+  <!-- Brand Spearhead Emblem (Centerpiece) -->
+  <g class="spear-anim">
+    <!-- Outer Diamond Shield -->
+    <polygon points="600,80 648,145 600,195 552,145" fill="#0C1F1B" stroke="url(#spear-grad)" stroke-width="2.5" />
+    <!-- Inner Forward Spear Thrust -->
+    <polygon points="600,92 636,145 600,182 584,145" fill="url(#spear-grad)" opacity="0.9" />
+    <polygon points="600,92 564,145 600,182 616,145" fill="#047857" opacity="0.6" />
+    <!-- Central Energy Core -->
+    <circle cx="600" cy="145" r="5" fill="#ECFDF5" filter="url(#glow-blur)" />
+  </g>
+
+  <!-- Typography Hierarchy -->
+  <g text-anchor="middle">
+    <!-- Status Pill Badge -->
+    <g transform="translate(600, 225)">
+      <rect x="-135" y="-14" width="270" height="28" rx="14" fill="#0E241F" stroke="#1F5646" stroke-width="1.2" />
+      <circle cx="-112" cy="0" r="4.5" fill="#10B981" class="live-dot" />
+      <text x="-98" y="4.5" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11.5" font-weight="700" fill="#34D399" letter-spacing="1.2">ENTERPRISE FEEDBACK OS</text>
+      <text x="78" y="4.5" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10.5" font-weight="500" fill="#6EE7B7" opacity="0.8">v0.1.0</text>
+    </g>
+
+    <!-- Main Title: FORMSPEAR -->
+    <text x="600" y="285" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif" font-size="46" font-weight="900" fill="#FFFFFF" letter-spacing="3.5">
+      FORMSPEAR
+    </text>
+
+    <!-- Subtitle / Positioning -->
+    <text x="600" y="320" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="500" fill="#94A3B8" letter-spacing="0.5">
+      Turn multi-branch forms &amp; surveys into real-time operational intelligence.
+    </text>
+    <text x="600" y="344" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="400" fill="#64748B" letter-spacing="0.3">
+      Zero-framework Node.js • Dual-Store In-Memory/PostgreSQL • Multi-Branch NPS • Autonomous Alert Dispatch
+    </text>
+  </g>
+
+  <!-- Floating Holographic Telemetry Cards -->
+
+  <!-- Left Card: Live Responses & Velocity -->
+  <g class="float-card-1" transform="translate(60, 100)">
+    <rect width="210" height="96" rx="10" fill="#0D1F1B" fill-opacity="0.88" stroke="url(#card-border)" stroke-width="1.2" />
+    <circle cx="24" cy="28" r="4" fill="#10B981" class="live-dot" />
+    <text x="36" y="32" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#94A3B8" letter-spacing="0.8">STREAM INGESTION</text>
+    <text x="24" y="65" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="24" font-weight="800" fill="#FFFFFF">48,290</text>
+    <text x="118" y="64" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="700" fill="#34D399">+18.4%</text>
+    <text x="24" y="83" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="500" fill="#5EEAD4">100 concurrent subs/sec</text>
+  </g>
+
+  <!-- Left Lower Card: Multi-Branch Network -->
+  <g class="float-card-2" transform="translate(90, 260)">
+    <rect width="200" height="90" rx="10" fill="#0D1F1B" fill-opacity="0.88" stroke="url(#card-border)" stroke-width="1.2" />
+    <text x="20" y="28" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#38BDF8" letter-spacing="0.8">BRANCH TELEMETRY</text>
+    <text x="20" y="58" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="800" fill="#FFFFFF">14 Active Hubs</text>
+    <text x="20" y="78" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10.5" font-weight="500" fill="#94A3B8">BLR • BOM • DEL • HYD</text>
+  </g>
+
+  <!-- Right Card: Live Net Promoter Score (NPS) -->
+  <g class="float-card-2" transform="translate(930, 100)">
+    <rect width="210" height="96" rx="10" fill="#0D1F1B" fill-opacity="0.88" stroke="url(#card-border)" stroke-width="1.2" />
+    <text x="22" y="28" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#F59E0B" letter-spacing="0.8">REAL-TIME NPS</text>
+    <text x="22" y="65" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="24" font-weight="800" fill="#FFFFFF">+74.2</text>
+    <rect x="100" y="48" width="88" height="20" rx="10" fill="#064E3B" />
+    <text x="144" y="62" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#6EE7B7">EXCELLENT</text>
+    <text x="22" y="83" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="500" fill="#94A3B8">81% Promoters • 4% Detr</text>
+  </g>
+
+  <!-- Right Lower Card: Sub-millisecond Alert Pipeline -->
+  <g class="float-card-3" transform="translate(910, 260)">
+    <rect width="200" height="90" rx="10" fill="#0D1F1B" fill-opacity="0.88" stroke="url(#card-border)" stroke-width="1.2" />
+    <text x="20" y="28" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#A78BFA" letter-spacing="0.8">ALERT DISPATCH</text>
+    <text x="20" y="58" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="800" fill="#FFFFFF">&lt; 12ms</text>
+    <text x="20" y="78" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10.5" font-weight="500" fill="#34D399">WhatsApp • Slack • CRM</text>
+  </g>
+
+  <!-- Bottom Interactive-Looking Tech Badges Strip -->
+  <g transform="translate(600, 420)">
+    <!-- Node.js 20+ Badge -->
+    <g transform="translate(-390, 0)">
+      <rect x="-70" y="-16" width="140" height="32" rx="16" fill="#0A1C17" stroke="#1D4B3E" stroke-width="1" />
+      <circle cx="-50" cy="0" r="4" fill="#22C55E" />
+      <text x="-38" y="4" font-family="ui-monospace, monospace" font-size="11" font-weight="600" fill="#E2E8F0">Node ≥ 20.x</text>
+    </g>
+
+    <!-- Zero Framework Badge -->
+    <g transform="translate(-130, 0)">
+      <rect x="-80" y="-16" width="160" height="32" rx="16" fill="#0A1C17" stroke="#1D4B3E" stroke-width="1" />
+      <circle cx="-60" cy="0" r="4" fill="#38BDF8" />
+      <text x="-48" y="4" font-family="ui-monospace, monospace" font-size="11" font-weight="600" fill="#E2E8F0">Zero-Framework</text>
+    </g>
+
+    <!-- PostgreSQL / Memory Dual-Store -->
+    <g transform="translate(130, 0)">
+      <rect x="-85" y="-16" width="170" height="32" rx="16" fill="#0A1C17" stroke="#1D4B3E" stroke-width="1" />
+      <circle cx="-65" cy="0" r="4" fill="#818CF8" />
+      <text x="-53" y="4" font-family="ui-monospace, monospace" font-size="11" font-weight="600" fill="#E2E8F0">Dual-Store PG/RAM</text>
+    </g>
+
+    <!-- 23 Question Types -->
+    <g transform="translate(390, 0)">
+      <rect x="-75" y="-16" width="150" height="32" rx="16" fill="#0A1C17" stroke="#1D4B3E" stroke-width="1" />
+      <circle cx="-55" cy="0" r="4" fill="#F59E0B" />
+      <text x="-43" y="4" font-family="ui-monospace, monospace" font-size="11" font-weight="600" fill="#E2E8F0">23 Question Types</text>
+    </g>
+  </g>
+
+  <!-- Ambient Light Sweep Beam -->
+  <g opacity="0.35">
+    <rect x="0" y="496" width="1200" height="4" fill="url(#beam-grad)" />
+  </g>
+</svg>

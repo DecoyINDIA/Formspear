@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 320" width="100%" height="100%" fill="none">
+  <defs>
+    <radialGradient id="wf-bg" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0.1" />
+      <stop offset="100%" stop-color="#060E0C" />
+    </radialGradient>
+    <linearGradient id="bar-progress" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10B981" />
+      <stop offset="50%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#A78BFA" />
+    </linearGradient>
+
+    <style>
+      @keyframes step-pulse {
+        0%, 100% { transform: scale(1); filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.3)); }
+        50% { transform: scale(1.04); filter: drop-shadow(0 0 14px rgba(52, 211, 153, 0.8)); }
+      }
+      @keyframes progress-fill {
+        0% { stroke-dashoffset: 860; }
+        50% { stroke-dashoffset: 0; }
+        100% { stroke-dashoffset: 0; }
+      }
+      @keyframes cursor-blink {
+        0%, 100% { opacity: 0; }
+        50% { opacity: 1; }
+      }
+
+      .step-active {
+        animation: step-pulse 3.5s ease-in-out infinite;
+      }
+      .progress-line {
+        stroke-dasharray: 860;
+        animation: progress-fill 6s ease-in-out infinite;
+      }
+      .term-cursor {
+        animation: cursor-blink 1s steps(2, start) infinite;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .step-active, .progress-line, .term-cursor {
+          animation: none !important;
+        }
+      }
+    </style>
+  </defs>
+
+  <!-- Frame Background -->
+  <rect width="980" height="320" rx="14" fill="#070E0C" />
+  <rect width="980" height="320" rx="14" fill="url(#wf-bg)" />
+  <rect width="980" height="320" rx="14" stroke="#16382E" stroke-width="1.2" />
+
+  <!-- Title Banner -->
+  <g transform="translate(40, 28)">
+    <circle cx="6" cy="6" r="5" fill="#38BDF8" />
+    <text x="24" y="10" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="700" fill="#38BDF8" letter-spacing="1.2">DEVELOPER &amp; OPERATOR LIFECYCLE</text>
+    <text x="270" y="10" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="500" fill="#64748B">Zero-friction progression from rapid local prototyping to hardened production cutover</text>
+  </g>
+
+  <!-- Stepper Track Baseline -->
+  <line x1="60" y1="90" x2="920" y2="90" stroke="#16382E" stroke-width="3" />
+  <line x1="60" y1="90" x2="920" y2="90" stroke="url(#bar-progress)" stroke-width="3" class="progress-line" />
+
+  <!-- 4 Lifecycle Stations -->
+
+  <!-- Station 01: Instant Local Boot -->
+  <g transform="translate(60, 90)">
+    <!-- Circle Marker -->
+    <circle cx="0" cy="0" r="16" fill="#081E17" stroke="#10B981" stroke-width="2" class="step-active" />
+    <text x="0" y="4.5" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="800" fill="#34D399">01</text>
+
+    <!-- Content Card -->
+    <g transform="translate(-10, 28)">
+      <rect width="195" height="155" rx="8" fill="#0A1815" stroke="#1F473B" stroke-width="1" />
+      <text x="14" y="24" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="700" fill="#FFFFFF">Zero-Config Boot</text>
+      <text x="14" y="40" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#64748B">Local-first atomic JSON</text>
+
+      <!-- Terminal Box -->
+      <rect x="14" y="52" width="167" height="48" rx="4" fill="#050C0A" />
+      <text x="22" y="70" font-family="ui-monospace, monospace" font-size="9" fill="#34D399">$ npm start</text>
+      <text x="22" y="86" font-family="ui-monospace, monospace" font-size="8.5" fill="#94A3B8">Ready at :4173 <tspan fill="#34D399" class="term-cursor">_</tspan></text>
+
+      <!-- Highlights -->
+      <text x="14" y="118" font-family="sans-serif" font-size="9" fill="#CBD5E1">✓ Prefilled admin setup</text>
+      <text x="14" y="134" font-family="sans-serif" font-size="9" fill="#CBD5E1">✓ 240ms cold start</text>
+    </g>
+  </g>
+
+  <!-- Station 02: Survey Design & Branching -->
+  <g transform="translate(340, 90)">
+    <circle cx="0" cy="0" r="16" fill="#081E17" stroke="#38BDF8" stroke-width="2" class="step-active" />
+    <text x="0" y="4.5" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="800" fill="#38BDF8">02</text>
+
+    <!-- Content Card -->
+    <g transform="translate(-10, 28)">
+      <rect width="195" height="155" rx="8" fill="#0A1815" stroke="#1F473B" stroke-width="1" />
+      <text x="14" y="24" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="700" fill="#FFFFFF">Design &amp; Logic</text>
+      <text x="14" y="40" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#64748B">Interactive builder engine</text>
+
+      <rect x="14" y="52" width="167" height="48" rx="4" fill="#050C0A" />
+      <text x="22" y="70" font-family="ui-monospace, monospace" font-size="8.5" fill="#38BDF8">23 Question Types</text>
+      <text x="22" y="86" font-family="ui-monospace, monospace" font-size="8.5" fill="#94A3B8">Undo/Redo • Snapshots</text>
+
+      <text x="14" y="118" font-family="sans-serif" font-size="9" fill="#CBD5E1">✓ Multi-page grouping</text>
+      <text x="14" y="134" font-family="sans-serif" font-size="9" fill="#CBD5E1">✓ Multi-language (?lang=)</text>
+    </g>
+  </g>
+
+  <!-- Station 03: Production Cutover -->
+  <g transform="translate(620, 90)">
+    <circle cx="0" cy="0" r="16" fill="#081E17" stroke="#818CF8" stroke-width="2" class="step-active" />
+    <text x="0" y="4.5" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="800" fill="#818CF8">03</text>
+
+    <!-- Content Card -->
+    <g transform="translate(-10, 28)">
+      <rect width="195" height="155" rx="8" fill="#0A1815" stroke="#1F473B" stroke-width="1" />
+      <text x="14" y="24" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="700" fill="#FFFFFF">Postgres Cutover</text>
+      <text x="14" y="40" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#64748B">Enterprise relational state</text>
+
+      <rect x="14" y="52" width="167" height="48" rx="4" fill="#050C0A" />
+      <text x="22" y="70" font-family="ui-monospace, monospace" font-size="8.5" fill="#818CF8">DATABASE_URL=postgres</text>
+      <text x="22" y="86" font-family="ui-monospace, monospace" font-size="8.5" fill="#94A3B8">39 tables • Advisory lock</text>
+
+      <text x="14" y="118" font-family="sans-serif" font-size="9" fill="#CBD5E1">✓ BullMQ worker active</text>
+      <text x="14" y="134" font-family="sans-serif" font-size="9" fill="#CBD5E1">✓ S3 SigV4 &amp; EICAR clean</text>
+    </g>
+  </g>
+
+  <!-- Station 04: Executive Intelligence -->
+  <g transform="translate(900, 90)">
+    <circle cx="0" cy="0" r="16" fill="#081E17" stroke="#F59E0B" stroke-width="2" class="step-active" />
+    <text x="0" y="4.5" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="800" fill="#F59E0B">04</text>
+
+    <!-- Content Card -->
+    <g transform="translate(-165, 28)">
+      <rect width="185" height="155" rx="8" fill="#0A1815" stroke="#1F473B" stroke-width="1" />
+      <text x="14" y="24" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="700" fill="#FFFFFF">Intelligence Hub</text>
+      <text x="14" y="40" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#64748B">Automated business impact</text>
+
+      <rect x="14" y="52" width="157" height="48" rx="4" fill="#050C0A" />
+      <text x="22" y="70" font-family="ui-monospace, monospace" font-size="8.5" fill="#F59E0B">AI Themes &amp; Sentiment</text>
+      <text x="22" y="86" font-family="ui-monospace, monospace" font-size="8.5" fill="#94A3B8">Monthly Report PDF</text>
+
+      <text x="14" y="118" font-family="sans-serif" font-size="9" fill="#CBD5E1">✓ WhatsApp &amp; Slack alerts</text>
+      <text x="14" y="134" font-family="sans-serif" font-size="9" fill="#CBD5E1">✓ Multi-branch leaderboards</text>
+    </g>
+  </g>
+</svg>

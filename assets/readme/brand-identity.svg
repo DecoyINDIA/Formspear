@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 300" width="100%" height="100%" fill="none">
+  <defs>
+    <radialGradient id="mark-glow" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0.3" />
+      <stop offset="50%" stop-color="#059669" stop-opacity="0.1" />
+      <stop offset="100%" stop-color="#071310" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="blade-grad-1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6EE7B7" />
+      <stop offset="60%" stop-color="#10B981" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+    <linearGradient id="blade-grad-2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#34D399" />
+      <stop offset="70%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#022C22" />
+    </linearGradient>
+    <linearGradient id="orbit-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0" />
+      <stop offset="50%" stop-color="#38BDF8" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#10B981" stop-opacity="0" />
+    </linearGradient>
+
+    <filter id="core-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <style>
+      @keyframes stroke-draw {
+        0% { stroke-dashoffset: 450; opacity: 0.2; }
+        50% { stroke-dashoffset: 0; opacity: 1; }
+        100% { stroke-dashoffset: 0; opacity: 1; }
+      }
+      @keyframes orbit-spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      @keyframes orbit-counter-spin {
+        0% { transform: rotate(360deg); }
+        100% { transform: rotate(0deg); }
+      }
+      @keyframes blade-pulse {
+        0%, 100% { transform: scale(1); filter: drop-shadow(0 0 12px rgba(16, 185, 129, 0.35)); }
+        50% { transform: scale(1.02); filter: drop-shadow(0 0 24px rgba(52, 211, 153, 0.7)); }
+      }
+      @keyframes beam-spark {
+        0%, 100% { opacity: 0.2; transform: scaleY(0.7); }
+        50% { opacity: 0.85; transform: scaleY(1.3); }
+      }
+
+      .stroke-anim {
+        stroke-dasharray: 450;
+        animation: stroke-draw 4.5s ease-in-out infinite;
+      }
+      .orbit-cw {
+        transform-origin: 180px 150px;
+        animation: orbit-spin 14s linear infinite;
+      }
+      .orbit-ccw {
+        transform-origin: 180px 150px;
+        animation: orbit-counter-spin 10s linear infinite;
+      }
+      .blade-group {
+        transform-origin: 180px 150px;
+        animation: blade-pulse 4s ease-in-out infinite;
+      }
+      .spark-line {
+        transform-origin: 180px 150px;
+        animation: beam-spark 3s ease-in-out infinite;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .stroke-anim, .orbit-cw, .orbit-ccw, .blade-group, .spark-line {
+          animation: none !important;
+        }
+      }
+    </style>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="800" height="300" rx="14" fill="#08110F" />
+  <rect width="800" height="300" rx="14" stroke="#16382E" stroke-width="1.2" />
+
+  <!-- Background Glow behind Mark -->
+  <circle cx="180" cy="150" r="130" fill="url(#mark-glow)" />
+
+  <!-- Animated Telemetry Coordinates Circles -->
+  <g class="orbit-cw">
+    <circle cx="180" cy="150" r="105" stroke="#1A4A3C" stroke-width="1" stroke-dasharray="3, 8" />
+    <circle cx="180" cy="45" r="3.5" fill="#34D399" />
+    <circle cx="180" cy="255" r="3" fill="#38BDF8" />
+  </g>
+  <g class="orbit-ccw">
+    <circle cx="180" cy="150" r="85" stroke="#1F5A49" stroke-width="1.2" stroke-dasharray="6, 14" opacity="0.7" />
+    <circle cx="95" cy="150" r="2.5" fill="#F59E0B" />
+    <circle cx="265" cy="150" r="3" fill="#6EE7B7" />
+  </g>
+
+  <!-- Vertical Telemetry Calibration Line -->
+  <line x1="180" y1="20" x2="180" y2="280" stroke="#12362B" stroke-width="1" stroke-dasharray="4, 4" class="spark-line" />
+  <line x1="50" y1="150" x2="310" y2="150" stroke="#12362B" stroke-width="1" stroke-dasharray="4, 4" opacity="0.4" />
+
+  <!-- Spearhead Emblem Choreography -->
+  <g class="blade-group">
+    <!-- Outer Contour Drawn by Laser Stroke -->
+    <polygon points="180,65 245,150 180,218 115,150" fill="none" stroke="url(#blade-grad-1)" stroke-width="2" class="stroke-anim" />
+
+    <!-- Left Wing Facet (Form Geometry) -->
+    <polygon points="180,75 125,150 180,205 162,150" fill="url(#blade-grad-2)" opacity="0.9" />
+
+    <!-- Right Wing Facet (Spear Thrust Geometry) -->
+    <polygon points="180,75 235,150 180,205 198,150" fill="url(#blade-grad-1)" opacity="0.95" />
+
+    <!-- Center Spine & Penetration Arrow -->
+    <polygon points="180,72 190,150 180,185 170,150" fill="#ECFDF5" opacity="0.9" />
+
+    <!-- Central Telemetry Dot -->
+    <circle cx="180" cy="150" r="4.5" fill="#FFFFFF" filter="url(#core-glow)" />
+  </g>
+
+  <!-- Typography & Brand Hierarchy Lockup -->
+  <g transform="translate(330, 85)">
+    <!-- Brand Tagline Badge -->
+    <g transform="translate(0, 0)">
+      <rect x="0" y="0" width="168" height="22" rx="11" fill="#0E241F" stroke="#1F5646" stroke-width="1" />
+      <text x="14" y="15" font-family="ui-monospace, monospace" font-size="9.5" font-weight="700" fill="#34D399" letter-spacing="1">BRAND ANATOMY</text>
+      <circle cx="152" cy="11" r="3" fill="#10B981" />
+    </g>
+
+    <!-- Wordmark -->
+    <text x="0" y="62" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif" font-size="42" font-weight="900" fill="#FFFFFF" letter-spacing="2">
+      Formspear
+    </text>
+
+    <!-- Descriptor -->
+    <text x="0" y="94" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="600" fill="#6EE7B7" letter-spacing="0.8">
+      PRECISION ARCHITECTURE FOR ENTERPRISE FEEDBACK
+    </text>
+
+    <text x="0" y="122" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12.5" font-weight="400" fill="#94A3B8">
+      Spearhead velocity: collect, categorize, and act on multi-branch signals in real time.
+    </text>
+
+    <!-- Specifications Micro-Grid -->
+    <g transform="translate(0, 142)">
+      <text x="0" y="12" font-family="ui-monospace, monospace" font-size="10.5" fill="#64748B">ASPECT: <tspan fill="#CBD5E1">Vector SVG</tspan></text>
+      <text x="120" y="12" font-family="ui-monospace, monospace" font-size="10.5" fill="#64748B">CORE: <tspan fill="#34D399">Dynamic SMIL+CSS</tspan></text>
+      <text x="270" y="12" font-family="ui-monospace, monospace" font-size="10.5" fill="#64748B">CANVAS: <tspan fill="#CBD5E1">Adaptive Contrast</tspan></text>
+    </g>
+  </g>
+</svg>

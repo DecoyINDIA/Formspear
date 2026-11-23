@@ -1,0 +1,257 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 520" width="100%" height="100%" fill="none">
+  <defs>
+    <radialGradient id="quad-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#05100E" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="q-border" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2D5A4D" />
+      <stop offset="100%" stop-color="#122923" />
+    </linearGradient>
+
+    <style>
+      /* Quadrant 1: Branching Motion */
+      @keyframes branch-flow-a {
+        0% { stroke-dashoffset: 80; opacity: 0.2; }
+        50% { stroke-dashoffset: 0; opacity: 1; }
+        100% { stroke-dashoffset: -80; opacity: 0.2; }
+      }
+      @keyframes node-activate {
+        0%, 30% { fill: #132C25; stroke: #235245; }
+        40%, 80% { fill: #064E3B; stroke: #34D399; }
+        90%, 100% { fill: #132C25; stroke: #235245; }
+      }
+
+      /* Quadrant 2: Radar Sweep */
+      @keyframes radar-rotate {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      @keyframes ping-blip {
+        0%, 100% { transform: scale(1); opacity: 0.3; }
+        50% { transform: scale(1.8); opacity: 1; }
+      }
+
+      /* Quadrant 3: Security Laser Scan */
+      @keyframes laser-sweep {
+        0%, 100% { transform: translateY(0px); opacity: 0.2; }
+        50% { transform: translateY(68px); opacity: 0.9; }
+      }
+      @keyframes stamp-pop {
+        0%, 40% { opacity: 0; transform: scale(0.85); }
+        55%, 85% { opacity: 1; transform: scale(1); }
+        95%, 100% { opacity: 0; }
+      }
+
+      /* Quadrant 4: Multi-Channel Dispatch */
+      @keyframes packet-dispatch {
+        0% { transform: translateX(0px); opacity: 0; }
+        30% { opacity: 1; }
+        80% { transform: translateX(95px); opacity: 1; }
+        100% { transform: translateX(95px); opacity: 0; }
+      }
+
+      .branch-line {
+        stroke-dasharray: 8, 8;
+        animation: branch-flow-a 3.2s linear infinite;
+      }
+      .node-flash {
+        animation: node-activate 4s ease-in-out infinite;
+      }
+      .radar-arm {
+        transform-origin: 350px 145px;
+        animation: radar-rotate 6s linear infinite;
+      }
+      .blip-pulse {
+        transform-origin: 330px 125px;
+        animation: ping-blip 3s ease-in-out infinite;
+      }
+      .laser-scan-line {
+        animation: laser-sweep 3s ease-in-out infinite;
+      }
+      .stamp-anim {
+        transform-origin: 190px 425px;
+        animation: stamp-pop 4s ease-in-out infinite;
+      }
+      .dispatch-pulse {
+        animation: packet-dispatch 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .branch-line, .node-flash, .radar-arm, .blip-pulse, .laser-scan-line, .stamp-anim, .dispatch-pulse {
+          animation: none !important;
+        }
+      }
+    </style>
+  </defs>
+
+  <!-- Frame Background -->
+  <rect width="1040" height="520" rx="16" fill="#070E0C" />
+  <rect width="1040" height="520" rx="16" stroke="#16382E" stroke-width="1.2" />
+
+  <!-- Section Title Banner -->
+  <g transform="translate(40, 32)">
+    <circle cx="6" cy="6" r="5" fill="#34D399" />
+    <text x="24" y="10" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="700" fill="#34D399" letter-spacing="1.2">CORE CAPABILITIES MATRIX</text>
+    <text x="235" y="10" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="500" fill="#64748B">Four purpose-built engineering engines powering enterprise-grade feedback operations</text>
+  </g>
+
+  <!-- ==================== QUADRANT 1: CONDITIONAL LOGIC & BRANCHING ==================== -->
+  <g transform="translate(40, 60)">
+    <rect width="460" height="205" rx="10" fill="#0A1815" stroke="url(#q-border)" stroke-width="1.2" />
+    <circle cx="24" cy="24" r="10" fill="#0E2D25" />
+    <text x="20" y="28" font-family="sans-serif" font-size="11" font-weight="800" fill="#34D399">01</text>
+    <text x="44" y="22" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700" fill="#FFFFFF">Dynamic Branching &amp; Logic Engine</text>
+    <text x="44" y="37" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" fill="#64748B">23 Question Types • Forward Skips • Formula Scoring</text>
+
+    <!-- Visual Interactive Logic Flow -->
+    <g transform="translate(24, 55)">
+      <!-- Root Question Node -->
+      <rect x="0" y="30" width="105" height="32" rx="6" fill="#122A24" stroke="#255347" stroke-width="1" />
+      <text x="52" y="50" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="600" fill="#E2E8F0">Q1: NPS Rating</text>
+
+      <!-- Branch Lines -->
+      <path d="M 105 40 L 175 16" stroke="#34D399" stroke-width="1.5" class="branch-line" />
+      <path d="M 105 52 L 175 76" stroke="#F59E0B" stroke-width="1.5" class="branch-line" />
+
+      <!-- Branch 1: Promoter (>=9) -->
+      <g transform="translate(175, 2)" class="node-flash">
+        <rect width="180" height="28" rx="5" />
+        <circle cx="14" cy="14" r="3.5" fill="#10B981" />
+        <text x="26" y="18" font-family="sans-serif" font-size="9.5" font-weight="600" fill="#6EE7B7">Score ≥ 9 → Google Review Push</text>
+      </g>
+
+      <!-- Branch 2: Detractor (<=6) -->
+      <g transform="translate(175, 62)">
+        <rect width="180" height="28" rx="5" fill="#201815" stroke="#78350F" stroke-width="1" />
+        <circle cx="14" cy="14" r="3.5" fill="#EF4444" />
+        <text x="26" y="18" font-family="sans-serif" font-size="9.5" font-weight="600" fill="#FCA5A5">Score ≤ 6 → Manager Escalation</text>
+      </g>
+
+      <!-- Evaluation Latency Tag -->
+      <text x="0" y="102" font-family="ui-monospace, monospace" font-size="9.5" fill="#5EEAD4">⚡ Evaluated in client &amp; server • Zero branching cycles</text>
+    </g>
+  </g>
+
+  <!-- ==================== QUADRANT 2: MULTI-BRANCH NPS & SENTIMENT ==================== -->
+  <g transform="translate(540, 60)">
+    <rect width="460" height="205" rx="10" fill="#0A1815" stroke="url(#q-border)" stroke-width="1.2" />
+    <circle cx="24" cy="24" r="10" fill="#0E2D25" />
+    <text x="20" y="28" font-family="sans-serif" font-size="11" font-weight="800" fill="#38BDF8">02</text>
+    <text x="44" y="22" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700" fill="#FFFFFF">Multi-Branch Telemetry Radar</text>
+    <text x="44" y="37" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" fill="#64748B">Geo-Attribution • Cross-Branch Benchmarking</text>
+
+    <!-- Radar Graphic -->
+    <g transform="translate(24, 52)">
+      <!-- Branch Data Table -->
+      <g transform="translate(0, 10)">
+        <text x="0" y="12" font-family="sans-serif" font-size="10" font-weight="600" fill="#E2E8F0">Bengaluru Central</text>
+        <text x="140" y="12" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#34D399">+78.4 NPS</text>
+        <rect x="0" y="18" width="180" height="4" rx="2" fill="#132F27" />
+        <rect x="0" y="18" width="145" height="4" rx="2" fill="#10B981" />
+
+        <text x="0" y="44" font-family="sans-serif" font-size="10" font-weight="600" fill="#E2E8F0">Mumbai Bandra</text>
+        <text x="140" y="44" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#38BDF8">+69.1 NPS</text>
+        <rect x="0" y="50" width="180" height="4" rx="2" fill="#132F27" />
+        <rect x="0" y="50" width="124" height="4" rx="2" fill="#38BDF8" />
+
+        <text x="0" y="76" font-family="sans-serif" font-size="10" font-weight="600" fill="#E2E8F0">Delhi NCR South</text>
+        <text x="140" y="76" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#F59E0B">+62.8 NPS</text>
+        <rect x="0" y="82" width="180" height="4" rx="2" fill="#132F27" />
+        <rect x="0" y="82" width="112" height="4" rx="2" fill="#F59E0B" />
+      </g>
+
+      <!-- Circular Radar Eye -->
+      <g transform="translate(10, 0)">
+        <circle cx="340" cy="50" r="45" fill="#071310" stroke="#164335" stroke-width="1" />
+        <circle cx="340" cy="50" r="28" stroke="#164335" stroke-width="1" stroke-dasharray="2, 4" />
+        <!-- Pinging Branch Blips -->
+        <circle class="blip-pulse" cx="328" cy="38" r="3.5" fill="#34D399" />
+        <circle cx="355" cy="62" r="3" fill="#38BDF8" />
+        <circle cx="320" cy="66" r="3" fill="#F59E0B" />
+        <!-- Radar Arm -->
+        <g class="radar-arm">
+          <line x1="350" y1="145" x2="350" y2="100" stroke="#10B981" stroke-width="1.8" opacity="0.8" />
+        </g>
+      </g>
+      <text x="0" y="112" font-family="ui-monospace, monospace" font-size="9.5" fill="#38BDF8">📍 14 physical locations • 100k-response benchmark tested</text>
+    </g>
+  </g>
+
+  <!-- ==================== QUADRANT 3: ZERO-TRUST FILE QUARANTINE ==================== -->
+  <g transform="translate(40, 280)">
+    <rect width="460" height="205" rx="10" fill="#0A1815" stroke="url(#q-border)" stroke-width="1.2" />
+    <circle cx="24" cy="24" r="10" fill="#0E2D25" />
+    <text x="20" y="28" font-family="sans-serif" font-size="11" font-weight="800" fill="#10B981">03</text>
+    <text x="44" y="22" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700" fill="#FFFFFF">Zero-Trust Quarantine &amp; S3/R2 Pipeline</text>
+    <text x="44" y="37" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" fill="#64748B">Scan-Before-Store • EICAR/Antivirus Hook • S3 SigV4</text>
+
+    <!-- Scan Chamber Graphic -->
+    <g transform="translate(24, 55)">
+      <!-- File Payload Card -->
+      <rect x="0" y="0" width="160" height="74" rx="6" fill="#112620" stroke="#235245" stroke-width="1" />
+      <text x="14" y="24" font-family="sans-serif" font-size="10" font-weight="700" fill="#E2E8F0">📄 invoice_scan.pdf</text>
+      <text x="14" y="40" font-family="ui-monospace, monospace" font-size="9" fill="#94A3B8">Size: 1.4 MB • SHA256</text>
+      <text x="14" y="58" font-family="ui-monospace, monospace" font-size="9" fill="#34D399">MIME: application/pdf</text>
+
+      <!-- Animated Laser Scan Beam -->
+      <line x1="0" y1="4" x2="160" y2="4" stroke="#10B981" stroke-width="2" class="laser-scan-line" />
+
+      <!-- Verification Arrow -->
+      <path d="M 175 37 L 210 37" stroke="#34D399" stroke-width="2" />
+      <polygon points="215,37 207,32 207,42" fill="#34D399" />
+
+      <!-- Verification Stamp Badge -->
+      <g transform="translate(230, 0)" class="stamp-anim">
+        <rect width="170" height="74" rx="6" fill="#064E3B" stroke="#34D399" stroke-width="1.2" />
+        <circle cx="24" cy="24" r="8" fill="#10B981" />
+        <text x="21" y="27" font-family="sans-serif" font-size="9" font-weight="900" fill="#042C21">✓</text>
+        <text x="38" y="28" font-family="sans-serif" font-size="11" font-weight="700" fill="#ECFDF5">CLEAN &amp; VERIFIED</text>
+        <text x="14" y="48" font-family="ui-monospace, monospace" font-size="9" fill="#A7F3D0">Quarantine passed</text>
+        <text x="14" y="62" font-family="ui-monospace, monospace" font-size="9" fill="#6EE7B7">Replicated to S3/Cloudflare R2</text>
+      </g>
+
+      <text x="0" y="102" font-family="ui-monospace, monospace" font-size="9.5" fill="#6EE7B7">🛡️ Zero malicious execution • Isolated quarantine downloads</text>
+    </g>
+  </g>
+
+  <!-- ==================== QUADRANT 4: MULTI-CHANNEL ALERT DISPATCHER ==================== -->
+  <g transform="translate(540, 280)">
+    <rect width="460" height="205" rx="10" fill="#0A1815" stroke="url(#q-border)" stroke-width="1.2" />
+    <circle cx="24" cy="24" r="10" fill="#0E2D25" />
+    <text x="20" y="28" font-family="sans-serif" font-size="11" font-weight="800" fill="#A78BFA">04</text>
+    <text x="44" y="22" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700" fill="#FFFFFF">Real-Time Alert &amp; Integration Hub</text>
+    <text x="44" y="37" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" fill="#64748B">WhatsApp Business • Slack • Teams • Signed HMAC Webhooks</text>
+
+    <!-- Trigger Event & Egress Graphic -->
+    <g transform="translate(24, 55)">
+      <!-- Trigger Source -->
+      <rect x="0" y="18" width="105" height="38" rx="6" fill="#1F1735" stroke="#6D28D9" stroke-width="1" />
+      <text x="52" y="35" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="700" fill="#DDD6FE">Trigger Event</text>
+      <text x="52" y="47" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.5" fill="#A78BFA">NPS &lt; 5 OR Lead</text>
+
+      <!-- Animated Signal Dispatches -->
+      <g transform="translate(105, 37)">
+        <line x1="0" y1="0" x2="110" y2="0" stroke="#4C1D95" stroke-width="1.5" stroke-dasharray="3, 3" />
+        <circle cx="0" cy="0" r="4.5" fill="#A78BFA" class="dispatch-pulse" />
+      </g>
+
+      <!-- Target Channels List -->
+      <g transform="translate(230, 2)">
+        <!-- WhatsApp -->
+        <rect x="0" y="0" width="170" height="20" rx="4" fill="#064E3B" stroke="#059669" stroke-width="0.8" />
+        <text x="8" y="14" font-family="sans-serif" font-size="9" font-weight="600" fill="#34D399">💬 WhatsApp Alert (Branch Mgr)</text>
+
+        <!-- Slack -->
+        <rect x="0" y="24" width="170" height="20" rx="4" fill="#152033" stroke="#2563EB" stroke-width="0.8" />
+        <text x="8" y="38" font-family="sans-serif" font-size="9" font-weight="600" fill="#60A5FA">⚡ Slack #customer-ops</text>
+
+        <!-- Signed Webhooks -->
+        <rect x="0" y="48" width="170" height="20" rx="4" fill="#241B10" stroke="#D97706" stroke-width="0.8" />
+        <text x="8" y="62" font-family="sans-serif" font-size="9" font-weight="600" fill="#FBBF24">🔗 Signed Webhook (HMAC-SHA256)</text>
+      </g>
+
+      <text x="0" y="102" font-family="ui-monospace, monospace" font-size="9.5" fill="#C4B5FD">🚀 Automatic 5-retry exponential backoff • Zero dropped signals</text>
+    </g>
+  </g>
+</svg>
