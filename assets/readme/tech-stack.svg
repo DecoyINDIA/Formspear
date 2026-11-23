@@ -1,90 +1,186 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 240" width="100%" height="100%" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 260" width="100%" height="100%" fill="none">
   <defs>
-    <radialGradient id="ts-glow" cx="50%" cy="50%" r="55%">
-      <stop offset="0%" stop-color="#0E2D24" stop-opacity="0.25" />
-      <stop offset="100%" stop-color="#040907" stop-opacity="0" />
+    <!-- Background Radial Atmosphere -->
+    <radialGradient id="ts-glow" cx="50%" cy="50%" r="58%">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0.15" />
+      <stop offset="50%" stop-color="#059669" stop-opacity="0.05" />
+      <stop offset="100%" stop-color="#020605" stop-opacity="0" />
     </radialGradient>
-    <linearGradient id="ts-card-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#081E18" />
-      <stop offset="100%" stop-color="#05120E" />
+
+    <!-- Card Backgrounds & Specular Chamfers -->
+    <linearGradient id="ts-card-bg-emerald" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#051C15" />
+      <stop offset="100%" stop-color="#020C09" />
+    </linearGradient>
+    <linearGradient id="ts-card-bg-cyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#041B24" />
+      <stop offset="100%" stop-color="#020C10" />
+    </linearGradient>
+    <linearGradient id="ts-card-bg-violet" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#120F26" />
+      <stop offset="100%" stop-color="#060512" />
+    </linearGradient>
+    <linearGradient id="ts-card-bg-amber" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#241B08" />
+      <stop offset="100%" stop-color="#0F0B02" />
     </linearGradient>
 
+    <!-- Specular Chamfered Borders -->
+    <linearGradient id="ts-rim-emerald" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34D399" stop-opacity="0.7" />
+      <stop offset="50%" stop-color="#10B981" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#059669" stop-opacity="0.45" />
+    </linearGradient>
+    <linearGradient id="ts-rim-cyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.7" />
+      <stop offset="50%" stop-color="#0284C7" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#0369A1" stop-opacity="0.45" />
+    </linearGradient>
+    <linearGradient id="ts-rim-violet" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C084FC" stop-opacity="0.7" />
+      <stop offset="50%" stop-color="#818CF8" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#6366F1" stop-opacity="0.45" />
+    </linearGradient>
+    <linearGradient id="ts-rim-amber" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCD34D" stop-opacity="0.7" />
+      <stop offset="50%" stop-color="#F59E0B" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#D97706" stop-opacity="0.45" />
+    </linearGradient>
+
+    <!-- Micro Dot Grid Pattern -->
+    <pattern id="ts-grid-dots" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="24" cy="24" r="0.7" fill="#133D30" fill-opacity="0.5" />
+    </pattern>
+
     <style>
-      @keyframes tech-pulse {
-        0%, 100% { filter: drop-shadow(0 0 2px rgba(16, 185, 129, 0.2)); }
-        50% { filter: drop-shadow(0 0 8px rgba(52, 211, 153, 0.6)); }
+      @keyframes ts-card-float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-3px); }
       }
-      .tech-card {
-        animation: tech-pulse 4.5s ease-in-out infinite;
+      @keyframes ts-beacon-pulse {
+        0%, 100% { opacity: 0.3; transform: scale(0.9); }
+        50% { opacity: 1; transform: scale(1.2); }
+      }
+      .ts-animated-card {
+        animation: ts-card-float 4.8s ease-in-out infinite;
+      }
+      .ts-beacon {
+        animation: ts-beacon-pulse 2s ease-in-out infinite;
       }
       @media (prefers-reduced-motion: reduce) {
-        .tech-card { animation: none !important; }
+        .ts-animated-card, .ts-beacon { animation: none !important; }
       }
     </style>
   </defs>
 
   <!-- Frame Background -->
-  <rect width="1100" height="240" rx="14" fill="#040907" />
-  <rect width="1100" height="240" rx="14" fill="url(#ts-glow)" />
-  <rect width="1100" height="240" rx="14" stroke="#16382E" stroke-width="1.2" />
+  <rect width="1100" height="260" rx="16" fill="#020605" />
+  <rect width="1100" height="260" rx="16" fill="url(#ts-grid-dots)" />
+  <rect width="1100" height="260" rx="16" fill="url(#ts-glow)" />
+  <rect width="1100" height="260" rx="16" stroke="#163E32" stroke-width="1.2" />
 
   <!-- Instrument Header Bar -->
   <g transform="translate(36, 24)">
-    <circle cx="6" cy="6" r="4.5" fill="#10B981" />
-    <text x="20" y="10" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="700" fill="#34D399" letter-spacing="1.2">ZERO-FRAMEWORK ENTERPRISE STACK</text>
-    <text x="310" y="10" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" fill="#64748B">Engineered without heavy ORMs, monolithic frameworks, or client bundlers</text>
+    <circle cx="6" cy="6" r="4.5" fill="#10B981" class="ts-beacon" />
+    <text x="20" y="10" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="800" fill="#34D399" letter-spacing="1.2">ZERO-FRAMEWORK ARCHITECTURAL MATRIX</text>
+    <text x="330" y="10" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" fill="#64748B">Engineered without heavy ORMs, monolithic frameworks, or client-side bundlers • DecoyINDIA Stack</text>
   </g>
 
-  <!-- 4 Primary Architecture Pillars (2x2 or 4x1) -->
-  <!-- Pillar 1: Runtime Engine -->
-  <g transform="translate(36, 54)">
-    <rect width="240" height="155" rx="8" fill="url(#ts-card-grad)" stroke="#1B5544" stroke-width="1" class="tech-card" />
-    <circle cx="20" cy="24" r="4" fill="#22C55E" />
-    <text x="32" y="28" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="800" fill="#FFFFFF">Node.js 20+ Runtime</text>
-    <text x="20" y="46" font-family="ui-monospace, monospace" font-size="9" font-weight="700" fill="#34D399">ZERO-FRAMEWORK HTTP</text>
+  <!-- ==================== 4 ARCHITECTURAL PILLARS (4x1 Grid) ==================== -->
+
+  <!-- Pillar 1: Native Node.js 20+ Runtime & Zero-Framework Engine -->
+  <g transform="translate(36, 52)" class="ts-animated-card">
+    <rect width="242" height="182" rx="8" fill="url(#ts-card-bg-emerald)" stroke="url(#ts-rim-emerald)" stroke-width="1.2" />
+    <rect x="0" y="0" width="242" height="1" fill="#34D399" fill-opacity="0.6" />
     
-    <text x="20" y="72" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• Native <tspan font-family="ui-monospace">node:http</tspan> &amp; <tspan font-family="ui-monospace">node:crypto</tspan></text>
-    <text x="20" y="92" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• Built-in test runner (<tspan font-family="ui-monospace">node:test</tspan>)</text>
-    <text x="20" y="112" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• Native Gzip/Deflate compression</text>
-    <text x="20" y="132" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• Vanilla JS client (no bundler)</text>
+    <!-- Header with Indicator -->
+    <circle cx="20" cy="22" r="4.5" fill="#10B981" />
+    <text x="32" y="26" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="800" fill="#FFFFFF">Node.js 20+ Runtime</text>
+    
+    <!-- Category Badge -->
+    <rect x="20" y="38" width="138" height="16" rx="3" fill="#0A3326" />
+    <text x="26" y="50" font-family="ui-monospace, monospace" font-size="8.5" font-weight="700" fill="#34D399">ZERO-FRAMEWORK HTTP</text>
+    
+    <!-- Feature List -->
+    <text x="20" y="74" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#CBD5E1">• Native <tspan font-family="ui-monospace, monospace" fill="#6EE7B7">node:http</tspan> &amp; <tspan font-family="ui-monospace, monospace" fill="#6EE7B7">node:crypto</tspan></text>
+    <text x="20" y="96" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#CBD5E1">• Built-in test runner (<tspan font-family="ui-monospace, monospace" fill="#6EE7B7">node:test</tspan>)</text>
+    <text x="20" y="118" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#CBD5E1">• Native Gzip/Deflate compression</text>
+    <text x="20" y="140" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#CBD5E1">• Vanilla JS client (no bundler)</text>
+    
+    <!-- Bottom Metric Tag -->
+    <rect x="20" y="154" width="202" height="18" rx="3" fill="#031610" />
+    <text x="121" y="166" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.5" fill="#34D399">ROUTE DISPATCH: &lt; 0.4ms</text>
   </g>
 
-  <!-- Pillar 2: Dual-Store Persistence -->
-  <g transform="translate(296, 54)">
-    <rect width="240" height="155" rx="8" fill="url(#ts-card-grad)" stroke="#1B5544" stroke-width="1" class="tech-card" />
-    <circle cx="20" cy="24" r="4" fill="#38BDF8" />
-    <text x="32" y="28" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="800" fill="#FFFFFF">Dual-Store Persistence</text>
-    <text x="20" y="46" font-family="ui-monospace, monospace" font-size="9" font-weight="700" fill="#38BDF8">RAM + POSTGRESQL 15+</text>
+  <!-- Pillar 2: Dual-Store Persistence & Relational PostgreSQL -->
+  <g transform="translate(298, 52)" class="ts-animated-card">
+    <rect width="242" height="182" rx="8" fill="url(#ts-card-bg-cyan)" stroke="url(#ts-rim-cyan)" stroke-width="1.2" />
+    <rect x="0" y="0" width="242" height="1" fill="#38BDF8" fill-opacity="0.6" />
     
-    <text x="20" y="72" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• 36 synchronous RAM collections</text>
-    <text x="20" y="92" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• 39 relational tables &amp; 13 indexes</text>
-    <text x="20" y="112" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• Single-writer advisory lock</text>
-    <text x="20" y="132" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• 5ms debounced shadow diffs</text>
+    <!-- Header with Indicator -->
+    <circle cx="20" cy="22" r="4.5" fill="#38BDF8" />
+    <text x="32" y="26" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="800" fill="#FFFFFF">Relational PostgreSQL</text>
+    
+    <!-- Category Badge -->
+    <rect x="20" y="38" width="142" height="16" rx="3" fill="#0A3242" />
+    <text x="26" y="50" font-family="ui-monospace, monospace" font-size="8.5" font-weight="700" fill="#38BDF8">DUAL-STORE PERSISTENCE</text>
+    
+    <!-- Feature List -->
+    <text x="20" y="74" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#CBD5E1">• 36 synchronous RAM collections</text>
+    <text x="20" y="96" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#CBD5E1">• 39 relational tables &amp; 13 indexes</text>
+    <text x="20" y="118" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#CBD5E1">• Single-writer advisory lock</text>
+    <text x="20" y="140" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#CBD5E1">• 5ms debounced shadow diffs</text>
+    
+    <!-- Bottom Metric Tag -->
+    <rect x="20" y="154" width="202" height="18" rx="3" fill="#031620" />
+    <text x="121" y="166" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.5" fill="#7DD3FC">LOCK_ID: 0x464F524D (PG15+)</text>
   </g>
 
-  <!-- Pillar 3: Distributed Jobs & Queues -->
-  <g transform="translate(556, 54)">
-    <rect width="240" height="155" rx="8" fill="url(#ts-card-grad)" stroke="#1B5544" stroke-width="1" class="tech-card" />
-    <circle cx="20" cy="24" r="4" fill="#818CF8" />
-    <text x="32" y="28" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="800" fill="#FFFFFF">Job Queue &amp; Workers</text>
-    <text x="20" y="46" font-family="ui-monospace, monospace" font-size="9" font-weight="700" fill="#818CF8">BULLMQ + REDIS</text>
+  <!-- Pillar 3: BullMQ Distributed Queues & Async Workers -->
+  <g transform="translate(560, 52)" class="ts-animated-card">
+    <rect width="242" height="182" rx="8" fill="url(#ts-card-bg-violet)" stroke="url(#ts-rim-violet)" stroke-width="1.2" />
+    <rect x="0" y="0" width="242" height="1" fill="#A78BFA" fill-opacity="0.6" />
     
-    <text x="20" y="72" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• BullMQ queue orchestration</text>
-    <text x="20" y="92" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• In-process fallback runner</text>
-    <text x="20" y="112" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• Exponential backoff retries</text>
-    <text x="20" y="132" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• Background AI sentiment sweeps</text>
+    <!-- Header with Indicator -->
+    <circle cx="20" cy="22" r="4.5" fill="#818CF8" />
+    <text x="32" y="26" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="800" fill="#FFFFFF">BullMQ Job Queues</text>
+    
+    <!-- Category Badge -->
+    <rect x="20" y="38" width="138" height="16" rx="3" fill="#201A45" />
+    <text x="26" y="50" font-family="ui-monospace, monospace" font-size="8.5" font-weight="700" fill="#A78BFA">DISTRIBUTED WORKERS</text>
+    
+    <!-- Feature List -->
+    <text x="20" y="74" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#CBD5E1">• BullMQ + Redis orchestration</text>
+    <text x="20" y="96" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#CBD5E1">• In-process fallback queue runner</text>
+    <text x="20" y="118" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#CBD5E1">• Exponential backoff &amp; dead letters</text>
+    <text x="20" y="140" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#CBD5E1">• Background AI sentiment sweeps</text>
+    
+    <!-- Bottom Metric Tag -->
+    <rect x="20" y="154" width="202" height="18" rx="3" fill="#0C0A1C" />
+    <text x="121" y="166" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.5" fill="#C7D2FE">ASYNC WORKER POOL: ACTIVE</text>
   </g>
 
-  <!-- Pillar 4: Integrations & Cloud Deployment -->
-  <g transform="translate(816, 54)">
-    <rect width="248" height="155" rx="8" fill="url(#ts-card-grad)" stroke="#1B5544" stroke-width="1" class="tech-card" />
-    <circle cx="20" cy="24" r="4" fill="#F59E0B" />
-    <text x="32" y="28" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="800" fill="#FFFFFF">Integrations &amp; Cloud</text>
-    <text x="20" y="46" font-family="ui-monospace, monospace" font-size="9" font-weight="700" fill="#F59E0B">ENTERPRISE CONNECTORS</text>
+  <!-- Pillar 4: Enterprise Cloud & Connectors -->
+  <g transform="translate(822, 52)" class="ts-animated-card">
+    <rect width="242" height="182" rx="8" fill="url(#ts-card-bg-amber)" stroke="url(#ts-rim-amber)" stroke-width="1.2" />
+    <rect x="0" y="0" width="242" height="1" fill="#F59E0B" fill-opacity="0.6" />
     
-    <text x="20" y="72" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• OpenAI GPT-4o-mini sentiment</text>
-    <text x="20" y="92" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• AWS S3 / Cloudflare R2 SigV4</text>
-    <text x="20" y="112" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• Stripe &amp; Razorpay webhooks</text>
-    <text x="20" y="132" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">• Railway ready (<tspan font-family="ui-monospace">numReplicas: 1</tspan>)</text>
+    <!-- Header with Indicator -->
+    <circle cx="20" cy="22" r="4.5" fill="#F59E0B" />
+    <text x="32" y="26" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="800" fill="#FFFFFF">Enterprise Connectors</text>
+    
+    <!-- Category Badge -->
+    <rect x="20" y="38" width="144" height="16" rx="3" fill="#3D2B0A" />
+    <text x="26" y="50" font-family="ui-monospace, monospace" font-size="8.5" font-weight="700" fill="#FCD34D">CLOUD INFRASTRUCTURE</text>
+    
+    <!-- Feature List -->
+    <text x="20" y="74" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#CBD5E1">• OpenAI GPT-4o-mini sentiment</text>
+    <text x="20" y="96" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#CBD5E1">• AWS S3 / Cloudflare R2 SigV4</text>
+    <text x="20" y="118" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#CBD5E1">• Stripe &amp; Razorpay webhooks</text>
+    <text x="20" y="140" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#CBD5E1">• Railway ready (<tspan font-family="ui-monospace, monospace" fill="#FCD34D">numRep: 1</tspan>)</text>
+    
+    <!-- Bottom Metric Tag -->
+    <rect x="20" y="154" width="202" height="18" rx="3" fill="#1C1404" />
+    <text x="121" y="166" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.5" fill="#FCD34D">DISPATCH DISPERSAL &lt; 12ms</text>
   </g>
 </svg>

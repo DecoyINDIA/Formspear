@@ -1,51 +1,93 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 360" width="100%" height="100%" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 370" width="100%" height="100%" fill="none">
   <defs>
-    <radialGradient id="tw-glow" cx="50%" cy="50%" r="55%">
-      <stop offset="0%" stop-color="#10B981" stop-opacity="0.2" />
-      <stop offset="100%" stop-color="#040907" stop-opacity="0" />
+    <!-- Background Radial Gradients -->
+    <radialGradient id="tw-glow" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0.18" />
+      <stop offset="50%" stop-color="#059669" stop-opacity="0.06" />
+      <stop offset="100%" stop-color="#020605" stop-opacity="0" />
     </radialGradient>
     <linearGradient id="tw-progress-grad" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#10B981" />
-      <stop offset="35%" stop-color="#34D399" />
-      <stop offset="70%" stop-color="#38BDF8" />
+      <stop offset="30%" stop-color="#34D399" />
+      <stop offset="65%" stop-color="#38BDF8" />
       <stop offset="100%" stop-color="#A78BFA" />
     </linearGradient>
 
+    <!-- Glass Rim Chamfers -->
+    <linearGradient id="tw-glass-rim-emerald" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34D399" stop-opacity="0.6" />
+      <stop offset="50%" stop-color="#10B981" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#059669" stop-opacity="0.4" />
+    </linearGradient>
+    <linearGradient id="tw-glass-rim-cyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.6" />
+      <stop offset="50%" stop-color="#0284C7" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#0369A1" stop-opacity="0.4" />
+    </linearGradient>
+    <linearGradient id="tw-glass-rim-violet" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C084FC" stop-opacity="0.6" />
+      <stop offset="50%" stop-color="#818CF8" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#6366F1" stop-opacity="0.4" />
+    </linearGradient>
+
+    <!-- Terminal Inner Glow Filter -->
+    <filter id="tw-station-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- Micro Grid Pattern -->
+    <pattern id="tw-grid-dots" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="24" cy="24" r="0.75" fill="#143E32" fill-opacity="0.6" />
+    </pattern>
+
     <style>
-      @keyframes progress-travel {
-        0% { stroke-dashoffset: 960; }
+      @keyframes tw-line-travel {
+        0% { stroke-dashoffset: 1000; }
         45% { stroke-dashoffset: 0; }
         90%, 100% { stroke-dashoffset: 0; }
       }
-      @keyframes station-breathe {
-        0%, 100% { transform: scale(1); filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.3)); }
-        50% { transform: scale(1.08); filter: drop-shadow(0 0 14px rgba(52, 211, 153, 0.85)); }
+      @keyframes tw-pulse-ring {
+        0%, 100% { transform: scale(1); filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.4)); }
+        50% { transform: scale(1.08); filter: drop-shadow(0 0 16px rgba(52, 211, 153, 0.85)); }
       }
-      @keyframes cursor-blink-terminal {
+      @keyframes tw-terminal-cursor {
         0%, 100% { opacity: 0; }
         50% { opacity: 1; }
       }
-      @keyframes checkmark-appear {
-        0%, 40% { opacity: 0.3; }
-        50%, 100% { opacity: 1; }
+      @keyframes tw-check-sparkle {
+        0%, 100% { opacity: 0.6; }
+        50% { opacity: 1; filter: drop-shadow(0 0 6px rgba(52, 211, 153, 0.9)); }
+      }
+      @keyframes tw-particle-flight {
+        0% { cx: 80px; opacity: 0; }
+        5% { opacity: 1; }
+        95% { opacity: 1; }
+        100% { cx: 1020px; opacity: 0; }
       }
 
-      .stepper-line {
-        stroke-dasharray: 960;
-        animation: progress-travel 6.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      .tw-stepper-beam {
+        stroke-dasharray: 1000;
+        animation: tw-line-travel 6.5s cubic-bezier(0.2, 0.8, 0.3, 1) infinite;
       }
-      .milestone-active {
-        animation: station-breathe 4s ease-in-out infinite;
+      .tw-station-node {
+        animation: tw-pulse-ring 3.8s ease-in-out infinite;
       }
-      .cursor-blink {
-        animation: cursor-blink-terminal 0.9s steps(2, start) infinite;
+      .tw-cursor {
+        animation: tw-terminal-cursor 0.9s steps(2, start) infinite;
       }
-      .check-fade {
-        animation: checkmark-appear 6.5s ease-in-out infinite;
+      .tw-check {
+        animation: tw-check-sparkle 2.5s ease-in-out infinite;
+      }
+      .tw-flying-photon {
+        animation: tw-particle-flight 6.5s cubic-bezier(0.2, 0.8, 0.3, 1) infinite;
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .stepper-line, .milestone-active, .cursor-blink, .check-fade {
+        .tw-stepper-beam, .tw-station-node, .tw-cursor, .tw-check, .tw-flying-photon {
           animation: none !important;
         }
       }
@@ -53,116 +95,178 @@
   </defs>
 
   <!-- Frame Background -->
-  <rect width="1100" height="360" rx="16" fill="#040907" />
-  <rect width="1100" height="360" rx="16" fill="url(#tw-glow)" />
-  <rect width="1100" height="360" rx="16" stroke="#16382E" stroke-width="1.2" />
+  <rect width="1100" height="370" rx="16" fill="#020605" />
+  <rect width="1100" height="370" rx="16" fill="url(#tw-grid-dots)" />
+  <rect width="1100" height="370" rx="16" fill="url(#tw-glow)" />
+  <rect width="1100" height="370" rx="16" stroke="#163E32" stroke-width="1.2" />
 
   <!-- Instrument Header Bar -->
   <g transform="translate(36, 26)">
     <circle cx="6" cy="6" r="4.5" fill="#38BDF8" />
-    <text x="20" y="10" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="700" fill="#38BDF8" letter-spacing="1.2">DEVELOPER &amp; OPERATOR LIFECYCLE</text>
-    <text x="280" y="10" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="500" fill="#64748B">Zero-friction progression from instantaneous local boot to resilient production cutover</text>
+    <text x="20" y="10" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="800" fill="#38BDF8" letter-spacing="1.2">DEVELOPER RUNWAY &amp; OPERATOR LIFECYCLE</text>
+    <text x="325" y="10" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" font-weight="500" fill="#64748B">Zero-friction architectural flight: local boot → visual schema builder → 59 test suites → Railway cutover</text>
   </g>
 
-  <!-- Stepper Track Baseline -->
-  <line x1="70" y1="92" x2="1030" y2="92" stroke="#123B2F" stroke-width="3" />
-  <line x1="70" y1="92" x2="1030" y2="92" stroke="url(#tw-progress-grad)" stroke-width="3" class="stepper-line" />
+  <!-- ==================== CONTINUOUS GLOWING TRAVELING GRADIENT LINE ==================== -->
+  <line x1="80" y1="94" x2="1020" y2="94" stroke="#0E3328" stroke-width="3" stroke-linecap="round" />
+  <line x1="80" y1="94" x2="1020" y2="94" stroke="url(#tw-progress-grad)" stroke-width="3.5" stroke-linecap="round" class="tw-stepper-beam" filter="url(#tw-station-glow)" />
 
-  <!-- ==================== 4 LIFECYCLE MILESTONES ==================== -->
+  <!-- Flying traveling photon beacon -->
+  <circle cy="94" r="5" fill="#FFFFFF" class="tw-flying-photon" filter="url(#tw-station-glow)" />
 
-  <!-- Milestone 01: Instant Local Boot -->
-  <g transform="translate(70, 92)">
-    <circle cx="0" cy="0" r="18" fill="#061E17" stroke="#10B981" stroke-width="2" class="milestone-active" />
-    <text x="0" y="5" text-anchor="middle" font-family="ui-monospace, monospace" font-size="11" font-weight="800" fill="#34D399">01</text>
+  <!-- ==================== 4 MILESTONE STATIONS ==================== -->
 
-    <!-- Card -->
-    <g transform="translate(-10, 30)">
-      <rect width="215" height="185" rx="8" fill="#081E19" stroke="#1A4F40" stroke-width="1" />
+  <!-- Milestone 01: Zero-Config Boot -->
+  <g transform="translate(80, 94)">
+    <!-- Milestone Station Node -->
+    <g class="tw-station-node">
+      <circle cx="0" cy="0" r="19" fill="#031610" stroke="#10B981" stroke-width="2.2" />
+      <circle cx="0" cy="0" r="23" stroke="#10B981" stroke-width="0.8" stroke-dasharray="3, 5" opacity="0.6" />
+      <text x="0" y="5" text-anchor="middle" font-family="ui-monospace, monospace" font-size="11" font-weight="800" fill="#34D399">01</text>
+    </g>
+
+    <!-- Milestone Card -->
+    <g transform="translate(-15, 32)">
+      <rect width="225" height="195" rx="8" fill="#041611" stroke="url(#tw-glass-rim-emerald)" stroke-width="1.2" />
+      <rect x="0" y="0" width="225" height="1" fill="#34D399" fill-opacity="0.5" />
+      
+      <!-- Title & Category -->
       <text x="14" y="24" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="800" fill="#FFFFFF">Zero-Config Boot</text>
-      <text x="14" y="42" font-family="sans-serif" font-size="10" fill="#94A3B8">Local-first atomic JSON mode</text>
+      <text x="14" y="40" font-family="sans-serif" font-size="9.5" font-weight="600" fill="#34D399">Local-first atomic JSON mode</text>
 
       <!-- Terminal Screen -->
-      <rect x="14" y="54" width="187" height="66" rx="5" fill="#030A08" stroke="#10362B" stroke-width="0.8" />
-      <text x="22" y="74" font-family="ui-monospace, monospace" font-size="9.5" fill="#34D399">$ npm start</text>
-      <text x="22" y="92" font-family="ui-monospace, monospace" font-size="9" fill="#94A3B8">FeedbackOS ready :4173</text>
-      <text x="22" y="108" font-family="ui-monospace, monospace" font-size="8.5" fill="#6EE7B7">admin@feedbackos.local <tspan fill="#34D399" class="cursor-blink">_</tspan></text>
+      <rect x="12" y="52" width="201" height="70" rx="5" fill="#010A07" stroke="#0E3328" stroke-width="1" />
+      <circle cx="22" cy="62" r="2.5" fill="#EF4444" opacity="0.7" />
+      <circle cx="30" cy="62" r="2.5" fill="#F59E0B" opacity="0.7" />
+      <circle cx="38" cy="62" r="2.5" fill="#10B981" opacity="0.7" />
+      
+      <text x="18" y="80" font-family="ui-monospace, monospace" font-size="9.5" font-weight="700" fill="#34D399">$ npm start</text>
+      <text x="18" y="96" font-family="ui-monospace, monospace" font-size="8.5" fill="#94A3B8">FeedbackOS ready :4173</text>
+      <text x="18" y="110" font-family="ui-monospace, monospace" font-size="8.5" fill="#6EE7B7">admin@feedbackos.local <tspan fill="#34D399" class="tw-cursor">_</tspan></text>
 
-      <!-- Sub-label -->
+      <!-- Feature Checklist -->
       <text x="14" y="142" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">✓ Auto-seeds Super Admin</text>
-      <text x="14" y="158" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">✓ Zero database prerequisites</text>
-      <text x="14" y="174" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">✓ Complete UI fully interactive</text>
+      <text x="14" y="159" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">✓ Zero database prerequisites</text>
+      <text x="14" y="176" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">✓ 23 primitives fully active</text>
     </g>
   </g>
 
-  <!-- Milestone 02: Visual Builder & Schema -->
-  <g transform="translate(370, 92)">
-    <circle cx="0" cy="0" r="18" fill="#061E17" stroke="#34D399" stroke-width="2" class="milestone-active" />
-    <text x="0" y="5" text-anchor="middle" font-family="ui-monospace, monospace" font-size="11" font-weight="800" fill="#34D399">02</text>
+  <!-- Milestone 02: Visual Schema Builder (undo/redo engine) -->
+  <g transform="translate(380, 94)">
+    <!-- Milestone Station Node -->
+    <g class="tw-station-node">
+      <circle cx="0" cy="0" r="19" fill="#031610" stroke="#34D399" stroke-width="2.2" />
+      <circle cx="0" cy="0" r="23" stroke="#34D399" stroke-width="0.8" stroke-dasharray="3, 5" opacity="0.6" />
+      <text x="0" y="5" text-anchor="middle" font-family="ui-monospace, monospace" font-size="11" font-weight="800" fill="#34D399">02</text>
+    </g>
 
-    <!-- Card -->
-    <g transform="translate(-10, 30)">
-      <rect width="215" height="185" rx="8" fill="#081E19" stroke="#1A4F40" stroke-width="1" />
-      <text x="14" y="24" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="800" fill="#FFFFFF">Visual Builder</text>
-      <text x="14" y="42" font-family="sans-serif" font-size="10" fill="#94A3B8">23 question primitives &amp; logic</text>
+    <!-- Milestone Card -->
+    <g transform="translate(-15, 32)">
+      <rect width="225" height="195" rx="8" fill="#041611" stroke="url(#tw-glass-rim-emerald)" stroke-width="1.2" />
+      <rect x="0" y="0" width="225" height="1" fill="#34D399" fill-opacity="0.5" />
 
-      <!-- Mini Builder Preview -->
-      <g transform="translate(14, 54)">
-        <rect width="187" height="66" rx="5" fill="#030A08" stroke="#10362B" stroke-width="0.8" />
-        <rect x="8" y="10" width="171" height="20" rx="3" fill="#0C261F" stroke="#1E5C4A" stroke-width="0.6" />
-        <text x="16" y="24" font-family="sans-serif" font-size="8.5" font-weight="600" fill="#ECFDF5">Q1: NPS Scale (0-10)</text>
-        <rect x="8" y="36" width="171" height="20" rx="3" fill="#0C261F" stroke="#1E5C4A" stroke-width="0.6" />
-        <text x="16" y="50" font-family="sans-serif" font-size="8.5" font-weight="600" fill="#ECFDF5">Q2: Location Auto-Pin (BLR)</text>
+      <!-- Title & Category -->
+      <text x="14" y="24" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="800" fill="#FFFFFF">Visual Schema Builder</text>
+      <text x="14" y="40" font-family="sans-serif" font-size="9.5" font-weight="600" fill="#34D399">Undo/Redo &amp; DAG Logic Engine</text>
+
+      <!-- Mini Builder Canvas Preview -->
+      <g transform="translate(12, 52)">
+        <rect width="201" height="70" rx="5" fill="#010A07" stroke="#0E3328" stroke-width="1" />
+        <!-- Question item 1 -->
+        <rect x="8" y="8" width="185" height="23" rx="3" fill="#08231B" stroke="#16513F" stroke-width="0.8" />
+        <circle cx="18" cy="19" r="3" fill="#10B981" />
+        <text x="26" y="22" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="8.5" font-weight="700" fill="#ECFDF5">Q1: NPS Scale (0-10 Rating)</text>
+        <!-- Question item 2 with Skip Logic Indicator -->
+        <rect x="8" y="36" width="185" height="23" rx="3" fill="#08231B" stroke="#16513F" stroke-width="0.8" />
+        <circle cx="18" cy="47" r="3" fill="#38BDF8" />
+        <text x="26" y="50" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="8.5" font-weight="700" fill="#ECFDF5">Q2: Auto-Pin BLR Hub [Logic]</text>
+        <rect x="150" y="40" width="38" height="14" rx="2" fill="#0A3325" />
+        <text x="169" y="50" text-anchor="middle" font-family="ui-monospace, monospace" font-size="7.5" font-weight="700" fill="#34D399">DAG OK</text>
       </g>
 
+      <!-- Feature Checklist -->
       <text x="14" y="142" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">✓ Bounded Undo/Redo Engine</text>
-      <text x="14" y="158" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">✓ Conditional skip rule trees</text>
-      <text x="14" y="174" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">✓ Multi-language (?lang=)</text>
+      <text x="14" y="159" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">✓ Cycle-free DAG verification</text>
+      <text x="14" y="176" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">✓ Multi-language (?lang=)</text>
     </g>
   </g>
 
-  <!-- Milestone 03: Verification Gate -->
-  <g transform="translate(670, 92)">
-    <circle cx="0" cy="0" r="18" fill="#08202A" stroke="#38BDF8" stroke-width="2" class="milestone-active" />
-    <text x="0" y="5" text-anchor="middle" font-family="ui-monospace, monospace" font-size="11" font-weight="800" fill="#38BDF8">03</text>
+  <!-- Milestone 03: Verification Gate (59 suites, concurrency smoke) -->
+  <g transform="translate(680, 94)">
+    <!-- Milestone Station Node -->
+    <g class="tw-station-node">
+      <circle cx="0" cy="0" r="19" fill="#03151D" stroke="#38BDF8" stroke-width="2.2" />
+      <circle cx="0" cy="0" r="23" stroke="#38BDF8" stroke-width="0.8" stroke-dasharray="3, 5" opacity="0.6" />
+      <text x="0" y="5" text-anchor="middle" font-family="ui-monospace, monospace" font-size="11" font-weight="800" fill="#38BDF8">03</text>
+    </g>
 
-    <!-- Card -->
-    <g transform="translate(-10, 30)">
-      <rect width="215" height="185" rx="8" fill="#081E24" stroke="#164A59" stroke-width="1" />
+    <!-- Milestone Card -->
+    <g transform="translate(-15, 32)">
+      <rect width="225" height="195" rx="8" fill="#03141C" stroke="url(#tw-glass-rim-cyan)" stroke-width="1.2" />
+      <rect x="0" y="0" width="225" height="1" fill="#38BDF8" fill-opacity="0.5" />
+
+      <!-- Title & Category -->
       <text x="14" y="24" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="800" fill="#FFFFFF">Verification Gate</text>
-      <text x="14" y="42" font-family="sans-serif" font-size="10" fill="#94A3B8">Automated test &amp; load harness</text>
+      <text x="14" y="40" font-family="sans-serif" font-size="9.5" font-weight="600" fill="#38BDF8">Test Suite &amp; Concurrency Smoke</text>
 
-      <!-- Terminal Test Suite Box -->
-      <rect x="14" y="54" width="187" height="66" rx="5" fill="#030D11" stroke="#0E3844" stroke-width="0.8" />
-      <text x="22" y="74" font-family="ui-monospace, monospace" font-size="9" fill="#38BDF8">$ npm test</text>
-      <text x="22" y="92" font-family="ui-monospace, monospace" font-size="9" fill="#7DD3FC">✔ 59 suites passed (0 fail)</text>
-      <text x="22" y="108" font-family="ui-monospace, monospace" font-size="8.5" fill="#34D399" class="check-fade">✔ Concurrency smoke: &lt;1.2ms</text>
+      <!-- Terminal Test Suite Screen -->
+      <rect x="12" y="52" width="201" height="70" rx="5" fill="#010B10" stroke="#0E3847" stroke-width="1" />
+      <circle cx="22" cy="62" r="2.5" fill="#EF4444" opacity="0.7" />
+      <circle cx="30" cy="62" r="2.5" fill="#F59E0B" opacity="0.7" />
+      <circle cx="38" cy="62" r="2.5" fill="#38BDF8" opacity="0.7" />
 
+      <text x="18" y="80" font-family="ui-monospace, monospace" font-size="9" font-weight="700" fill="#38BDF8">$ npm test</text>
+      <text x="18" y="96" font-family="ui-monospace, monospace" font-size="8.5" fill="#7DD3FC" class="tw-check">✔ 59 suites passed (0 fail)</text>
+      <text x="18" y="110" font-family="ui-monospace, monospace" font-size="8.5" fill="#34D399" class="tw-check">✔ Concurrency smoke: &lt;1.2ms</text>
+
+      <!-- Feature Checklist -->
       <text x="14" y="142" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">✓ 39 PostgreSQL tables pass</text>
-      <text x="14" y="158" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">✓ Checksum JSON backup test</text>
-      <text x="14" y="174" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">✓ Headless visual smoke clean</text>
+      <text x="14" y="159" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">✓ Checksum JSON backup audit</text>
+      <text x="14" y="176" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">✓ Headless visual smoke clean</text>
     </g>
   </g>
 
-  <!-- Milestone 04: Production Cutover -->
-  <g transform="translate(970, 92)">
-    <circle cx="0" cy="0" r="18" fill="#1C1833" stroke="#A78BFA" stroke-width="2" class="milestone-active" />
-    <text x="0" y="5" text-anchor="middle" font-family="ui-monospace, monospace" font-size="11" font-weight="800" fill="#A78BFA">04</text>
+  <!-- Milestone 04: Production Cutover (Railway single-replica) -->
+  <g transform="translate(980, 94)">
+    <!-- Milestone Station Node -->
+    <g class="tw-station-node">
+      <circle cx="0" cy="0" r="19" fill="#130F24" stroke="#A78BFA" stroke-width="2.2" />
+      <circle cx="0" cy="0" r="23" stroke="#A78BFA" stroke-width="0.8" stroke-dasharray="3, 5" opacity="0.6" />
+      <text x="0" y="5" text-anchor="middle" font-family="ui-monospace, monospace" font-size="11" font-weight="800" fill="#A78BFA">04</text>
+    </g>
 
-    <!-- Card -->
-    <g transform="translate(-10, 30)">
-      <rect width="215" height="185" rx="8" fill="#141226" stroke="#372F5E" stroke-width="1" />
+    <!-- Milestone Card -->
+    <g transform="translate(-15, 32)">
+      <rect width="225" height="195" rx="8" fill="#100D20" stroke="url(#tw-glass-rim-violet)" stroke-width="1.2" />
+      <rect x="0" y="0" width="225" height="1" fill="#A78BFA" fill-opacity="0.5" />
+
+      <!-- Title & Category -->
       <text x="14" y="24" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="800" fill="#FFFFFF">Production Cutover</text>
-      <text x="14" y="42" font-family="sans-serif" font-size="10" fill="#94A3B8">Railway / Docker deployment</text>
+      <text x="14" y="40" font-family="sans-serif" font-size="9.5" font-weight="600" fill="#A78BFA">Railway / Single-Replica Edge</text>
 
       <!-- Deploy Badge Screen -->
-      <rect x="14" y="54" width="187" height="66" rx="5" fill="#090814" stroke="#221D42" stroke-width="0.8" />
-      <text x="22" y="74" font-family="ui-monospace, monospace" font-size="9" fill="#A78BFA">$ railway up</text>
-      <text x="22" y="92" font-family="ui-monospace, monospace" font-size="8.5" fill="#C7D2FE">Advisory lock: GRANTED</text>
-      <text x="22" y="108" font-family="ui-monospace, monospace" font-size="8.5" fill="#34D399">Deploy: HEALTHY (numRep: 1)</text>
+      <rect x="12" y="52" width="201" height="70" rx="5" fill="#070512" stroke="#261E47" stroke-width="1" />
+      <circle cx="22" cy="62" r="2.5" fill="#EF4444" opacity="0.7" />
+      <circle cx="30" cy="62" r="2.5" fill="#F59E0B" opacity="0.7" />
+      <circle cx="38" cy="62" r="2.5" fill="#A78BFA" opacity="0.7" />
 
+      <text x="18" y="80" font-family="ui-monospace, monospace" font-size="9" font-weight="700" fill="#A78BFA">$ railway up</text>
+      <text x="18" y="96" font-family="ui-monospace, monospace" font-size="8.5" fill="#C7D2FE">Advisory lock: GRANTED (0x464F)</text>
+      <text x="18" y="110" font-family="ui-monospace, monospace" font-size="8.5" fill="#34D399">Deploy: HEALTHY (numRep: 1)</text>
+
+      <!-- Feature Checklist -->
       <text x="14" y="142" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">✓ Single-writer architecture</text>
-      <text x="14" y="158" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">✓ Sentry exception telemetry</text>
-      <text x="14" y="174" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">✓ BullMQ async worker pool</text>
+      <text x="14" y="159" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">✓ BullMQ worker job pool</text>
+      <text x="14" y="176" font-family="sans-serif" font-size="9.5" fill="#CBD5E1">✓ Sentry real-time telemetry</text>
     </g>
+  </g>
+
+  <!-- Bottom Telemetry Footer Strip -->
+  <g transform="translate(550, 345)" text-anchor="middle">
+    <rect x="-420" y="-12" width="840" height="24" rx="12" fill="#04140F" stroke="#0E3328" stroke-width="0.8" />
+    <circle cx="-380" cy="0" r="3" fill="#10B981" />
+    <text x="0" y="4" font-family="ui-monospace, monospace" font-size="9.5" fill="#94A3B8">
+      DECOYINDIA RUNWAY METRICS: 59/59 SUITES PASSING • 100% REGRESSION-FREE • P99 LATENCY &lt; 1.2ms • ARCHITECT: SUBHAM JENA
+    </text>
   </g>
 </svg>
