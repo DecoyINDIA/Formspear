@@ -120,7 +120,7 @@
       <text x="22" y="70" font-family="ui-monospace, monospace" font-size="8.5" fill="#818CF8">DATABASE_URL=postgres</text>
       <text x="22" y="86" font-family="ui-monospace, monospace" font-size="8.5" fill="#94A3B8">39 tables • Advisory lock</text>
 
-      <text x="14" y="118" font-family="sans-serif" font-size="9" fill="#CBD5E1">✓ BullMQ worker active</text>
+      <text x="14" y="118" font-family="sans-serif" font-size="9" fill="#CBD5E1">✓ In-process jobs (single writer)</text>
       <text x="14" y="134" font-family="sans-serif" font-size="9" fill="#CBD5E1">✓ S3 SigV4 &amp; EICAR clean</text>
     </g>
   </g>

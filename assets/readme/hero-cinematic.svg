@@ -122,10 +122,18 @@
   <!-- Outer Border -->
   <rect x="1" y="1" width="1198" height="498" rx="15" fill="none" stroke="#1F473B" stroke-width="1.5" stroke-opacity="0.6" />
 
-  <!-- Background Telemetry Radar Ring -->
+  <!-- Background Telemetry Radar Ring with Precision Ticks -->
   <circle cx="600" cy="145" r="180" stroke="#13362C" stroke-width="1" stroke-dasharray="4, 6" opacity="0.4" />
   <circle cx="600" cy="145" r="120" stroke="#19473A" stroke-width="1" stroke-dasharray="2, 4" opacity="0.6" />
   <circle class="pulse-ring-anim" cx="600" cy="145" r="75" stroke="#34D399" stroke-width="1.5" fill="none" opacity="0.3" />
+
+  <!-- Calibration Ticks on 120px Radius -->
+  <g stroke="#10B981" stroke-width="1.2" opacity="0.6">
+    <line x1="600" y1="20" x2="600" y2="30" />
+    <line x1="600" y1="260" x2="600" y2="270" />
+    <line x1="475" y1="145" x2="485" y2="145" />
+    <line x1="715" y1="145" x2="725" y2="145" />
+  </g>
 
   <!-- Glowing Aura Backing the Spear -->
   <circle cx="600" cy="145" r="90" fill="url(#spear-core-glow)" filter="url(#soft-blur)" />
@@ -143,6 +151,8 @@
     <!-- Inner Forward Spear Thrust -->
     <polygon points="600,92 636,145 600,182 584,145" fill="url(#spear-grad)" opacity="0.9" />
     <polygon points="600,92 564,145 600,182 616,145" fill="#047857" opacity="0.6" />
+    <!-- Center Spine & Razor Apex -->
+    <line x1="600" y1="80" x2="600" y2="195" stroke="#ECFDF5" stroke-width="1.5" opacity="0.85" />
     <!-- Central Energy Core -->
     <circle cx="600" cy="145" r="5" fill="#ECFDF5" filter="url(#glow-blur)" />
   </g>

@@ -5,37 +5,38 @@
 <p align="center">
   <a href="#quick-start"><img src="https://img.shields.io/badge/Runtime-Node.js_%3E%3D20-10B981?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js >= 20" /></a>
   <a href="#system-architecture--data-engine"><img src="https://img.shields.io/badge/Architecture-Dual--Store_(RAM%20%2B%20PostgreSQL)-38BDF8?style=for-the-badge&logo=postgresql&logoColor=white" alt="Dual Store" /></a>
+  <a href="#validated-performance-benchmarks"><img src="https://img.shields.io/badge/Respondent_Bundle-9.8_KB_Gzip-A78BFA?style=for-the-badge&logo=speedtest&logoColor=white" alt="Respondent Bundle" /></a>
   <a href="#production-deployment-position"><img src="https://img.shields.io/badge/Deploy-Railway_Ready-818CF8?style=for-the-badge&logo=railway&logoColor=white" alt="Railway Ready" /></a>
-  <a href="#quality-verification--performance-smoke"><img src="https://img.shields.io/badge/Benchmark-100k_Responses_Tested-F59E0B?style=for-the-badge&logo=speedtest&logoColor=white" alt="100k Responses Tested" /></a>
+  <a href="#quality-verification--automated-gates"><img src="https://img.shields.io/badge/Benchmark-100k_Responses_Tested-F59E0B?style=for-the-badge&logo=speedtest&logoColor=white" alt="100k Responses Tested" /></a>
   <a href="#license"><img src="https://img.shields.io/badge/License-MIT-34D399?style=for-the-badge" alt="MIT License" /></a>
 </p>
 
 ---
 
 <p align="center">
-  <img src="assets/readme/metrics-ribbon.svg" alt="Formspear Core Telemetry Ribbon" width="100%" />
+  <img src="assets/readme/metrics-ribbon.svg" alt="Formspear Verified Telemetry Ribbon" width="100%" />
 </p>
 
 ---
 
 ## Executive Summary
 
-**Formspear** (internally *FeedbackOS*) is a high-performance feedback, survey operations, and intelligence platform built on a zero-framework Node.js 20 runtime. It is engineered for multi-branch service enterprises, healthcare networks, retail chains, and customer experience agencies that require instant feedback collection, live sentiment extraction, automated alert dispatching, and executive PDF reporting without the latency and bloat of heavyweight SaaS frameworks.
+**Formspear** (internally *FeedbackOS*) is a high-performance feedback operations platform engineered on a zero-framework Node.js 20 runtime. It is designed specifically for multi-branch service networks—clinics, coaching academies, retail chains, and customer experience consultancies—that require immediate feedback capture, branch attribution, automated escalation dispatching, and executive PDF reporting without the latency, bloated bundles, and subscription tax of legacy survey software.
 
-Unlike conventional survey tools that treat submissions as passive rows in a database, Formspear operates as a **real-time feedback operating system**:
+Conventional survey products treat customer submissions as passive rows in a database. Formspear operates as a **closed-loop feedback operating system**:
 
-1. **Instant Collection:** Deploy across mobile PWAs (`/s/:slug`), website embeds (`/embed.js`), in-app SDKs (`/sdk.js`), and branded dynamic QR codes.
-2. **Sub-Millisecond Ingestion:** In-memory synchronous collection cache guarantees `<1ms` read/write latency during peak customer traffic.
-3. **Automated Dispatch:** Dispatches immediate WhatsApp, Slack, Teams, and HMAC-signed webhook notifications the second a negative score or VIP lead arrives.
-4. **Relational Resilience:** Automatically diffs and synchronizes in-memory mutations into PostgreSQL relational tables using single-writer advisory locks.
+1. **Lightweight Edge Capture:** Deploys across ultra-lean mobile PWAs (`/s/:slug`, 9.8 KB gzip), website embeds (`/embed.js`), in-app SDKs (`/sdk.js`), and branded dynamic QR codes.
+2. **Sub-Millisecond Ingestion:** In-memory synchronous collection engine processes incoming submissions with `<1.2ms` execution latency during peak customer arrival bursts.
+3. **Automated Escalation Router:** Dispatches real-time WhatsApp, Slack, Teams, and HMAC-signed webhook alerts the moment a negative rating or VIP lead is recorded.
+4. **Relational Resilience:** Persists state through 5ms debounced shadow diffs into PostgreSQL relational tables protected by single-writer advisory locks.
 
 <p align="center">
   <img src="assets/readme/divider-pulse.svg" width="100%" />
 </p>
 
-## Brand Identity & Architectural Philosophy
+## Brand Identity & Geometric Anatomy
 
-Formspear represents the convergence of architectural structure (**Form**) and directional velocity (**Spear**).
+Formspear embodies the synthesis of structural discipline (**Form**) and directional velocity (**Spear**).
 
 <p align="center">
   <img src="assets/readme/brand-identity.svg" alt="Formspear Brand Identity &amp; Geometric Anatomy" width="100%" />
@@ -43,14 +44,15 @@ Formspear represents the convergence of architectural structure (**Form**) and d
 
 ### The Core Tension Solved
 
-| Dimension | Legacy Form Builders (Typeform, Google Forms) | Formspear FeedbackOS |
+| Architectural Dimension | Legacy Survey Tools (Typeform, SurveyMonkey) | Formspear FeedbackOS |
 | :--- | :--- | :--- |
-| **Runtime Footprint** | Heavy front-end bundles, multiple third-party trackers | **Zero external web framework** (`node:http`), vanilla JS client |
+| **Runtime Footprint** | Heavy front-end bundles (200KB–1MB+), third-party trackers | **Zero external web framework** (`node:http`), vanilla client (<10KB gzip) |
 | **Storage Paradigm** | Database-per-call ORM overhead (100–300ms latency) | **Dual-Store Architecture** (RAM state + PostgreSQL shadow diffs) |
-| **Multi-Branch Telemetry**| Monolithic survey buckets; manual branch sorting | **Native branch/location attribution** (BLR, BOM, DEL, HYD) |
-| **Alert Velocity** | Batch emails or Zapier polling (minutes delay) | **Sub-12ms event router** to WhatsApp, Slack, & webhooks |
-| **File Security** | Files uploaded directly to storage uninspected | **Zero-Trust Quarantine Pipeline** with EICAR antivirus hook |
-| **Offline Resilience** | Browser crash loses participant responses | **Partial autosave, resume links, & reload recovery** |
+| **Multi-Branch Attribution** | Monolithic survey buckets; manual branch tagging | **Native branch/location dimensions** (`BLR`, `BOM`, `DEL`, `HYD`) |
+| **Alert Velocity** | Batch emails or polling-based Zapier/Make webhooks (minutes delay) | **Sub-12ms event router** to WhatsApp Cloud API, Slack, & webhooks |
+| **File Security** | Direct uploads to public cloud buckets uninspected | **Zero-Trust Quarantine Pipeline** with EICAR antivirus hook |
+| **Offline Resilience** | Browser refresh loses unfinished survey progress | **Partial autosave, resume tokens, & crash reload recovery** |
+| **Infrastructure Cost** | Per-response billing tiers and complex multi-tier SaaS | **Single Node.js process** with predictable RAM and compute footprint |
 
 <p align="center">
   <img src="assets/readme/divider-pulse.svg" width="100%" />
@@ -66,26 +68,30 @@ Watch how Formspear ingests a live public submission, performs zero-trust valida
 
 ### Authentic Production Interface Evidence
 
-Formspear includes a complete, fully operational single-page application and responsive public survey runtime. Captured directly from the automated visual smoke pipeline:
+Formspear includes an operational single-page application dashboard and a standalone mobile respondent runtime. Captured directly from the automated visual regression pipeline:
 
 <table align="center" width="100%">
   <tr>
-    <td width="50%" align="center">
+    <td width="50%" align="center" valign="top">
       <b>Operator Analytics &amp; Real-Time Dashboard</b><br />
+      <sub>Comparative branch NPS leaderboards, response volumes, and sentiment tracking.</sub><br /><br />
       <img src="assets/readme/desktop-dashboard.png" alt="Desktop Dashboard Screenshot" width="100%" />
     </td>
-    <td width="50%" align="center">
+    <td width="50%" align="center" valign="top">
       <b>Interactive Builder with Undo / Redo History</b><br />
+      <sub>23 question types, visual skip logic, multi-page grouping, and bounded undo stack.</sub><br /><br />
       <img src="assets/readme/desktop-builder.png" alt="Desktop Builder Screenshot" width="100%" />
     </td>
   </tr>
   <tr>
-    <td width="50%" align="center">
+    <td width="50%" align="center" valign="top">
       <b>Multi-Tenant App Shell &amp; Workspace Navigation</b><br />
+      <sub>Agency portfolio view, team roles, billing subscriptions, and API keys.</sub><br /><br />
       <img src="assets/readme/desktop-app-shell.png" alt="Desktop App Shell Screenshot" width="100%" />
     </td>
-    <td width="50%" align="center">
+    <td width="50%" align="center" valign="top">
       <b>Mobile Public Survey Respondent Runtime</b><br />
+      <sub>Instant loading (9.8 KB gzip), touch-optimized ratings, autosave, and multi-language support.</sub><br /><br />
       <img src="assets/readme/mobile-public-survey.png" alt="Mobile Public Survey Screenshot" width="70%" />
     </td>
   </tr>
@@ -97,27 +103,27 @@ Formspear includes a complete, fully operational single-page application and res
 
 ## Core Engineering Capabilities
 
-Four dedicated architectural engines drive Formspear's enterprise operational loop:
+Four dedicated architectural engines drive Formspear's operational loop:
 
 <p align="center">
   <img src="assets/readme/feature-showcase.svg" alt="Formspear Core Capabilities Matrix" width="100%" />
 </p>
 
 ### 1. Dynamic Branching & Conditional Logic Engine
-- **23 Question Types:** Net Promoter Score (NPS), CSAT rating, multi-select, matrix grid, file upload, signature capture, date/time, and ranked choice.
-- **Forward Skip Logic:** Dynamically skip pages or jump straight to conclusion screens based on real-time answer rules.
-- **Cycle-Free Rule Graph:** Client and server-side validation guarantee rules never enter cyclic dependency loops.
+- **23 Question Types:** Net Promoter Score (NPS), CSAT rating, multi-select, matrix grid, file upload, digital signature capture, date/time, and ranked choice.
+- **Forward Skip Logic:** Dynamically skip intermediate pages or jump straight to conclusion screens based on real-time answer rules.
+- **Cycle-Free Rule Graph:** Client and server-side validation guarantee branching logic never enters infinite loops or unresolved states.
 - **Multi-Language Support:** Instant localization via `?lang=` query parameters with deterministic translation fallbacks.
 
 ### 2. Multi-Branch Telemetry & Geospatial Attribution
-- **Location Pinning:** Attaches physical location, branch ID, city, device type, and source campaign to every submission.
-- **Comparative Benchmarking:** Real-time cross-branch leaderboards identify high-performing locations versus branches needing attention.
+- **Location Pinning:** Attaches physical branch ID, city, device type, and source campaign to every submission.
+- **Comparative Benchmarking:** Real-time cross-branch leaderboards identify high-performing locations versus branches requiring operational coaching.
 - **Drop-Off Analytics:** Visual funnel analysis highlights exact question abandonment rates across mobile and desktop.
 
 ### 3. Zero-Trust File Quarantine Pipeline
 - **Scan-Before-Store Policy:** Ingested files are quarantined in temporary memory buffers prior to storage persistence.
 - **Antivirus Hook:** Integrated EICAR heuristic signature verification and local MIME denylists block malicious uploads.
-- **Object Storage Integration:** AWS S3 and Cloudflare R2 compatible storage via hand-rolled SigV4 client signer.
+- **Object Storage Integration:** AWS S3 and Cloudflare R2 compatible storage via a hand-rolled SigV4 client signer.
 
 ### 4. Real-Time Alert & Integration Hub
 - **Instant Escalation:** Trigger rules evaluate ratings in `<12ms`, dispatching WhatsApp messages to branch managers.
@@ -156,16 +162,57 @@ Formspear is built around a single-process, zero-framework Node.js runtime that 
 - `src/server.js`: HTTP composition root, request routing, session security, and persistence lifecycle.
 - `src/production-config.js`: Strict fail-closed environment contract ensuring all secrets are validated at boot.
 - `src/security.js`: Timing-safe password verification, token hashing, CSRF defenses, and HTTP-only cookie headers.
+- `src/repos/`: Repository boundary decoupling high-volume collections (`responses`, `jobs`, `auditLogs`) into direct SQL persistence.
 - `src/routes/`: Focused domain route controllers:
   - `src/routes/responses.js`: Filtered response listings, record mutations, and single-record PDF exports.
   - `src/routes/analytics.js`: Comparative NPS calculations, funnel drops, and cross-survey benchmarks.
-  - `src/routes/ai-summary.js`: LLM theme clustering, sentiment classification, and executive report synthesis.
+  - `src/routes/ai-summary.js`: Honest LLM theme clustering, sentiment classification, and executive report synthesis.
   - `src/routes/billing.js`: Stripe & Razorpay checkout, customer portal, and GST/tax-aware invoices.
   - `src/routes/admin-readiness.js`: Protected production readiness audits without credential leakage.
 - `public/builder-history.js`: Pure, tested undo/redo state stack for the visual survey editor.
+- `public/survey.html` & `public/survey.js`: Isolated public respondent runtime (<10KB gzip) with zero dashboard dependencies.
+- `public/app.js`: Single-page operator application and dashboard composition root.
 
 > [!IMPORTANT]
-> **Single-Writer Posture**: Formspear is architected with a single writer process protected by a PostgreSQL advisory lock. Scale the web tier to 1 replica. Background jobs, scheduled sweeps, and webhook retries run in-process or can be offloaded to Redis/BullMQ.
+> **Single-Writer Posture**: Formspear is architected with a single writer process protected by a PostgreSQL advisory lock (`pg_try_advisory_lock`). Scale the web tier to 1 replica (`railway.json` `numReplicas: 1`). Background jobs, scheduled sweeps, and webhook retries run reliably in-process or can be routed to BullMQ.
+
+<p align="center">
+  <img src="assets/readme/divider-pulse.svg" width="100%" />
+</p>
+
+## Quality Verification & Automated Gates
+
+Formspear enforces a rigorous local verification gate covering unit tests, migrations, relational PostgreSQL backfill, and high-concurrency benchmarks:
+
+```bash
+# 1. Syntax & Migration Integrity Checks
+npm run check
+npm run migrations:check
+
+# 2. End-to-End HTTP Suite (59 suites covering full SaaS lifecycle)
+npm test
+
+# 3. High-Concurrency Submission & Dashboard Pagination Smoke
+npm run performance:smoke
+npm run performance:budget
+
+# 4. Atomic Backup & Restore Verification
+npm run backup:smoke
+
+# 5. Visual Regression & Headless Chrome Smoke
+npm run visual:smoke
+```
+
+<p align="center">
+  <img src="assets/readme/interactive-radar.svg" alt="Formspear Interactive Diagnostic Radar" width="100%" />
+</p>
+
+### Validated Performance Benchmarks
+
+- **100 Concurrent Submissions / Second:** Zero dropped packets, memory remains flat, synchronous collection update in `<1.2ms`.
+- **9.8 KB Gzip Respondent Bundle:** Public respondent runtime (`survey.html` + `survey.js` + `styles.css`) is 9,803 bytes gzipped—well under the 20 KB mobile performance budget.
+- **100,000 Response Pagination:** Dashboard queries with date, branch, and sentiment filtering complete under `191ms`.
+- **Relational Shadow Diff:** Compares 36 in-memory collections and issues minimal SQL upserts within a 5ms debounce window.
 
 <p align="center">
   <img src="assets/readme/divider-pulse.svg" width="100%" />
@@ -235,42 +282,6 @@ RAZORPAY_KEY_SECRET=...
   <img src="assets/readme/divider-pulse.svg" width="100%" />
 </p>
 
-## Quality Verification & Performance Smoke
-
-Formspear enforces a rigorous local verification gate covering unit tests, migrations, relational PostgreSQL backfill, and high-concurrency benchmarks:
-
-```bash
-# 1. Syntax & Migration Integrity Checks
-npm run check
-npm run migrations:check
-
-# 2. End-to-End HTTP Suite (2,500+ lines covering full SaaS lifecycle)
-npm test
-
-# 3. High-Concurrency Submission & Dashboard Pagination Smoke
-npm run performance:smoke
-npm run performance:budget
-
-# 4. Atomic Backup & Restore Verification
-npm run backup:smoke
-
-# 5. Visual Regression & Headless Chrome Smoke
-npm run visual:smoke
-```
-
-<p align="center">
-  <img src="assets/readme/interactive-radar.svg" alt="Formspear Interactive Diagnostic Radar" width="100%" />
-</p>
-
-### Validated Performance Benchmarks
-- **100 Concurrent Submissions / Second:** Zero dropped packets, memory remains flat, synchronous collection update in `<1.2ms`.
-- **100,000 Response Pagination:** Dashboard queries with date, branch, and sentiment filtering complete under `18ms`.
-- **Relational Shadow Diff:** Compares 36 in-memory collections and issues minimal SQL upserts within a 5ms debounce window.
-
-<p align="center">
-  <img src="assets/readme/divider-pulse.svg" width="100%" />
-</p>
-
 ## REST API Reference
 
 Formspear exposes an enterprise-grade REST API accessible via scoped Bearer tokens created in the workspace settings.
@@ -330,6 +341,10 @@ Refer to [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) and [`docs/LAUNCH_CHECKLIST.
 │   ├── server.js                     # HTTP server, composition root, persistence adapter
 │   ├── production-config.js          # Fail-closed environment contracts
 │   ├── security.js                   # Timing-safe auth, crypto, and security headers
+│   ├── repos/                        # Repository layer for high-volume collections
+│   │   ├── audit-logs-repo.js        # Append-only audit logs persistence
+│   │   ├── jobs-repo.js              # Durable job queue persistence
+│   │   └── responses-repo.js         # Relational response storage
 │   └── routes/                       # Modular, context-injected route controllers
 │       ├── admin-readiness.js        # Protected operations health audits
 │       ├── ai-summary.js             # LLM sentiment & theme clustering
@@ -339,21 +354,25 @@ Refer to [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) and [`docs/LAUNCH_CHECKLIST.
 │       └── responses.js              # Response filtering & PDF exports
 ├── public/
 │   ├── index.html                    # App shell
-│   ├── app.js                        # Single-page dashboard & respondent runtime
+│   ├── app.js                        # Single-page dashboard
 │   ├── builder-history.js            # Independent undo/redo history engine
+│   ├── survey.html                   # Isolated respondent runtime shell
+│   ├── survey.js                     # Lean respondent client (<10KB gzip)
 │   ├── styles.css                    # Responsive dark/light theme CSS
 │   ├── embed.js                      # Website iframe embed script
 │   └── sdk.js                        # In-app event trigger & targeting SDK
 ├── assets/
 │   └── readme/                       # Original SVG animations & visual assets
 ├── migrations/
-│   └── 0001_initial_postgres.sql     # 39-table relational baseline
+│   ├── 0001_initial_postgres.sql     # 39-table relational baseline
+│   └── 0002_add_missing_fields.sql   # Relational parity migration
 ├── scripts/
 │   ├── performance-smoke.js          # High-concurrency load benchmark
+│   ├── performance-budget.js         # Gzip asset size enforcement
 │   ├── verify-migrations.js          # Static SQL migration gate
 │   └── backup-restore-smoke.js       # Checksum-verified JSON backup smoke
 ├── tests/
-│   └── server.test.js                # 2,500+ line end-to-end HTTP test suite
+│   └── server.test.js                # 59 passing end-to-end HTTP test suites
 └── docs/                             # Architecture specs, audits, & runbooks
 ```
 
@@ -371,7 +390,8 @@ Refer to [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) and [`docs/LAUNCH_CHECKLIST.
   <a href="docs/API.md"><b>API Documentation</b></a> •
   <a href="docs/ARCHITECTURE.md"><b>Architecture Guide</b></a> •
   <a href="docs/DEPLOYMENT.md"><b>Deployment Runbook</b></a> •
-  <a href="docs/SECURITY_AND_PRIVACY.md"><b>Security &amp; Privacy</b></a>
+  <a href="docs/SECURITY_AND_PRIVACY.md"><b>Security &amp; Privacy</b></a> •
+  <a href="docs/OPERATIONS_RUNBOOK.md"><b>Operations Runbook</b></a>
 </p>
 
 <p align="center">
