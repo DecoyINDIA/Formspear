@@ -1,654 +1,257 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 600" width="100%" height="100%" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 520" width="100%" height="100%" fill="none">
   <defs>
-    <!-- Liquid Glass Lens Filter (feTurbulence, feDisplacementMap, feSpecularLighting) -->
-    <filter id="liquid-glass-lens" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
-      <feTurbulence type="fractalNoise" baseFrequency="0.015 0.015" numOctaves="3" result="noise" />
-      <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G" result="displaced" />
-      <feSpecularLighting in="noise" surfaceScale="2" specularConstant="1.2" specularExponent="24" lighting-color="#FFFFFF" result="specular">
-        <feDistantLight azimuth="225" elevation="60" />
-      </feSpecularLighting>
-      <feComposite in="specular" in2="SourceAlpha" operator="in" result="specular-clipped" />
-      <feBlend in="displaced" in2="specular-clipped" mode="screen" />
-    </filter>
-
-    <!-- Glass Refractive Glow -->
-    <filter id="glass-glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="8" result="blur" />
-      <feComposite in="SourceGraphic" in2="blur" operator="over" />
-    </filter>
-
-    <!-- Deep Ambient Glow Filter -->
-    <filter id="aurora-blur" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="65" />
-    </filter>
-
-    <!-- Hologram Laser Glow Filter -->
-    <filter id="laser-glow" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="4" result="glow" />
-      <feMerge>
-        <feMergeNode in="glow" />
-        <feMergeNode in="SourceGraphic" />
-      </feMerge>
-    </filter>
-
-    <!-- Gradients -->
-    <radialGradient id="fs-canvas-glow" cx="50%" cy="30%" r="70%">
-      <stop offset="0%" stop-color="#0E2D24" stop-opacity="0.35" />
-      <stop offset="50%" stop-color="#071914" stop-opacity="0.15" />
-      <stop offset="100%" stop-color="#030706" stop-opacity="0" />
+    <radialGradient id="quad-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#05100E" stop-opacity="0" />
     </radialGradient>
-
-    <!-- Liquid Glass Surface Gradient -->
-    <linearGradient id="glass-card-bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0B231C" stop-opacity="0.75" />
-      <stop offset="50%" stop-color="#071813" stop-opacity="0.82" />
-      <stop offset="100%" stop-color="#04100D" stop-opacity="0.9" />
-    </linearGradient>
-
-    <!-- Chamfered Specular Rim Highlight Gradient -->
-    <linearGradient id="glass-rim-gleam" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.75" />
-      <stop offset="25%" stop-color="#34D399" stop-opacity="0.5" />
-      <stop offset="65%" stop-color="#059669" stop-opacity="0.2" />
-      <stop offset="100%" stop-color="#38BDF8" stop-opacity="0.35" />
-    </linearGradient>
-
-    <!-- Specular Top White Sheen -->
-    <linearGradient id="specular-top-sheen" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0" />
-      <stop offset="20%" stop-color="#FFFFFF" stop-opacity="0.8" />
-      <stop offset="60%" stop-color="#34D399" stop-opacity="0.6" />
-      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
-    </linearGradient>
-
-    <!-- Chromatic Prism Edge Gradient -->
-    <linearGradient id="chromatic-prism-edge" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.6" />
-      <stop offset="50%" stop-color="#10B981" stop-opacity="0.2" />
-      <stop offset="100%" stop-color="#F43F5E" stop-opacity="0.5" />
-    </linearGradient>
-
-    <!-- Laser Beam Gradient -->
-    <linearGradient id="laser-scan-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#34D399" stop-opacity="0" />
-      <stop offset="45%" stop-color="#34D399" stop-opacity="0.35" />
-      <stop offset="50%" stop-color="#6EE7B7" stop-opacity="0.95" />
-      <stop offset="55%" stop-color="#34D399" stop-opacity="0.35" />
-      <stop offset="100%" stop-color="#34D399" stop-opacity="0" />
-    </linearGradient>
-
-    <!-- Radar Sector Sweep Gradient -->
-    <radialGradient id="radar-sweep-cone" cx="0%" cy="0%" r="100%">
-      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.5" />
-      <stop offset="80%" stop-color="#38BDF8" stop-opacity="0.1" />
-      <stop offset="100%" stop-color="#38BDF8" stop-opacity="0" />
-    </radialGradient>
-
-    <!-- Bar Gradients -->
-    <linearGradient id="bar-blr-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#059669" />
-      <stop offset="100%" stop-color="#34D399" />
-    </linearGradient>
-    <linearGradient id="bar-bom-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#0284C7" />
-      <stop offset="100%" stop-color="#38BDF8" />
-    </linearGradient>
-    <linearGradient id="bar-hyd-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#6366F1" />
-      <stop offset="100%" stop-color="#A78BFA" />
-    </linearGradient>
-    <linearGradient id="bar-del-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#D97706" />
-      <stop offset="100%" stop-color="#FCD34D" />
+    <linearGradient id="q-border" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2D5A4D" />
+      <stop offset="100%" stop-color="#122923" />
     </linearGradient>
 
     <style>
-      /* Base Keyframes */
-      @keyframes logic-packet-stream {
-        0% { stroke-dashoffset: 160; opacity: 0.3; }
+      /* Quadrant 1: Branching Motion */
+      @keyframes branch-flow-a {
+        0% { stroke-dashoffset: 80; opacity: 0.2; }
         50% { stroke-dashoffset: 0; opacity: 1; }
-        100% { stroke-dashoffset: -160; opacity: 0.3; }
+        100% { stroke-dashoffset: -80; opacity: 0.2; }
       }
-      @keyframes decision-particle-flow {
-        0% { offset-distance: 0%; opacity: 0; }
-        15% { opacity: 1; }
-        85% { opacity: 1; }
-        100% { offset-distance: 100%; opacity: 0; }
+      @keyframes node-activate {
+        0%, 30% { fill: #132C25; stroke: #235245; }
+        40%, 80% { fill: #064E3B; stroke: #34D399; }
+        90%, 100% { fill: #132C25; stroke: #235245; }
       }
-      @keyframes node-beacon-pulse {
-        0%, 100% { fill: #082019; stroke: #1D5C4B; filter: drop-shadow(0 0 2px rgba(52,211,153,0.2)); }
-        50% { fill: #0B3327; stroke: #34D399; filter: drop-shadow(0 0 8px rgba(52,211,153,0.7)); }
-      }
-      @keyframes radar-beam-rotation {
+
+      /* Quadrant 2: Radar Sweep */
+      @keyframes radar-rotate {
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
       }
-      @keyframes blip-wave-pulse {
-        0%, 100% { r: 3.5px; opacity: 0.6; }
-        50% { r: 5.5px; opacity: 1; }
-      }
-      @keyframes blip-ring-expand {
-        0% { r: 4px; opacity: 0.9; stroke-width: 1.5; }
-        100% { r: 16px; opacity: 0; stroke-width: 0.3; }
-      }
-      @keyframes bar-glow-pulse {
-        0%, 100% { filter: drop-shadow(0 0 3px rgba(16,185,129,0.3)); }
-        50% { filter: drop-shadow(0 0 9px rgba(52,211,153,0.8)); }
-      }
-      @keyframes laser-sweep-vertical {
-        0% { transform: translateY(0px); opacity: 0.3; }
-        50% { transform: translateY(86px); opacity: 0.98; }
-        100% { transform: translateY(0px); opacity: 0.3; }
-      }
-      @keyframes verified-seal-pop {
-        0%, 30% { opacity: 0; transform: scale(0.85); }
-        45%, 85% { opacity: 1; transform: scale(1); filter: drop-shadow(0 0 10px rgba(52,211,153,0.85)); }
-        95%, 100% { opacity: 0; transform: scale(0.95); }
-      }
-      @keyframes packet-burst-dispatch {
-        0% { transform: translateX(0px); opacity: 0; }
-        20% { opacity: 1; }
-        80% { transform: translateX(118px); opacity: 1; }
-        100% { transform: translateX(124px); opacity: 0; }
-      }
-      @keyframes glass-sheen-slide {
-        0% { transform: translateX(-150px); opacity: 0; }
-        40%, 60% { opacity: 0.75; }
-        100% { transform: translateX(350px); opacity: 0; }
+      @keyframes ping-blip {
+        0%, 100% { transform: scale(1); opacity: 0.3; }
+        50% { transform: scale(1.8); opacity: 1; }
       }
 
-      /* Applied Classes */
-      .logic-conduit {
-        stroke-dasharray: 6, 6;
-        animation: logic-packet-stream 2.8s linear infinite;
+      /* Quadrant 3: Security Laser Scan */
+      @keyframes laser-sweep {
+        0%, 100% { transform: translateY(0px); opacity: 0.2; }
+        50% { transform: translateY(68px); opacity: 0.9; }
       }
-      .node-pulse-active {
-        animation: node-beacon-pulse 3.2s ease-in-out infinite;
+      @keyframes stamp-pop {
+        0%, 40% { opacity: 0; transform: scale(0.85); }
+        55%, 85% { opacity: 1; transform: scale(1); }
+        95%, 100% { opacity: 0; }
       }
-      .radar-sweep-beam {
-        transform-origin: 86px 86px;
-        animation: radar-beam-rotation 6.5s linear infinite;
+
+      /* Quadrant 4: Multi-Channel Dispatch */
+      @keyframes packet-dispatch {
+        0% { transform: translateX(0px); opacity: 0; }
+        30% { opacity: 1; }
+        80% { transform: translateX(95px); opacity: 1; }
+        100% { transform: translateX(95px); opacity: 0; }
+      }
+
+      .branch-line {
+        stroke-dasharray: 8, 8;
+        animation: branch-flow-a 3.2s linear infinite;
+      }
+      .node-flash {
+        animation: node-activate 4s ease-in-out infinite;
+      }
+      .radar-arm {
+        transform-origin: 350px 145px;
+        animation: radar-rotate 6s linear infinite;
       }
       .blip-pulse {
-        animation: blip-wave-pulse 2.2s ease-in-out infinite;
+        transform-origin: 330px 125px;
+        animation: ping-blip 3s ease-in-out infinite;
       }
-      .blip-ripple {
-        animation: blip-ring-expand 2.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+      .laser-scan-line {
+        animation: laser-sweep 3s ease-in-out infinite;
       }
-      .bar-sheen {
-        animation: bar-glow-pulse 3.6s ease-in-out infinite;
-      }
-      .laser-motion {
-        animation: laser-sweep-vertical 3s ease-in-out infinite;
-      }
-      .verified-stamp {
-        transform-origin: 102px 98px;
-        animation: verified-seal-pop 4.5s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+      .stamp-anim {
+        transform-origin: 190px 425px;
+        animation: stamp-pop 4s ease-in-out infinite;
       }
       .dispatch-pulse {
-        animation: packet-burst-dispatch 2.2s cubic-bezier(0.2, 0, 0.1, 1) infinite;
-      }
-      .sheen-glow {
-        animation: glass-sheen-slide 6s ease-in-out infinite;
+        animation: packet-dispatch 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .logic-conduit, .node-pulse-active, .radar-sweep-beam, .blip-pulse,
-        .blip-ripple, .bar-sheen, .laser-motion, .verified-stamp, .dispatch-pulse, .sheen-glow {
+        .branch-line, .node-flash, .radar-arm, .blip-pulse, .laser-scan-line, .stamp-anim, .dispatch-pulse {
           animation: none !important;
         }
       }
     </style>
   </defs>
 
-  <!-- ==================== BACKGROUND CANVAS & PLASMA BLOBS ==================== -->
-  <rect width="1120" height="600" rx="16" fill="#030706" />
-  
-  <!-- Aurora Background Plasma Undulations -->
-  <g filter="url(#aurora-blur)" opacity="0.35">
-    <circle cx="180" cy="180" r="160" fill="#10B981" />
-    <circle cx="880" cy="170" r="150" fill="#38BDF8" />
-    <circle cx="240" cy="460" r="140" fill="#F59E0B" />
-    <circle cx="860" cy="460" r="160" fill="#818CF8" />
+  <!-- Frame Background -->
+  <rect width="1040" height="520" rx="16" fill="#070E0C" />
+  <rect width="1040" height="520" rx="16" stroke="#16382E" stroke-width="1.2" />
+
+  <!-- Section Title Banner -->
+  <g transform="translate(40, 32)">
+    <circle cx="6" cy="6" r="5" fill="#34D399" />
+    <text x="24" y="10" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="700" fill="#34D399" letter-spacing="1.2">CORE CAPABILITIES MATRIX</text>
+    <text x="235" y="10" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="500" fill="#64748B">Four purpose-built engineering engines powering enterprise-grade feedback operations</text>
   </g>
 
-  <!-- Canvas Ambient Radial Overlay -->
-  <rect width="1120" height="600" rx="16" fill="url(#fs-canvas-glow)" />
+  <!-- ==================== QUADRANT 1: CONDITIONAL LOGIC & BRANCHING ==================== -->
+  <g transform="translate(40, 60)">
+    <rect width="460" height="205" rx="10" fill="#0A1815" stroke="url(#q-border)" stroke-width="1.2" />
+    <circle cx="24" cy="24" r="10" fill="#0E2D25" />
+    <text x="20" y="28" font-family="sans-serif" font-size="11" font-weight="800" fill="#34D399">01</text>
+    <text x="44" y="22" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700" fill="#FFFFFF">Dynamic Branching &amp; Logic Engine</text>
+    <text x="44" y="37" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" fill="#64748B">23 Question Types • Forward Skips • Formula Scoring</text>
 
-  <!-- Outer Architectural Bezel -->
-  <rect x="0.5" y="0.5" width="1119" height="599" rx="16" fill="none" stroke="#133529" stroke-width="1.2" />
+    <!-- Visual Interactive Logic Flow -->
+    <g transform="translate(24, 55)">
+      <!-- Root Question Node -->
+      <rect x="0" y="30" width="105" height="32" rx="6" fill="#122A24" stroke="#255347" stroke-width="1" />
+      <text x="52" y="50" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="600" fill="#E2E8F0">Q1: NPS Rating</text>
 
-  <!-- Subtle Specular Bevel Line (Top) -->
-  <line x1="24" y1="1" x2="1096" y2="1" stroke="url(#specular-top-sheen)" stroke-width="1.2" opacity="0.8" />
+      <!-- Branch Lines -->
+      <path d="M 105 40 L 175 16" stroke="#34D399" stroke-width="1.5" class="branch-line" />
+      <path d="M 105 52 L 175 76" stroke="#F59E0B" stroke-width="1.5" class="branch-line" />
 
-  <!-- ==================== INSTRUMENT HEADER BAR ==================== -->
-  <g transform="translate(36, 20)">
-    <!-- Status Beacon -->
-    <circle cx="6" cy="8" r="4.5" fill="#10B981" />
-    <circle cx="6" cy="8" r="8" fill="none" stroke="#34D399" stroke-width="0.8" opacity="0.6" class="blip-ripple" />
-    
-    <!-- Title -->
-    <text x="24" y="12" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="800" fill="#34D399" letter-spacing="1.5">CORE OPERATIONAL ENGINES</text>
-    <text x="250" y="12" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="500" fill="#94A3B8">Four purpose-built architectural subsystems driving real-time enterprise telemetry</text>
-    
-    <!-- DecoyINDIA Customization Watermark Badge -->
-    <g transform="translate(735, -2)">
-      <rect width="313" height="22" rx="11" fill="#082019" stroke="#1E5C4A" stroke-width="0.9" />
-      <circle cx="10" cy="11" r="3.5" fill="#34D399" />
-      <text x="20" y="14.5" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="9" font-weight="700" fill="#ECFDF5" letter-spacing="0.5">DecoyINDIA CORE INFRASTRUCTURE • FEEDBACKOS KERNEL</text>
-    </g>
-  </g>
-
-  <!-- ============================================================================== -->
-  <!-- QUADRANT 1: DYNAMIC SKIP-LOGIC GRAPH (TOP-LEFT)                                -->
-  <!-- ============================================================================== -->
-  <g transform="translate(36, 52)">
-    <!-- Liquid Glass Card Base -->
-    <rect width="512" height="252" rx="12" fill="url(#glass-card-bg)" />
-    <rect width="512" height="252" rx="12" fill="none" stroke="url(#glass-rim-gleam)" stroke-width="1.2" />
-    <!-- Chromatic Prism Fringe (Top & Left Bevel) -->
-    <line x1="12" y1="1" x2="500" y2="1" stroke="url(#specular-top-sheen)" stroke-width="1.4" opacity="0.9" />
-    <line x1="2" y1="12" x2="2" y2="240" stroke="url(#chromatic-prism-edge)" stroke-width="0.8" opacity="0.6" />
-
-    <!-- Card Header -->
-    <g transform="translate(20, 18)">
-      <rect width="24" height="24" rx="6" fill="#092820" stroke="#1E5C4A" stroke-width="1" />
-      <path d="M7 12 L12 7 L17 12 L12 17 Z" fill="none" stroke="#34D399" stroke-width="1.5" />
-      <circle cx="12" cy="12" r="2" fill="#34D399" />
-      <text x="34" y="11" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12.5" font-weight="800" fill="#FFFFFF" letter-spacing="0.3">1. Dynamic Skip-Logic &amp; Rule Graph</text>
-      <text x="34" y="24" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="9.5" fill="#94A3B8">Cycle-free DAG routing with forward skips &amp; 23 question types</text>
-    </g>
-
-    <!-- Visualized Decision Tree -->
-    <g transform="translate(20, 68)">
-      <!-- Root Trigger Node -->
-      <g transform="translate(0, 44)">
-        <rect width="134" height="46" rx="8" fill="#08201A" stroke="#1E5C4A" stroke-width="1.2" />
-        <rect x="0" y="0" width="134" height="4" rx="2" fill="#34D399" />
-        <text x="12" y="18" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="8.5" font-weight="800" fill="#34D399" letter-spacing="0.5">RULE_TRIGGER</text>
-        <text x="12" y="34" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="600" fill="#F1F5F9">CSAT Score (1-5)</text>
-        <circle cx="122" cy="23" r="3" fill="#34D399" />
+      <!-- Branch 1: Promoter (>=9) -->
+      <g transform="translate(175, 2)" class="node-flash">
+        <rect width="180" height="28" rx="5" />
+        <circle cx="14" cy="14" r="3.5" fill="#10B981" />
+        <text x="26" y="18" font-family="sans-serif" font-size="9.5" font-weight="600" fill="#6EE7B7">Score ≥ 9 → Google Review Push</text>
       </g>
 
-      <!-- Connecting Conduits -->
-      <!-- Detractor Route Conduit (Upward to red node) -->
-      <path id="path-detractor" d="M 134 56 C 168 56, 178 22, 208 22" fill="none" stroke="#EF4444" stroke-width="1.8" class="logic-conduit" />
-      <!-- Promoter Route Conduit (Downward to green node) -->
-      <path id="path-promoter" d="M 134 78 C 168 78, 178 112, 208 112" fill="none" stroke="#10B981" stroke-width="1.8" class="logic-conduit" />
-
-      <!-- Animated Traveling Decision Particles -->
-      <circle r="3.5" fill="#F87171" filter="url(#laser-glow)">
-        <animateMotion path="M 134 56 C 168 56, 178 22, 208 22" dur="2.4s" repeatCount="indefinite" />
-      </circle>
-      <circle r="3.5" fill="#34D399" filter="url(#laser-glow)">
-        <animateMotion path="M 134 78 C 168 78, 178 112, 208 112" dur="2.4s" repeatCount="indefinite" />
-      </circle>
-
-      <!-- Branch A: Detractor Flow (Score <= 2) -->
-      <g transform="translate(208, 0)">
-        <rect width="264" height="44" rx="8" fill="#1C1012" stroke="#991B1B" stroke-width="1.2" />
-        <rect x="0" y="0" width="4" height="44" rx="2" fill="#EF4444" />
-        <circle cx="16" cy="22" r="5" fill="#EF4444" />
-        <text x="28" y="18" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10.5" font-weight="800" fill="#FCA5A5">CSAT &lt;= 2: Incident Route</text>
-        <text x="28" y="32" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="8.5" fill="#CBD5E1">Jump to Manager Recovery Form • SLA 15m</text>
-        <rect x="206" y="13" width="48" height="18" rx="4" fill="#3E1116" stroke="#EF4444" stroke-width="0.8" />
-        <text x="230" y="25" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" font-weight="700" fill="#F87171">ESCALATE</text>
+      <!-- Branch 2: Detractor (<=6) -->
+      <g transform="translate(175, 62)">
+        <rect width="180" height="28" rx="5" fill="#201815" stroke="#78350F" stroke-width="1" />
+        <circle cx="14" cy="14" r="3.5" fill="#EF4444" />
+        <text x="26" y="18" font-family="sans-serif" font-size="9.5" font-weight="600" fill="#FCA5A5">Score ≤ 6 → Manager Escalation</text>
       </g>
 
-      <!-- Branch B: Promoter Flow (Score >= 4) -->
-      <g transform="translate(208, 90)" class="node-pulse-active">
-        <rect width="264" height="44" rx="8" fill="#08231B" stroke="#34D399" stroke-width="1.2" />
-        <rect x="0" y="0" width="4" height="44" rx="2" fill="#10B981" />
-        <circle cx="16" cy="22" r="5" fill="#10B981" />
-        <text x="28" y="18" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10.5" font-weight="800" fill="#86EFAC">CSAT &gt;= 4: Review Booster</text>
-        <text x="28" y="32" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="8.5" fill="#CBD5E1">Show Google Referral &amp; Trustpilot Widget</text>
-        <rect x="206" y="13" width="48" height="18" rx="4" fill="#0E3C2F" stroke="#34D399" stroke-width="0.8" />
-        <text x="230" y="25" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" font-weight="700" fill="#6EE7B7">BOOST 5★</text>
-      </g>
-
-      <!-- Bottom Badges: Cycle-Free DAG Validation & Latency -->
-      <g transform="translate(0, 148)">
-        <!-- Cycle-Free DAG Badge -->
-        <rect width="220" height="24" rx="12" fill="#072019" stroke="#1D5C4B" stroke-width="1" />
-        <circle cx="14" cy="12" r="3.5" fill="#34D399" />
-        <text x="26" y="15.5" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="9" font-weight="700" fill="#34D399">✓ CYCLE-FREE DAG VALIDATED</text>
-        
-        <!-- Algorithm Badge -->
-        <g transform="translate(230, 0)">
-          <rect width="242" height="24" rx="12" fill="#071E18" stroke="#154B3D" stroke-width="0.8" />
-          <text x="121" y="15.5" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="8.5" fill="#94A3B8">Tarjan SCC Algorithm • Eval &lt; 0.12ms</text>
-        </g>
-      </g>
+      <!-- Evaluation Latency Tag -->
+      <text x="0" y="102" font-family="ui-monospace, monospace" font-size="9.5" fill="#5EEAD4">⚡ Evaluated in client &amp; server • Zero branching cycles</text>
     </g>
   </g>
 
-  <!-- ============================================================================== -->
-  <!-- QUADRANT 2: MULTI-BRANCH GEOSPATIAL INTELLIGENCE (TOP-RIGHT)                   -->
-  <!-- ============================================================================== -->
-  <g transform="translate(572, 52)">
-    <!-- Liquid Glass Card Base -->
-    <rect width="512" height="252" rx="12" fill="url(#glass-card-bg)" />
-    <rect width="512" height="252" rx="12" fill="none" stroke="url(#glass-rim-gleam)" stroke-width="1.2" />
-    <line x1="12" y1="1" x2="500" y2="1" stroke="url(#specular-top-sheen)" stroke-width="1.4" opacity="0.9" />
-    <line x1="2" y1="12" x2="2" y2="240" stroke="url(#chromatic-prism-edge)" stroke-width="0.8" opacity="0.6" />
+  <!-- ==================== QUADRANT 2: MULTI-BRANCH NPS & SENTIMENT ==================== -->
+  <g transform="translate(540, 60)">
+    <rect width="460" height="205" rx="10" fill="#0A1815" stroke="url(#q-border)" stroke-width="1.2" />
+    <circle cx="24" cy="24" r="10" fill="#0E2D25" />
+    <text x="20" y="28" font-family="sans-serif" font-size="11" font-weight="800" fill="#38BDF8">02</text>
+    <text x="44" y="22" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700" fill="#FFFFFF">Multi-Branch Telemetry Radar</text>
+    <text x="44" y="37" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" fill="#64748B">Geo-Attribution • Cross-Branch Benchmarking</text>
 
-    <!-- Card Header -->
-    <g transform="translate(20, 18)">
-      <rect width="24" height="24" rx="6" fill="#09242E" stroke="#1E5168" stroke-width="1" />
-      <circle cx="12" cy="12" r="5" fill="none" stroke="#38BDF8" stroke-width="1.5" />
-      <circle cx="12" cy="12" r="1.5" fill="#38BDF8" />
-      <text x="34" y="11" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12.5" font-weight="800" fill="#FFFFFF" letter-spacing="0.3">2. Multi-Branch Geospatial Intelligence</text>
-      <text x="34" y="24" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="9.5" fill="#94A3B8">Real-time regional attribution, cross-hub leaderboards &amp; sync</text>
-    </g>
+    <!-- Radar Graphic -->
+    <g transform="translate(24, 52)">
+      <!-- Branch Data Table -->
+      <g transform="translate(0, 10)">
+        <text x="0" y="12" font-family="sans-serif" font-size="10" font-weight="600" fill="#E2E8F0">Bengaluru Central</text>
+        <text x="140" y="12" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#34D399">+78.4 NPS</text>
+        <rect x="0" y="18" width="180" height="4" rx="2" fill="#132F27" />
+        <rect x="0" y="18" width="145" height="4" rx="2" fill="#10B981" />
 
-    <!-- Radar Scope + Comparative Hub Bars Container -->
-    <g transform="translate(20, 64)">
-      <!-- Left: Tactical Radar Scope (center: 86, 86) -->
-      <g transform="translate(6, 4)">
-        <!-- Outer Glass Well -->
-        <circle cx="86" cy="86" r="66" fill="#041612" stroke="#124034" stroke-width="1.2" />
-        <circle cx="86" cy="86" r="46" fill="none" stroke="#175042" stroke-width="1" stroke-dasharray="2, 4" />
-        <circle cx="86" cy="86" r="24" fill="none" stroke="#1E6554" stroke-width="0.8" />
-        
-        <!-- Crosshairs -->
-        <line x1="86" y1="20" x2="86" y2="152" stroke="#174A3D" stroke-width="0.8" />
-        <line x1="20" y1="86" x2="152" y2="86" stroke="#174A3D" stroke-width="0.8" />
+        <text x="0" y="44" font-family="sans-serif" font-size="10" font-weight="600" fill="#E2E8F0">Mumbai Bandra</text>
+        <text x="140" y="44" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#38BDF8">+69.1 NPS</text>
+        <rect x="0" y="50" width="180" height="4" rx="2" fill="#132F27" />
+        <rect x="0" y="50" width="124" height="4" rx="2" fill="#38BDF8" />
 
-        <!-- Rotating Phosphor Sweep Beam -->
-        <g class="radar-sweep-beam">
-          <line x1="86" y1="86" x2="152" y2="86" stroke="#38BDF8" stroke-width="1.8" filter="url(#laser-glow)" />
-          <path d="M 86 86 L 152 86 A 66 66 0 0 0 142 46 Z" fill="url(#radar-sweep-cone)" />
-        </g>
-
-        <!-- Blip 1: BLR Hub -->
-        <g transform="translate(118, 58)">
-          <circle cx="0" cy="0" r="3.5" fill="#34D399" class="blip-pulse" />
-          <circle cx="0" cy="0" r="8" fill="none" stroke="#34D399" class="blip-ripple" />
-          <text x="6" y="3" font-family="ui-monospace, monospace" font-size="7.5" font-weight="700" fill="#34D399">BLR</text>
-        </g>
-
-        <!-- Blip 2: BOM Hub -->
-        <g transform="translate(56, 110)">
-          <circle cx="0" cy="0" r="3.5" fill="#38BDF8" class="blip-pulse" />
-          <circle cx="0" cy="0" r="8" fill="none" stroke="#38BDF8" class="blip-ripple" />
-          <text x="-18" y="3" font-family="ui-monospace, monospace" font-size="7.5" font-weight="700" fill="#38BDF8">BOM</text>
-        </g>
-
-        <!-- Blip 3: HYD Hub -->
-        <g transform="translate(112, 122)">
-          <circle cx="0" cy="0" r="3" fill="#A78BFA" class="blip-pulse" />
-          <text x="5" y="3" font-family="ui-monospace, monospace" font-size="7.5" font-weight="700" fill="#A78BFA">HYD</text>
-        </g>
-
-        <!-- Blip 4: DEL Hub -->
-        <g transform="translate(68, 52)">
-          <circle cx="0" cy="3" r="3" fill="#F59E0B" class="blip-pulse" />
-          <text x="-16" y="5" font-family="ui-monospace, monospace" font-size="7.5" font-weight="700" fill="#F59E0B">DEL</text>
-        </g>
-
-        <!-- Center Hub Core Badge -->
-        <circle cx="86" cy="86" r="10" fill="#082820" stroke="#34D399" stroke-width="1" />
-        <text x="86" y="89" text-anchor="middle" font-family="ui-monospace, monospace" font-size="7.5" font-weight="800" fill="#ECFDF5">14</text>
+        <text x="0" y="76" font-family="sans-serif" font-size="10" font-weight="600" fill="#E2E8F0">Delhi NCR South</text>
+        <text x="140" y="76" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#F59E0B">+62.8 NPS</text>
+        <rect x="0" y="82" width="180" height="4" rx="2" fill="#132F27" />
+        <rect x="0" y="82" width="112" height="4" rx="2" fill="#F59E0B" />
       </g>
 
-      <!-- Right: Comparative Animated Hub Performance Bars -->
-      <g transform="translate(196, 4)">
-        <!-- Branch 1: BLR Flagship -->
-        <g transform="translate(0, 0)">
-          <text x="0" y="11" font-family="ui-monospace, monospace" font-size="9" font-weight="700" fill="#34D399">BLR Flagship</text>
-          <text x="195" y="11" text-anchor="end" font-family="ui-monospace, monospace" font-size="8" fill="#6EE7B7">48.2k vol</text>
-          <rect x="0" y="16" width="200" height="11" rx="3" fill="#061E17" />
-          <rect x="0" y="16" width="180" height="11" rx="3" fill="url(#bar-blr-grad)" class="bar-sheen" />
-          <text x="210" y="25" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" font-weight="800" fill="#34D399">+82 NPS</text>
-        </g>
-
-        <!-- Branch 2: BOM South -->
-        <g transform="translate(0, 38)">
-          <text x="0" y="11" font-family="ui-monospace, monospace" font-size="9" font-weight="700" fill="#38BDF8">BOM South</text>
-          <text x="195" y="11" text-anchor="end" font-family="ui-monospace, monospace" font-size="8" fill="#7DD3FC">36.1k vol</text>
-          <rect x="0" y="16" width="200" height="11" rx="3" fill="#061C24" />
-          <rect x="0" y="16" width="162" height="11" rx="3" fill="url(#bar-bom-grad)" class="bar-sheen" />
-          <text x="210" y="25" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" font-weight="800" fill="#38BDF8">+74 NPS</text>
-        </g>
-
-        <!-- Branch 3: HYD Tech Hub -->
-        <g transform="translate(0, 76)">
-          <text x="0" y="11" font-family="ui-monospace, monospace" font-size="9" font-weight="700" fill="#A78BFA">HYD Tech Hub</text>
-          <text x="195" y="11" text-anchor="end" font-family="ui-monospace, monospace" font-size="8" fill="#C4B5FD">29.4k vol</text>
-          <rect x="0" y="16" width="200" height="11" rx="3" fill="#14132B" />
-          <rect x="0" y="16" width="172" height="11" rx="3" fill="url(#bar-hyd-grad)" class="bar-sheen" />
-          <text x="210" y="25" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" font-weight="800" fill="#A78BFA">+79 NPS</text>
-        </g>
-
-        <!-- Branch 4: DEL Central -->
-        <g transform="translate(0, 114)">
-          <text x="0" y="11" font-family="ui-monospace, monospace" font-size="9" font-weight="700" fill="#F59E0B">DEL Central</text>
-          <text x="195" y="11" text-anchor="end" font-family="ui-monospace, monospace" font-size="8" fill="#FDE68A">22.8k vol</text>
-          <rect x="0" y="16" width="200" height="11" rx="3" fill="#241B08" />
-          <rect x="0" y="16" width="148" height="11" rx="3" fill="url(#bar-del-grad)" class="bar-sheen" />
-          <text x="210" y="25" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" font-weight="800" fill="#F59E0B">+68 NPS</text>
-        </g>
-
-        <!-- Bottom Telemetry Pill -->
-        <g transform="translate(0, 150)">
-          <rect width="268" height="22" rx="11" fill="#082019" stroke="#195443" stroke-width="0.8" />
-          <circle cx="12" cy="11" r="3" fill="#38BDF8" />
-          <text x="22" y="14.5" font-family="ui-monospace, monospace" font-size="8" font-weight="600" fill="#94A3B8">GEO-MESH: 14 Active Hubs • Weighted Attribution Active</text>
+      <!-- Circular Radar Eye -->
+      <g transform="translate(10, 0)">
+        <circle cx="340" cy="50" r="45" fill="#071310" stroke="#164335" stroke-width="1" />
+        <circle cx="340" cy="50" r="28" stroke="#164335" stroke-width="1" stroke-dasharray="2, 4" />
+        <!-- Pinging Branch Blips -->
+        <circle class="blip-pulse" cx="328" cy="38" r="3.5" fill="#34D399" />
+        <circle cx="355" cy="62" r="3" fill="#38BDF8" />
+        <circle cx="320" cy="66" r="3" fill="#F59E0B" />
+        <!-- Radar Arm -->
+        <g class="radar-arm">
+          <line x1="350" y1="145" x2="350" y2="100" stroke="#10B981" stroke-width="1.8" opacity="0.8" />
         </g>
       </g>
+      <text x="0" y="112" font-family="ui-monospace, monospace" font-size="9.5" fill="#38BDF8">📍 14 physical locations • 100k-response benchmark tested</text>
     </g>
   </g>
 
-  <!-- ============================================================================== -->
-  <!-- QUADRANT 3: ZERO-TRUST FILE QUARANTINE PIPELINE (BOTTOM-LEFT)                 -->
-  <!-- ============================================================================== -->
-  <g transform="translate(36, 316)">
-    <!-- Liquid Glass Card Base -->
-    <rect width="512" height="252" rx="12" fill="url(#glass-card-bg)" />
-    <rect width="512" height="252" rx="12" fill="none" stroke="url(#glass-rim-gleam)" stroke-width="1.2" />
-    <line x1="12" y1="1" x2="500" y2="1" stroke="url(#specular-top-sheen)" stroke-width="1.4" opacity="0.9" />
-    <line x1="2" y1="12" x2="2" y2="240" stroke="url(#chromatic-prism-edge)" stroke-width="0.8" opacity="0.6" />
+  <!-- ==================== QUADRANT 3: ZERO-TRUST FILE QUARANTINE ==================== -->
+  <g transform="translate(40, 280)">
+    <rect width="460" height="205" rx="10" fill="#0A1815" stroke="url(#q-border)" stroke-width="1.2" />
+    <circle cx="24" cy="24" r="10" fill="#0E2D25" />
+    <text x="20" y="28" font-family="sans-serif" font-size="11" font-weight="800" fill="#10B981">03</text>
+    <text x="44" y="22" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700" fill="#FFFFFF">Zero-Trust Quarantine &amp; S3/R2 Pipeline</text>
+    <text x="44" y="37" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" fill="#64748B">Scan-Before-Store • EICAR/Antivirus Hook • S3 SigV4</text>
 
-    <!-- Card Header -->
-    <g transform="translate(20, 18)">
-      <rect width="24" height="24" rx="6" fill="#2A1B07" stroke="#78350F" stroke-width="1" />
-      <path d="M7 9 L12 7 L17 9 L17 14 C17 17 12 19 12 19 C12 19 7 17 7 14 Z" fill="none" stroke="#F59E0B" stroke-width="1.4" />
-      <text x="34" y="11" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12.5" font-weight="800" fill="#FFFFFF" letter-spacing="0.3">3. Zero-Trust File Quarantine Pipeline</text>
-      <text x="34" y="24" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="9.5" fill="#94A3B8">In-memory buffer quarantine, EICAR heuristics &amp; SigV4 object storage</text>
-    </g>
+    <!-- Scan Chamber Graphic -->
+    <g transform="translate(24, 55)">
+      <!-- File Payload Card -->
+      <rect x="0" y="0" width="160" height="74" rx="6" fill="#112620" stroke="#235245" stroke-width="1" />
+      <text x="14" y="24" font-family="sans-serif" font-size="10" font-weight="700" fill="#E2E8F0">📄 invoice_scan.pdf</text>
+      <text x="14" y="40" font-family="ui-monospace, monospace" font-size="9" fill="#94A3B8">Size: 1.4 MB • SHA256</text>
+      <text x="14" y="58" font-family="ui-monospace, monospace" font-size="9" fill="#34D399">MIME: application/pdf</text>
 
-    <!-- File Hologram Scanner + Multi-Stage Tiers -->
-    <g transform="translate(20, 60)">
-      <!-- Left: File Hologram Quarantine Box -->
-      <g transform="translate(0, 4)">
-        <rect width="204" height="156" rx="10" fill="#061B15" stroke="#165140" stroke-width="1.2" />
-        
-        <!-- File Header -->
-        <g transform="translate(14, 14)">
-          <!-- Document Icon -->
-          <rect width="32" height="40" rx="4" fill="#0C2E24" stroke="#34D399" stroke-width="1.2" />
-          <path d="M22 0 L32 10 L22 10 Z" fill="#34D399" opacity="0.5" />
-          <text x="16" y="26" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.5" font-weight="900" fill="#34D399">PDF</text>
-          
-          <!-- File Details -->
-          <text x="42" y="14" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="700" fill="#FFFFFF">audit_receipt.pdf</text>
-          <text x="42" y="28" font-family="ui-monospace, monospace" font-size="8.5" fill="#6EE7B7">342.4 KB • application/pdf</text>
-          <text x="42" y="38" font-family="ui-monospace, monospace" font-size="7.5" fill="#94A3B8">SHA: e8b9a2...98f4</text>
-        </g>
+      <!-- Animated Laser Scan Beam -->
+      <line x1="0" y1="4" x2="160" y2="4" stroke="#10B981" stroke-width="2" class="laser-scan-line" />
 
-        <!-- Hologram Scan Window -->
-        <g transform="translate(14, 62)">
-          <rect width="176" height="48" rx="6" fill="#04130F" stroke="#134739" stroke-width="0.8" />
-          <line x1="0" y1="12" x2="176" y2="12" stroke="#12382D" stroke-width="0.6" stroke-dasharray="3, 3" />
-          <line x1="0" y1="24" x2="176" y2="24" stroke="#12382D" stroke-width="0.6" stroke-dasharray="3, 3" />
-          <line x1="0" y1="36" x2="176" y2="36" stroke="#12382D" stroke-width="0.6" stroke-dasharray="3, 3" />
-          
-          <!-- Animated Laser Scanning Beam -->
-          <g class="laser-motion">
-            <line x1="4" y1="0" x2="172" y2="0" stroke="#34D399" stroke-width="2" filter="url(#laser-glow)" />
-            <rect x="4" y="-8" width="168" height="16" fill="url(#laser-scan-grad)" />
-          </g>
-        </g>
+      <!-- Verification Arrow -->
+      <path d="M 175 37 L 210 37" stroke="#34D399" stroke-width="2" />
+      <polygon points="215,37 207,32 207,42" fill="#34D399" />
 
-        <!-- Green Stamp: VERIFIED CLEAN (Pops in after scan) -->
-        <g class="verified-stamp" transform="translate(102, 134)">
-          <rect x="-85" y="-13" width="170" height="26" rx="13" fill="#064E3B" stroke="#34D399" stroke-width="1.4" filter="url(#laser-glow)" />
-          <circle cx="-68" cy="0" r="4" fill="#34D399" />
-          <text x="-58" y="4" font-family="ui-monospace, SFMono-Regular, monospace" font-size="9" font-weight="900" fill="#ECFDF5" letter-spacing="0.5">✓ VERIFIED CLEAN (0 THREAT)</text>
-        </g>
+      <!-- Verification Stamp Badge -->
+      <g transform="translate(230, 0)" class="stamp-anim">
+        <rect width="170" height="74" rx="6" fill="#064E3B" stroke="#34D399" stroke-width="1.2" />
+        <circle cx="24" cy="24" r="8" fill="#10B981" />
+        <text x="21" y="27" font-family="sans-serif" font-size="9" font-weight="900" fill="#042C21">✓</text>
+        <text x="38" y="28" font-family="sans-serif" font-size="11" font-weight="700" fill="#ECFDF5">CLEAN &amp; VERIFIED</text>
+        <text x="14" y="48" font-family="ui-monospace, monospace" font-size="9" fill="#A7F3D0">Quarantine passed</text>
+        <text x="14" y="62" font-family="ui-monospace, monospace" font-size="9" fill="#6EE7B7">Replicated to S3/Cloudflare R2</text>
       </g>
 
-      <!-- Right: Multi-Stage Inspection Tiers -->
-      <g transform="translate(224, 4)">
-        <!-- Stage 1: MIME Deep Validation -->
-        <g transform="translate(0, 0)">
-          <rect width="248" height="38" rx="6" fill="#082019" stroke="#1B5544" stroke-width="1" />
-          <circle cx="14" cy="19" r="4.5" fill="#34D399" />
-          <text x="26" y="16" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="700" fill="#FFFFFF">1. MIME Magic Byte Check</text>
-          <text x="26" y="29" font-family="ui-monospace, monospace" font-size="8" fill="#6EE7B7">Deep header byte parity (0.42ms)</text>
-          <rect x="195" y="10" width="44" height="18" rx="4" fill="#064E3B" stroke="#34D399" stroke-width="0.8" />
-          <text x="217" y="22" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" font-weight="700" fill="#ECFDF5">PASS</text>
-        </g>
-
-        <!-- Stage 2: EICAR Heuristic Signature -->
-        <g transform="translate(0, 46)">
-          <rect width="248" height="38" rx="6" fill="#082019" stroke="#1B5544" stroke-width="1" />
-          <circle cx="14" cy="19" r="4.5" fill="#34D399" />
-          <text x="26" y="16" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="700" fill="#FFFFFF">2. EICAR Malware Signature</text>
-          <text x="26" y="29" font-family="ui-monospace, monospace" font-size="8" fill="#6EE7B7">68,000 Heuristic Rules (1.18ms)</text>
-          <rect x="195" y="10" width="44" height="18" rx="4" fill="#064E3B" stroke="#34D399" stroke-width="0.8" />
-          <text x="217" y="22" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" font-weight="700" fill="#ECFDF5">PASS</text>
-        </g>
-
-        <!-- Stage 3: SigV4 Object Storage Presigner -->
-        <g transform="translate(0, 92)">
-          <rect width="248" height="38" rx="6" fill="#082019" stroke="#1B5544" stroke-width="1" />
-          <circle cx="14" cy="19" r="4.5" fill="#38BDF8" />
-          <text x="26" y="16" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="700" fill="#FFFFFF">3. AWS SigV4 Presigner</text>
-          <text x="26" y="29" font-family="ui-monospace, monospace" font-size="8" fill="#7DD3FC">Ephemeral Token Vault (2.85ms)</text>
-          <rect x="195" y="10" width="44" height="18" rx="4" fill="#0C3648" stroke="#38BDF8" stroke-width="0.8" />
-          <text x="217" y="22" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" font-weight="700" fill="#BAE6FD">SEALED</text>
-        </g>
-
-        <!-- Quarantine Summary Pill -->
-        <g transform="translate(0, 138)">
-          <rect width="248" height="22" rx="11" fill="#061B14" stroke="#134739" stroke-width="0.8" />
-          <text x="124" y="14.5" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" font-weight="600" fill="#34D399">Total In-Memory Pipeline Latency: 4.45ms</text>
-        </g>
-      </g>
+      <text x="0" y="102" font-family="ui-monospace, monospace" font-size="9.5" fill="#6EE7B7">🛡️ Zero malicious execution • Isolated quarantine downloads</text>
     </g>
   </g>
 
-  <!-- ============================================================================== -->
-  <!-- QUADRANT 4: SUB-12ms MULTI-CHANNEL DISPATCH HUB (BOTTOM-RIGHT)                 -->
-  <!-- ============================================================================== -->
-  <g transform="translate(572, 316)">
-    <!-- Liquid Glass Card Base -->
-    <rect width="512" height="252" rx="12" fill="url(#glass-card-bg)" />
-    <rect width="512" height="252" rx="12" fill="none" stroke="url(#glass-rim-gleam)" stroke-width="1.2" />
-    <line x1="12" y1="1" x2="500" y2="1" stroke="url(#specular-top-sheen)" stroke-width="1.4" opacity="0.9" />
-    <line x1="2" y1="12" x2="2" y2="240" stroke="url(#chromatic-prism-edge)" stroke-width="0.8" opacity="0.6" />
+  <!-- ==================== QUADRANT 4: MULTI-CHANNEL ALERT DISPATCHER ==================== -->
+  <g transform="translate(540, 280)">
+    <rect width="460" height="205" rx="10" fill="#0A1815" stroke="url(#q-border)" stroke-width="1.2" />
+    <circle cx="24" cy="24" r="10" fill="#0E2D25" />
+    <text x="20" y="28" font-family="sans-serif" font-size="11" font-weight="800" fill="#A78BFA">04</text>
+    <text x="44" y="22" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="700" fill="#FFFFFF">Real-Time Alert &amp; Integration Hub</text>
+    <text x="44" y="37" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" fill="#64748B">WhatsApp Business • Slack • Teams • Signed HMAC Webhooks</text>
 
-    <!-- Card Header -->
-    <g transform="translate(20, 18)">
-      <rect width="24" height="24" rx="6" fill="#1C1838" stroke="#4C1D95" stroke-width="1" />
-      <path d="M12 6 L12 18 M7 11 L12 6 L17 11" fill="none" stroke="#A78BFA" stroke-width="1.5" />
-      <text x="34" y="11" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12.5" font-weight="800" fill="#FFFFFF" letter-spacing="0.3">4. Sub-12ms Multi-Channel Dispatch Hub</text>
-      <text x="34" y="24" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="9.5" fill="#94A3B8">Autonomous multi-destination dispatch with cryptographic HMAC signing</text>
+    <!-- Trigger Event & Egress Graphic -->
+    <g transform="translate(24, 55)">
+      <!-- Trigger Source -->
+      <rect x="0" y="18" width="105" height="38" rx="6" fill="#1F1735" stroke="#6D28D9" stroke-width="1" />
+      <text x="52" y="35" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="700" fill="#DDD6FE">Trigger Event</text>
+      <text x="52" y="47" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.5" fill="#A78BFA">NPS &lt; 5 OR Lead</text>
+
+      <!-- Animated Signal Dispatches -->
+      <g transform="translate(105, 37)">
+        <line x1="0" y1="0" x2="110" y2="0" stroke="#4C1D95" stroke-width="1.5" stroke-dasharray="3, 3" />
+        <circle cx="0" cy="0" r="4.5" fill="#A78BFA" class="dispatch-pulse" />
+      </g>
+
+      <!-- Target Channels List -->
+      <g transform="translate(230, 2)">
+        <!-- WhatsApp -->
+        <rect x="0" y="0" width="170" height="20" rx="4" fill="#064E3B" stroke="#059669" stroke-width="0.8" />
+        <text x="8" y="14" font-family="sans-serif" font-size="9" font-weight="600" fill="#34D399">💬 WhatsApp Alert (Branch Mgr)</text>
+
+        <!-- Slack -->
+        <rect x="0" y="24" width="170" height="20" rx="4" fill="#152033" stroke="#2563EB" stroke-width="0.8" />
+        <text x="8" y="38" font-family="sans-serif" font-size="9" font-weight="600" fill="#60A5FA">⚡ Slack #customer-ops</text>
+
+        <!-- Signed Webhooks -->
+        <rect x="0" y="48" width="170" height="20" rx="4" fill="#241B10" stroke="#D97706" stroke-width="0.8" />
+        <text x="8" y="62" font-family="sans-serif" font-size="9" font-weight="600" fill="#FBBF24">🔗 Signed Webhook (HMAC-SHA256)</text>
+      </g>
+
+      <text x="0" y="102" font-family="ui-monospace, monospace" font-size="9.5" fill="#C4B5FD">🚀 Automatic 5-retry exponential backoff • Zero dropped signals</text>
     </g>
-
-    <!-- Event Bus & Fan-out Dispatch Visual -->
-    <g transform="translate(20, 56)">
-      <!-- Central Event Bus Node -->
-      <g transform="translate(0, 42)">
-        <rect width="118" height="66" rx="8" fill="#0C241D" stroke="#34D399" stroke-width="1.4" />
-        <rect x="0" y="0" width="118" height="4" rx="2" fill="#10B981" />
-        <circle cx="16" cy="22" r="5" fill="#10B981" />
-        <text x="27" y="19" font-family="ui-monospace, SFMono-Regular, monospace" font-size="8.5" font-weight="800" fill="#34D399" letter-spacing="0.5">EVENT_BUS</text>
-        <text x="27" y="30" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9" font-weight="600" fill="#E2E8F0">FeedbackOS</text>
-        <text x="12" y="47" font-family="ui-monospace, monospace" font-size="7.5" fill="#6EE7B7">Fan-out: 4 Conduits</text>
-        <text x="12" y="58" font-family="ui-monospace, monospace" font-size="7.5" fill="#94A3B8">Latency: 0.82ms</text>
-      </g>
-
-      <!-- Connecting Conduits from Event Bus to 4 Destinations -->
-      <g transform="translate(118, 75)">
-        <!-- Conduit 1 -> WhatsApp (Top) -->
-        <path d="M 0 0 C 45 0, 70 -52, 116 -52" fill="none" stroke="#1D604C" stroke-width="1.8" />
-        <!-- Conduit 2 -> Slack -->
-        <path d="M 0 0 C 45 0, 70 -18, 116 -18" fill="none" stroke="#1E5669" stroke-width="1.8" />
-        <!-- Conduit 3 -> Teams -->
-        <path d="M 0 0 C 45 0, 70 18, 116 18" fill="none" stroke="#37306B" stroke-width="1.8" />
-        <!-- Conduit 4 -> Webhook (Bottom) -->
-        <path d="M 0 0 C 45 0, 70 52, 116 52" fill="none" stroke="#664614" stroke-width="1.8" />
-
-        <!-- Traveling High-Speed Packets -->
-        <!-- Packet 1: WhatsApp (Green) -->
-        <circle r="3.5" fill="#25D366" filter="url(#laser-glow)">
-          <animateMotion path="M 0 0 C 45 0, 70 -52, 116 -52" dur="1.8s" repeatCount="indefinite" />
-        </circle>
-        <!-- Packet 2: Slack (Cyan) -->
-        <circle r="3.5" fill="#38BDF8" filter="url(#laser-glow)">
-          <animateMotion path="M 0 0 C 45 0, 70 -18, 116 -18" dur="2.1s" repeatCount="indefinite" />
-        </circle>
-        <!-- Packet 3: Teams (Indigo) -->
-        <circle r="3.5" fill="#818CF8" filter="url(#laser-glow)">
-          <animateMotion path="M 0 0 C 45 0, 70 18, 116 18" dur="2.0s" repeatCount="indefinite" />
-        </circle>
-        <!-- Packet 4: HMAC Webhook (Amber) -->
-        <circle r="3.5" fill="#F59E0B" filter="url(#laser-glow)">
-          <animateMotion path="M 0 0 C 45 0, 70 52, 116 52" dur="2.3s" repeatCount="indefinite" />
-        </circle>
-      </g>
-
-      <!-- Destination Targets (Right: x: 236) -->
-      <g transform="translate(236, 4)">
-        <!-- 1. WhatsApp Business -->
-        <g transform="translate(0, 0)">
-          <rect width="236" height="34" rx="6" fill="#082019" stroke="#1D604C" stroke-width="1" />
-          <circle cx="14" cy="17" r="4.5" fill="#25D366" />
-          <text x="26" y="15" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="700" fill="#FFFFFF">WhatsApp Business</text>
-          <text x="26" y="27" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="8" fill="#94A3B8">Branch Duty Escalation</text>
-          <rect x="160" y="8" width="68" height="18" rx="4" fill="#064E3B" stroke="#25D366" stroke-width="0.8" />
-          <text x="194" y="20.5" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" font-weight="700" fill="#6EE7B7">8.4ms [DELIV]</text>
-        </g>
-
-        <!-- 2. Slack #vip-alerts -->
-        <g transform="translate(0, 38)">
-          <rect width="236" height="34" rx="6" fill="#08202A" stroke="#1E5669" stroke-width="1" />
-          <circle cx="14" cy="17" r="4.5" fill="#38BDF8" />
-          <text x="26" y="15" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="700" fill="#FFFFFF">Slack #vip-alerts</text>
-          <text x="26" y="27" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="8" fill="#94A3B8">Interactive Case Action</text>
-          <rect x="160" y="8" width="68" height="18" rx="4" fill="#0C3449" stroke="#38BDF8" stroke-width="0.8" />
-          <text x="194" y="20.5" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" font-weight="700" fill="#7DD3FC">11.1ms [SENT]</text>
-        </g>
-
-        <!-- 3. Microsoft Teams -->
-        <g transform="translate(0, 76)">
-          <rect width="236" height="34" rx="6" fill="#14132B" stroke="#37306B" stroke-width="1" />
-          <circle cx="14" cy="17" r="4.5" fill="#818CF8" />
-          <text x="26" y="15" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="700" fill="#FFFFFF">Microsoft Teams</text>
-          <text x="26" y="27" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="8" fill="#94A3B8">Executive Ops Channel</text>
-          <rect x="160" y="8" width="68" height="18" rx="4" fill="#242052" stroke="#818CF8" stroke-width="0.8" />
-          <text x="194" y="20.5" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" font-weight="700" fill="#C7D2FE">10.3ms [SENT]</text>
-        </g>
-
-        <!-- 4. HMAC-SHA256 Webhooks -->
-        <g transform="translate(0, 114)">
-          <rect width="236" height="34" rx="6" fill="#221808" stroke="#664614" stroke-width="1" />
-          <circle cx="14" cy="17" r="4.5" fill="#F59E0B" />
-          <text x="26" y="15" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="700" fill="#FFFFFF">HMAC-SHA256 Webhook</text>
-          <text x="26" y="27" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="8" fill="#94A3B8">Replay-Safe Signed Body</text>
-          <rect x="156" y="8" width="72" height="18" rx="4" fill="#3D2908" stroke="#F59E0B" stroke-width="0.8" />
-          <text x="192" y="20.5" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" font-weight="700" fill="#FDE68A">200 OK [SHA256]</text>
-        </g>
-      </g>
-    </g>
-  </g>
-
-  <!-- ==================== FOOTER WATERMARK STRIP ==================== -->
-  <g transform="translate(36, 580)">
-    <text x="0" y="0" font-family="ui-monospace, monospace" font-size="8.5" fill="#64748B" letter-spacing="0.8">DECOYINDIA TELEMETRY KERNEL • FEEDBACKOS v2.4-ENTERPRISE</text>
-    <text x="560" y="0" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.5" font-weight="700" fill="#34D399" letter-spacing="1">DecoyINDIA CORE INFRASTRUCTURE • FEEDBACKOS KERNEL</text>
-    <text x="1048" y="0" text-anchor="end" font-family="ui-monospace, monospace" font-size="8.5" fill="#64748B" letter-spacing="0.8">DAG ROUTING • 14 HUBS • ZERO-TRUST AV • PARALLEL DISPATCH</text>
   </g>
 </svg>

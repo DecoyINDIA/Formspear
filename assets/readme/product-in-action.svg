@@ -1,611 +1,249 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 480" width="100%" height="100%" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 440" width="100%" height="100%" fill="none">
   <defs>
-    <!-- Liquid Glass Optics Refraction and Caustic Filter (deepika-builds/liquid-glass specification) -->
-    <filter id="liquid-glass-lens" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
-      <feTurbulence type="fractalNoise" baseFrequency="0.02 0.02" numOctaves="3" seed="42" result="glassNoise" />
-      <feDisplacementMap in="SourceGraphic" in2="glassNoise" scale="4" xChannelSelector="R" yChannelSelector="G" result="displaced" />
-      <feSpecularLighting in="glassNoise" surfaceScale="2" specularConstant="1.2" specularExponent="24" lighting-color="#FFFFFF" result="specLight">
-        <fePointLight x="250" y="-80" z="220" />
-      </feSpecularLighting>
-      <feComposite in="specLight" in2="SourceAlpha" operator="in" result="specular" />
-      <feComposite in="displaced" in2="specular" operator="arithmetic" k1="0" k2="1" k3="0.8" k4="0" result="litGlass" />
-      <feMerge>
-        <feMergeNode in="litGlass" />
-      </feMerge>
-    </filter>
-
-    <!-- Shockwave Caustic Glow Filter -->
-    <filter id="shockwave-bloom" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB">
-      <feGaussianBlur stdDeviation="6" result="blur" />
-      <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 2.2 0" in="blur" result="boost" />
-      <feMerge>
-        <feMergeNode in="boost" />
-        <feMergeNode in="SourceGraphic" />
-      </feMerge>
-    </filter>
-
-    <!-- Toast Floating Elevation Shadow -->
-    <filter id="toast-elevation-shadow" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#000000" flood-opacity="0.85" />
-      <feDropShadow dx="0" dy="2" stdDeviation="6" flood-color="#10B981" flood-opacity="0.35" />
-    </filter>
-
-    <!-- Glowing Packet Aura Filter -->
-    <filter id="packet-glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="5" result="blur" />
-      <feMerge>
-        <feMergeNode in="blur" />
-        <feMergeNode in="SourceGraphic" />
-      </feMerge>
-    </filter>
-
-    <!-- Background Gradients -->
-    <radialGradient id="pia-bg-glow" cx="50%" cy="40%" r="70%">
-      <stop offset="0%" stop-color="#0E2E25" stop-opacity="0.8" />
-      <stop offset="45%" stop-color="#071914" stop-opacity="0.95" />
-      <stop offset="100%" stop-color="#030806" />
+    <radialGradient id="act-bg" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#0F241F" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#060E0C" />
     </radialGradient>
-
-    <!-- Glassmorphic Card Surface Gradient -->
-    <linearGradient id="card-glass-surface" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0D2720" stop-opacity="0.85" />
-      <stop offset="60%" stop-color="#071713" stop-opacity="0.9" />
-      <stop offset="100%" stop-color="#040D0A" stop-opacity="0.95" />
+    <linearGradient id="card-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#122A24" />
+      <stop offset="100%" stop-color="#0A1815" />
     </linearGradient>
-
-    <!-- Chamfered Specular Rim Highlight -->
-    <linearGradient id="glass-rim-gleam" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#34D399" stop-opacity="0.15" />
-      <stop offset="20%" stop-color="#FFFFFF" stop-opacity="0.9" />
-      <stop offset="65%" stop-color="#38BDF8" stop-opacity="0.6" />
+    <linearGradient id="stream-pulse" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0.1" />
+      <stop offset="50%" stop-color="#34D399" stop-opacity="0.9" />
       <stop offset="100%" stop-color="#10B981" stop-opacity="0.1" />
     </linearGradient>
 
-    <!-- Chromatic Prism Fringe Border -->
-    <linearGradient id="prism-border" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#34D399" stop-opacity="0.6" />
-      <stop offset="30%" stop-color="#38BDF8" stop-opacity="0.4" />
-      <stop offset="70%" stop-color="#818CF8" stop-opacity="0.3" />
-      <stop offset="100%" stop-color="#F59E0B" stop-opacity="0.5" />
-    </linearGradient>
-
-    <!-- Optical Fiber Laser Conduit -->
-    <linearGradient id="fiber-beam" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#10B981" stop-opacity="0.25" />
-      <stop offset="30%" stop-color="#34D399" stop-opacity="0.9" />
-      <stop offset="70%" stop-color="#38BDF8" stop-opacity="0.9" />
-      <stop offset="100%" stop-color="#10B981" stop-opacity="0.25" />
-    </linearGradient>
-
-    <!-- Shockwave Ripple Gradient -->
-    <radialGradient id="shockwave-ripple-grad" cx="50%" cy="50%" r="50%">
-      <stop offset="75%" stop-color="#38BDF8" stop-opacity="0" />
-      <stop offset="88%" stop-color="#34D399" stop-opacity="0.8" />
-      <stop offset="95%" stop-color="#6EE7B7" stop-opacity="1" />
-      <stop offset="100%" stop-color="#F59E0B" stop-opacity="0" />
-    </radialGradient>
-
-    <!-- Active Rating 10 Amber Fill -->
-    <linearGradient id="score-10-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FBBF24" />
-      <stop offset="50%" stop-color="#F59E0B" />
-      <stop offset="100%" stop-color="#D97706" />
-    </linearGradient>
-
-    <!-- Submit Button Fluid Gradient -->
-    <linearGradient id="submit-btn-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#10B981" />
-      <stop offset="50%" stop-color="#34D399" />
-      <stop offset="100%" stop-color="#059669" />
-    </linearGradient>
-
-    <!-- Precision Blueprint Grid -->
-    <pattern id="pia-precision-grid" width="28" height="28" patternUnits="userSpaceOnUse">
-      <path d="M 28 0 L 0 0 0 28" fill="none" stroke="#0F3327" stroke-width="0.5" stroke-opacity="0.4" />
-      <circle cx="28" cy="28" r="0.8" fill="#1A4A3B" fill-opacity="0.5" />
-    </pattern>
+    <filter id="toast-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.5" />
+    </filter>
 
     <style>
-      /* ========================================================
-         Lenis Fluid Momentum (cubic-bezier(0.16, 1, 0.3, 1))
-         GSAP Spring Overshoot (cubic-bezier(0.34, 1.56, 0.64, 1))
-         8-Second Unified Cyclic Timeline
-         ======================================================== */
-
-      /* STAGE 1: Rating 10 Button Select (1.4s - 2.2s) */
-      @keyframes star-select-anim {
-        0%, 14% {
-          fill: #0B1E19;
-          stroke: #194638;
-          transform: scale(1);
-          filter: none;
-        }
-        18% {
-          transform: scale(1.22); /* GSAP Spring Overshoot */
-          filter: drop-shadow(0 0 14px rgba(245, 158, 11, 0.9));
-        }
-        22%, 94% {
-          fill: url(#score-10-grad);
-          stroke: #FDE68A;
-          transform: scale(1.14);
-          filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.65));
-        }
-        98%, 100% {
-          fill: #0B1E19;
-          stroke: #194638;
-          transform: scale(1);
-          filter: none;
-        }
+      @keyframes select-star {
+        0%, 25% { transform: scale(1); fill: #1E3D35; }
+        35%, 100% { transform: scale(1.15); fill: #F59E0B; }
+      }
+      @keyframes select-tag {
+        0%, 35% { fill: #132A24; stroke: #235245; }
+        45%, 100% { fill: #064E3B; stroke: #34D399; }
+      }
+      @keyframes pulse-submit {
+        0%, 55% { transform: scale(1); }
+        60% { transform: scale(0.96); filter: brightness(1.2); }
+        65%, 100% { transform: scale(1); }
+      }
+      @keyframes flow-packet {
+        0%, 65% { transform: translateX(0px); opacity: 0; }
+        70% { opacity: 1; }
+        85% { transform: translateX(170px); opacity: 1; }
+        90%, 100% { transform: translateX(170px); opacity: 0; }
+      }
+      @keyframes alert-toast-slide {
+        0%, 75% { transform: translateY(20px); opacity: 0; }
+        82%, 96% { transform: translateY(0px); opacity: 1; }
+        100% { transform: translateY(-5px); opacity: 0.85; }
+      }
+      @keyframes count-tick {
+        0%, 80% { opacity: 1; }
+        82% { opacity: 0.2; transform: translateY(-3px); }
+        86%, 100% { opacity: 1; transform: translateY(0px); }
       }
 
-      /* STAGE 1: Tags Multi-Select (2.2s - 3.4s) */
-      @keyframes tag-toggle-1 {
-        0%, 22% { fill: #0B1E19; stroke: #194638; opacity: 0.75; transform: scale(1); }
-        26% { transform: scale(1.05); }
-        30%, 94% { fill: #064E3B; stroke: #34D399; opacity: 1; transform: scale(1); filter: drop-shadow(0 0 8px rgba(52, 211, 153, 0.45)); }
-        98%, 100% { fill: #0B1E19; stroke: #194638; opacity: 0.75; transform: scale(1); }
+      .star-10 {
+        transform-origin: 320px 185px;
+        animation: select-star 7s ease-in-out infinite;
       }
-      @keyframes tag-toggle-2 {
-        0%, 28% { fill: #0B1E19; stroke: #194638; opacity: 0.75; transform: scale(1); }
-        32% { transform: scale(1.05); }
-        36%, 94% { fill: #064E3B; stroke: #34D399; opacity: 1; transform: scale(1); filter: drop-shadow(0 0 8px rgba(52, 211, 153, 0.45)); }
-        98%, 100% { fill: #0B1E19; stroke: #194638; opacity: 0.75; transform: scale(1); }
+      .tag-anim {
+        animation: select-tag 7s ease-in-out infinite;
       }
-
-      /* STAGE 1: Kinetic Submit Button Press (3.8s - 4.4s) */
-      @keyframes submit-press-anim {
-        0%, 39% { transform: scale(1); filter: drop-shadow(0 4px 12px rgba(16, 185, 129, 0.3)); }
-        42% { transform: scale(0.95); filter: brightness(1.4) drop-shadow(0 0 20px rgba(52, 211, 153, 0.9)); }
-        45% { transform: scale(1.03); }
-        48%, 94% { transform: scale(1); filter: drop-shadow(0 4px 12px rgba(16, 185, 129, 0.3)); }
-        98%, 100% { transform: scale(1); }
+      .btn-submit {
+        transform-origin: 235px 335px;
+        animation: pulse-submit 7s ease-in-out infinite;
+      }
+      .stream-packet {
+        animation: flow-packet 7s linear infinite;
+      }
+      .alert-toast {
+        animation: alert-toast-slide 7s ease-out infinite;
+      }
+      .counter-val {
+        animation: count-tick 7s ease-out infinite;
       }
 
-      /* STAGE 1: Liquid Shockwave Ripples expanding across the glass canvas (4.2s - 6.0s) */
-      @keyframes shockwave-expand-1 {
-        0%, 41% { transform: scale(0.05); opacity: 0; stroke-width: 8px; }
-        43% { opacity: 0.9; stroke-width: 5px; }
-        56% { transform: scale(14); opacity: 0; stroke-width: 0.6px; }
-        100% { transform: scale(14); opacity: 0; }
-      }
-      @keyframes shockwave-expand-2 {
-        0%, 43% { transform: scale(0.05); opacity: 0; stroke-width: 10px; }
-        45% { opacity: 0.75; stroke-width: 4px; }
-        59% { transform: scale(22); opacity: 0; stroke-width: 0.4px; }
-        100% { transform: scale(22); opacity: 0; }
-      }
-      @keyframes shockwave-expand-3 {
-        0%, 46% { transform: scale(0.05); opacity: 0; stroke-width: 12px; }
-        48% { opacity: 0.6; stroke-width: 3px; }
-        64% { transform: scale(32); opacity: 0; stroke-width: 0.2px; }
-        100% { transform: scale(32); opacity: 0; }
-      }
-
-      /* STAGE 2: Sub-millisecond Transit Channel with Encrypted Packet (4.4s - 5.6s) */
-      @keyframes packet-transit-fly {
-        0%, 44% { transform: translateX(0px); opacity: 0; }
-        46% { opacity: 1; transform: translateX(5px) scale(0.9); }
-        57% { transform: translateX(126px) scale(1.05); opacity: 1; }
-        61%, 100% { transform: translateX(126px); opacity: 0; }
-      }
-      @keyframes transit-beam-surge {
-        0%, 43% { opacity: 0.25; stroke-width: 2.5px; }
-        47%, 56% { opacity: 1; stroke-width: 4px; filter: drop-shadow(0 0 10px #34D399); }
-        62%, 100% { opacity: 0.25; stroke-width: 2.5px; filter: none; }
-      }
-
-      /* STAGE 3: Counter Increment 48,290 -> 48,291 (5.6s - 6.4s) */
-      @keyframes counter-flip-old {
-        0%, 55% { opacity: 1; transform: translateY(0px); }
-        58% { opacity: 0; transform: translateY(-10px); }
-        94% { opacity: 0; transform: translateY(-10px); }
-        98%, 100% { opacity: 1; transform: translateY(0px); }
-      }
-      @keyframes counter-flip-new {
-        0%, 55% { opacity: 0; transform: translateY(10px); }
-        58% { opacity: 1; transform: translateY(-2px); }
-        61%, 94% { opacity: 1; transform: translateY(0px); }
-        98%, 100% { opacity: 0; transform: translateY(10px); }
-      }
-      @keyframes live-badge-pop {
-        0%, 55% { transform: scale(0.85); opacity: 0.3; }
-        59% { transform: scale(1.15); opacity: 1; filter: drop-shadow(0 0 8px #34D399); }
-        63%, 94% { transform: scale(1); opacity: 1; }
-        98%, 100% { transform: scale(0.85); opacity: 0.3; }
-      }
-
-      /* STAGE 3: Cascading Live Row Slide-In (5.8s - 6.6s) */
-      @keyframes row-cascade-in {
-        0%, 57% { opacity: 0; transform: translateY(-14px) scale(0.97); }
-        63% { transform: translateY(3px) scale(1.01); opacity: 1; }
-        67%, 94% { opacity: 1; transform: translateY(0px) scale(1); }
-        98%, 100% { opacity: 0; transform: translateY(-14px); }
-      }
-
-      /* STAGE 4: Autonomous Escalation Alert Toast Pop-In (6.4s - 7.8s) */
-      @keyframes toast-spring-pop {
-        0%, 63% { opacity: 0; transform: translateY(32px) scale(0.92); }
-        70% { transform: translateY(-4px) scale(1.02); opacity: 1; }
-        74%, 94% { opacity: 1; transform: translateY(0px) scale(1); }
-        98%, 100% { opacity: 0; transform: translateY(32px); }
-      }
-      @keyframes latency-pill-glow {
-        0%, 69% { opacity: 0; transform: scale(0.85); }
-        73%, 94% { opacity: 1; transform: scale(1); filter: drop-shadow(0 0 8px #34D399); }
-        98%, 100% { opacity: 0; }
-      }
-
-      /* Ambient Pulsing Indicators */
-      @keyframes pulse-dot-live {
-        0%, 100% { opacity: 0.4; transform: scale(0.9); }
-        50% { opacity: 1; transform: scale(1.2); }
-      }
-
-      .star-active-elem {
-        transform-origin: 352px 186px;
-        animation: star-select-anim 8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
-      }
-      .tag-1-elem {
-        transform-origin: 86px 248px;
-        animation: tag-toggle-1 8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
-      }
-      .tag-2-elem {
-        transform-origin: 218px 248px;
-        animation: tag-toggle-2 8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
-      }
-      .submit-btn-elem {
-        transform-origin: 210px 384px;
-        animation: submit-press-anim 8s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
-      }
-      .ripple-ring-1 {
-        transform-origin: 246px 405px;
-        animation: shockwave-expand-1 8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
-      }
-      .ripple-ring-2 {
-        transform-origin: 246px 405px;
-        animation: shockwave-expand-2 8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
-      }
-      .ripple-ring-3 {
-        transform-origin: 246px 405px;
-        animation: shockwave-expand-3 8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
-      }
-      .packet-flight {
-        animation: packet-transit-fly 8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
-      }
-      .fiber-channel {
-        animation: transit-beam-surge 8s ease-in-out infinite;
-      }
-      .counter-num-old {
-        animation: counter-flip-old 8s ease-in-out infinite;
-      }
-      .counter-num-new {
-        animation: counter-flip-new 8s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
-      }
-      .live-badge-anim {
-        transform-origin: 135px 98px;
-        animation: live-badge-pop 8s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
-      }
-      .cascading-row-anim {
-        transform-origin: 217px 186px;
-        animation: row-cascade-in 8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
-      }
-      .alert-toast-anim {
-        transform-origin: 217px 326px;
-        animation: toast-spring-pop 8s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
-      }
-      .latency-badge-anim {
-        transform-origin: 345px 16px;
-        animation: latency-pill-glow 8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
-      }
-      .ambient-beacon {
-        animation: pulse-dot-live 2s ease-in-out infinite;
-      }
-
-      /* Accessibility: Reduced Motion */
       @media (prefers-reduced-motion: reduce) {
-        .star-active-elem, .tag-1-elem, .tag-2-elem, .submit-btn-elem,
-        .ripple-ring-1, .ripple-ring-2, .ripple-ring-3, .packet-flight,
-        .fiber-channel, .counter-num-old, .counter-num-new, .live-badge-anim,
-        .cascading-row-anim, .alert-toast-anim, .latency-badge-anim, .ambient-beacon {
+        .star-10, .tag-anim, .btn-submit, .stream-packet, .alert-toast, .counter-val {
           animation: none !important;
         }
-        .counter-num-old { opacity: 0 !important; }
-        .counter-num-new { opacity: 1 !important; transform: none !important; }
-        .cascading-row-anim, .alert-toast-anim { opacity: 1 !important; transform: none !important; }
       }
     </style>
   </defs>
 
-  <!-- ==================== BASE CANVAS and REFRACTIVE BACKDROP ==================== -->
-  <rect width="1060" height="480" rx="16" fill="#040907" />
-  <rect width="1060" height="480" rx="16" fill="url(#pia-bg-glow)" />
-  <rect width="1060" height="480" rx="16" fill="url(#pia-precision-grid)" />
-  <rect width="1060" height="480" rx="16" stroke="url(#prism-border)" stroke-width="1.2" />
+  <!-- Background Base -->
+  <rect width="980" height="440" rx="14" fill="#070E0C" />
+  <rect width="980" height="440" rx="14" fill="url(#act-bg)" />
+  <rect width="980" height="440" rx="14" stroke="#16382E" stroke-width="1.2" />
 
-  <!-- Instrument Header Bar -->
-  <g transform="translate(36, 24)">
-    <circle cx="6" cy="6" r="4.5" fill="#10B981" class="ambient-beacon" />
-    <circle cx="6" cy="6" r="8" fill="none" stroke="#34D399" stroke-width="0.8" opacity="0.6" />
-    <text x="22" y="10" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="800" fill="#34D399" letter-spacing="1.4">END-TO-END TELEMETRY IN ACTION</text>
-    <text x="270" y="10" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10.5" font-weight="500" fill="#64748B">From mobile respondent submission to RAM index &amp; autonomous escalation in &lt;12ms</text>
-    <rect x="918" y="-1" width="70" height="16" rx="8" fill="#064E3B" stroke="#10B981" stroke-width="0.7" />
-    <text x="953" y="10.5" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.5" font-weight="700" fill="#6EE7B7">100% VALID</text>
+  <!-- Top Ribbon Header -->
+  <g transform="translate(40, 32)">
+    <circle cx="6" cy="6" r="5" fill="#10B981" />
+    <text x="22" y="10" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="700" fill="#34D399" letter-spacing="1">LIVE PRODUCT ENGINE</text>
+    <text x="200" y="10" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="500" fill="#64748B">From mobile public submission to multi-branch analytics &amp; alert dispatch in &lt;15ms</text>
   </g>
 
-  <!-- ==================== STAGE 1: PUBLIC RESPONDENT RUNTIME ==================== -->
-  <g transform="translate(36, 54)">
-    <!-- Liquid Glass Outer Panel -->
-    <rect width="420" height="398" rx="14" fill="url(#card-glass-surface)" stroke="url(#prism-border)" stroke-width="1.2" />
-    <!-- Chamfered Specular Rim Line (Top 1px highlight) -->
-    <path d="M 14 1 L 406 1" stroke="url(#glass-rim-gleam)" stroke-width="1.8" stroke-linecap="round" />
+  <!-- ==================== LEFT PANEL: MOBILE/WEB RESPONDENT ==================== -->
+  <g transform="translate(40, 65)">
+    <!-- Device Frame -->
+    <rect width="390" height="340" rx="12" fill="url(#card-grad)" stroke="#1F473B" stroke-width="1.2" />
 
-    <!-- Window Top Header Bar -->
-    <rect width="420" height="46" rx="14" fill="#071914" />
-    <path d="M 0 46 L 420 46" stroke="#143A2F" stroke-width="0.8" />
-    
-    <!-- Traffic lights -->
-    <circle cx="20" cy="23" r="4.5" fill="#EF4444" opacity="0.85" />
-    <circle cx="35" cy="23" r="4.5" fill="#F59E0B" opacity="0.85" />
-    <circle cx="50" cy="23" r="4.5" fill="#10B981" opacity="0.85" />
+    <!-- Survey Header -->
+    <rect x="0" y="0" width="390" height="52" rx="12" fill="#0C201A" />
+    <circle cx="28" cy="26" r="10" fill="#10B981" />
+    <text x="24" y="30" font-family="sans-serif" font-size="10" font-weight="800" fill="#FFFFFF">F</text>
+    <text x="48" y="24" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="700" fill="#F1F5F9">Bengaluru Central Clinic</text>
+    <text x="48" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="500" fill="#64748B">Patient Consultation Feedback • Branch #04</text>
+    <rect x="300" y="18" width="70" height="18" rx="9" fill="#064E3B" />
+    <text x="335" y="30" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" font-weight="600" fill="#34D399">AUTOSAVE</text>
 
-    <!-- URL pill -->
-    <rect x="74" y="12" width="224" height="22" rx="5" fill="#040D0A" stroke="#133D31" stroke-width="0.8" />
-    <circle cx="86" cy="23" r="2.5" fill="#34D399" />
-    <text x="96" y="26.5" font-family="ui-monospace, monospace" font-size="9.5" fill="#6EE7B7">formspear.io/s/bengaluru-cx</text>
+    <!-- Question 1: NPS Rating -->
+    <text x="24" y="82" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11.5" font-weight="600" fill="#E2E8F0">1. How likely are you to recommend us?</text>
+    <text x="24" y="98" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="9.5" fill="#64748B">0 = Not likely, 10 = Extremely likely</text>
 
-    <!-- PWA Online Badge -->
-    <rect x="312" y="13" width="94" height="20" rx="10" fill="#064E3B" stroke="#10B981" stroke-width="0.8" />
-    <circle cx="323" cy="23" r="3" fill="#34D399" class="ambient-beacon" />
-    <text x="332" y="26" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="8.5" font-weight="700" fill="#ECFDF5">PWA ONLINE</text>
-
-    <!-- Survey Content Header -->
-    <g transform="translate(24, 62)">
-      <text x="0" y="16" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14.5" font-weight="800" fill="#FFFFFF">Patient Experience Survey</text>
-      <text x="0" y="32" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10.5" fill="#6EE7B7">Apex Healthcare • Indiranagar Branch (BLR Flagship)</text>
-    </g>
-
-    <!-- Question 1: NPS Rating (0-10) -->
-    <g transform="translate(24, 114)">
-      <text x="0" y="12" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11.5" font-weight="700" fill="#E2E8F0">1. How likely are you to recommend Apex to colleagues?</text>
-      
-      <!-- NPS Buttons 0 to 10 Grid -->
-      <g transform="translate(0, 24)">
-        <!-- 0 to 8 Inactive Buttons -->
-        <g transform="translate(0, 0)">
-          <rect x="0" y="0" width="28" height="28" rx="5" fill="#081A15" stroke="#163E32" stroke-width="0.8" /><text x="14" y="17.5" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#94A3B8">0</text>
-          <rect x="31" y="0" width="28" height="28" rx="5" fill="#081A15" stroke="#163E32" stroke-width="0.8" /><text x="45" y="17.5" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#94A3B8">1</text>
-          <rect x="62" y="0" width="28" height="28" rx="5" fill="#081A15" stroke="#163E32" stroke-width="0.8" /><text x="76" y="17.5" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#94A3B8">2</text>
-          <rect x="93" y="0" width="28" height="28" rx="5" fill="#081A15" stroke="#163E32" stroke-width="0.8" /><text x="107" y="17.5" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#94A3B8">3</text>
-          <rect x="124" y="0" width="28" height="28" rx="5" fill="#081A15" stroke="#163E32" stroke-width="0.8" /><text x="138" y="17.5" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#94A3B8">4</text>
-          <rect x="155" y="0" width="28" height="28" rx="5" fill="#081A15" stroke="#163E32" stroke-width="0.8" /><text x="169" y="17.5" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#94A3B8">5</text>
-          <rect x="186" y="0" width="28" height="28" rx="5" fill="#081A15" stroke="#163E32" stroke-width="0.8" /><text x="200" y="17.5" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#94A3B8">6</text>
-          <rect x="217" y="0" width="28" height="28" rx="5" fill="#081A15" stroke="#163E32" stroke-width="0.8" /><text x="231" y="17.5" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#94A3B8">7</text>
-          <rect x="248" y="0" width="28" height="28" rx="5" fill="#081A15" stroke="#163E32" stroke-width="0.8" /><text x="262" y="17.5" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#94A3B8">8</text>
-          <rect x="279" y="0" width="28" height="28" rx="5" fill="#081A15" stroke="#163E32" stroke-width="0.8" /><text x="293" y="17.5" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#94A3B8">9</text>
-        </g>
-        
-        <!-- Score 10 Button (Animated selection with Amber Glow and GSAP spring) -->
-        <g class="star-active-elem" transform="translate(312, 0)">
-          <rect x="0" y="0" width="34" height="28" rx="6" fill="#0B1E19" stroke="#194638" stroke-width="1.2" />
-          <text x="17" y="18" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="900" fill="#FFFFFF">10</text>
-        </g>
-      </g>
-      <text x="0" y="66" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9" font-weight="700" fill="#F59E0B">★ Extremely Likely (Promoter • Net Impact +1.0)</text>
-    </g>
-
-    <!-- Question 2: Tags / Multi-Select -->
-    <g transform="translate(24, 204)">
-      <text x="0" y="12" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11.5" font-weight="700" fill="#E2E8F0">2. Highlight service factors:</text>
-      
-      <g transform="translate(0, 22)">
-        <!-- Tag 1: Fast Consultation (Animated click) -->
-        <g class="tag-1-elem">
-          <rect x="0" y="0" width="124" height="26" rx="13" fill="#0B1E19" stroke="#194638" stroke-width="1" />
-          <text x="62" y="17" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="700" fill="#ECFDF5">✓ Fast Consultation</text>
-        </g>
-        <!-- Tag 2: Courteous Staff (Animated click) -->
-        <g class="tag-2-elem" transform="translate(132, 0)">
-          <rect x="0" y="0" width="114" height="26" rx="13" fill="#0B1E19" stroke="#194638" stroke-width="1" />
-          <text x="57" y="17" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="700" fill="#ECFDF5">✓ Courteous Staff</text>
-        </g>
-        <!-- Tag 3: Clean Facility -->
-        <g transform="translate(254, 0)">
-          <rect x="0" y="0" width="102" height="26" rx="13" fill="#071914" stroke="#143A2F" stroke-width="0.8" />
-          <text x="51" y="17" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#94A3B8">+ Clean Facility</text>
-        </g>
+    <!-- Rating scale pills (0 to 10) -->
+    <g transform="translate(24, 110)">
+      <!-- 7 -->
+      <rect x="180" y="0" width="26" height="26" rx="4" fill="#142B24" stroke="#1E473C" stroke-width="1" />
+      <text x="193" y="17" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#94A3B8">7</text>
+      <!-- 8 -->
+      <rect x="214" y="0" width="26" height="26" rx="4" fill="#142B24" stroke="#1E473C" stroke-width="1" />
+      <text x="227" y="17" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#94A3B8">8</text>
+      <!-- 9 -->
+      <rect x="248" y="0" width="26" height="26" rx="4" fill="#142B24" stroke="#1E473C" stroke-width="1" />
+      <text x="261" y="17" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#94A3B8">9</text>
+      <!-- 10 (Target Animated Selection) -->
+      <g class="star-10">
+        <rect x="282" y="0" width="32" height="26" rx="4" fill="#059669" stroke="#34D399" stroke-width="1.5" />
+        <text x="298" y="17" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="800" fill="#FFFFFF">10</text>
       </g>
     </g>
 
-    <!-- Location Auto-Pin Card -->
-    <g transform="translate(24, 272)">
-      <rect width="372" height="34" rx="7" fill="#061813" stroke="#123B2F" stroke-width="0.8" />
-      <circle cx="16" cy="17" r="4" fill="#38BDF8" />
-      <text x="28" y="21" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#94A3B8">Telemetry Hub Auto-Pin:</text>
-      <text x="146" y="21" font-family="ui-monospace, monospace" font-size="9.5" font-weight="700" fill="#38BDF8">BLR_INDIRANAGAR [Hub #04 • 0.84ms]</text>
+    <!-- Question 2: Tags & Key Drivers -->
+    <text x="24" y="168" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11.5" font-weight="600" fill="#E2E8F0">2. Key consultation highlights:</text>
+
+    <g transform="translate(24, 185)">
+      <!-- Tag 1 -->
+      <rect x="0" y="0" width="128" height="24" rx="12" fill="#064E3B" stroke="#34D399" stroke-width="1" class="tag-anim" />
+      <text x="64" y="16" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="600" fill="#ECFDF5">✓ Dr. Ramanathan</text>
+
+      <!-- Tag 2 -->
+      <rect x="136" y="0" width="105" height="24" rx="12" fill="#064E3B" stroke="#34D399" stroke-width="1" class="tag-anim" />
+      <text x="188" y="16" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="600" fill="#ECFDF5">✓ Zero Wait Time</text>
+
+      <!-- Tag 3 -->
+      <rect x="249" y="0" width="85" height="24" rx="12" fill="#132A24" stroke="#235245" stroke-width="1" />
+      <text x="291" y="16" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#94A3B8">Pharmacy</text>
     </g>
 
-    <!-- Kinetic Submit Button with GSAP spring overshoot -->
-    <g class="submit-btn-elem" transform="translate(24, 326)">
-      <rect width="372" height="42" rx="9" fill="url(#submit-btn-grad)" />
-      <!-- Specular Gleam on button top edge -->
-      <path d="M 9 1 L 363 1" stroke="#FFFFFF" stroke-opacity="0.6" stroke-width="1.2" stroke-linecap="round" />
-      <text x="186" y="26" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12.5" font-weight="800" fill="#030806" letter-spacing="0.8">SUBMIT FEEDBACK &amp; RESOLVE</text>
+    <!-- Live Verified Submission Button -->
+    <g class="btn-submit" transform="translate(24, 235)">
+      <rect width="342" height="36" rx="8" fill="#10B981" />
+      <text x="171" y="22" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="700" fill="#042F24" letter-spacing="0.5">SUBMIT FEEDBACK →</text>
+    </g>
+
+    <!-- Trust & Privacy Footnote -->
+    <g transform="translate(24, 290)">
+      <circle cx="4" cy="4" r="3" fill="#34D399" />
+      <text x="14" y="7" font-family="ui-monospace, monospace" font-size="9" fill="#6EE7B7">Anonymous mode: IP Hash SHA-256 • Zero Tracking Cookie</text>
+      <text x="14" y="22" font-family="ui-monospace, monospace" font-size="9" fill="#4B6A60">Latency: 9ms • EICAR Clean • AES Storage</text>
     </g>
   </g>
 
-  <!-- ==================== LIQUID SHOCKWAVE RIPPLES ACROSS CANVAS ==================== -->
-  <!-- Expanding outward from submit button center (x: 246, y: 405) -->
-  <g class="shockwave-ripples" filter="url(#shockwave-bloom)">
-    <circle class="ripple-ring-1" cx="246" cy="405" r="5" fill="none" stroke="url(#shockwave-ripple-grad)" stroke-width="6" />
-    <circle class="ripple-ring-2" cx="246" cy="405" r="5" fill="none" stroke="url(#shockwave-ripple-grad)" stroke-width="8" />
-    <circle class="ripple-ring-3" cx="246" cy="405" r="5" fill="none" stroke="url(#shockwave-ripple-grad)" stroke-width="10" />
-  </g>
+  <!-- ==================== CENTER: PIPELINE TELEMETRY BEAM ==================== -->
+  <g transform="translate(440, 160)">
+    <!-- Stream Conduit -->
+    <line x1="0" y1="50" x2="160" y2="50" stroke="#183E34" stroke-width="3" stroke-dasharray="6, 6" />
+    <path d="M 0 50 L 160 50" stroke="url(#stream-pulse)" stroke-width="3" />
 
-  <!-- ==================== STAGE 2: SUB-MILLISECOND TRANSIT CHANNEL ==================== -->
-  <g transform="translate(456, 184)">
-    <!-- Optical Fiber Laser Conduit -->
-    <line x1="0" y1="56" x2="130" y2="56" stroke="url(#fiber-beam)" stroke-width="3" class="fiber-channel" />
-    <line x1="0" y1="56" x2="130" y2="56" stroke="#FFFFFF" stroke-width="0.8" opacity="0.6" />
-    
-    <!-- Port Nodes -->
-    <circle cx="0" cy="56" r="4.5" fill="#10B981" />
-    <circle cx="130" cy="56" r="4.5" fill="#38BDF8" />
-
-    <!-- Animated High-Speed Encrypted Packet -->
-    <g class="packet-flight">
-      <g filter="url(#packet-glow)">
-        <rect x="-14" y="44" width="28" height="24" rx="6" fill="#0C2820" stroke="#34D399" stroke-width="1.4" />
-        <!-- Micro Shield/Cipher Icon -->
-        <circle cx="0" cy="53" r="3.5" fill="#38BDF8" />
-        <rect x="-4" y="55" width="8" height="7" rx="2" fill="#34D399" />
-        <text x="0" y="61" text-anchor="middle" font-family="ui-monospace, monospace" font-size="5.5" font-weight="900" fill="#040907">#</text>
-      </g>
-      <!-- Packet Trail Sparks -->
-      <line x1="-14" y1="56" x2="-26" y2="56" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" opacity="0.75" />
-      <line x1="-14" y1="53" x2="-22" y2="51" stroke="#34D399" stroke-width="1.2" stroke-linecap="round" opacity="0.6" />
+    <!-- Floating Packet (Animates across) -->
+    <g class="stream-packet">
+      <circle cx="0" cy="50" r="10" fill="#10B981" />
+      <circle cx="0" cy="50" r="4" fill="#FFFFFF" />
+      <text x="0" y="32" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.5" font-weight="700" fill="#34D399">NPS=10</text>
+      <text x="0" y="72" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" fill="#94A3B8">BLR #04</text>
     </g>
 
-    <!-- Telemetry Readouts in Transit -->
-    <rect x="25" y="16" width="80" height="22" rx="11" fill="#051410" stroke="#144A3A" stroke-width="0.8" />
-    <text x="65" y="30.5" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" font-weight="800" fill="#34D399">&lt; 1.2ms RAM</text>
-    
-    <text x="65" y="86" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.5" font-weight="600" fill="#6EE7B7">AES-256-GCM</text>
-    <text x="65" y="98" text-anchor="middle" font-family="ui-monospace, monospace" font-size="7.5" fill="#64748B">0x464F524D (HMAC)</text>
+    <!-- Micro Pipeline Nodes -->
+    <g transform="translate(80, 50)">
+      <circle cx="0" cy="0" r="14" fill="#0B1C17" stroke="#34D399" stroke-width="1.2" />
+      <text x="0" y="3.5" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" font-weight="800" fill="#34D399">SYNC</text>
+      <text x="0" y="-22" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.5" fill="#64748B">RAM State</text>
+      <text x="0" y="28" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.5" fill="#64748B">PG Shadow</text>
+    </g>
   </g>
 
-  <!-- ==================== STAGE 3: REAL-TIME OPERATOR DASHBOARD ==================== -->
-  <g transform="translate(586, 54)">
-    <!-- Liquid Glass Outer Panel -->
-    <rect width="438" height="398" rx="14" fill="url(#card-glass-surface)" stroke="url(#prism-border)" stroke-width="1.2" />
-    <!-- Chamfered Specular Rim Line (Top 1px highlight) -->
-    <path d="M 14 1 L 424 1" stroke="url(#glass-rim-gleam)" stroke-width="1.8" stroke-linecap="round" />
+  <!-- ==================== RIGHT PANEL: OPERATOR HQ & ALERT DISPATCH ==================== -->
+  <g transform="translate(610, 65)">
+    <!-- Dashboard Frame -->
+    <rect width="330" height="340" rx="12" fill="url(#card-grad)" stroke="#1F473B" stroke-width="1.2" />
 
-    <!-- Dashboard Top Bar -->
-    <rect width="438" height="46" rx="14" fill="#071914" />
-    <path d="M 0 46 L 438 46" stroke="#143A2F" stroke-width="0.8" />
-    
-    <text x="20" y="28" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="800" fill="#FFFFFF" letter-spacing="0.5">OPERATOR COMMAND DECK</text>
-    
-    <rect x="328" y="13" width="94" height="20" rx="10" fill="#064E3B" stroke="#10B981" stroke-width="0.8" />
-    <circle cx="340" cy="23" r="3.5" fill="#34D399" class="ambient-beacon" />
-    <text x="350" y="26.5" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="8.5" font-weight="700" fill="#ECFDF5">LIVE STREAM</text>
+    <!-- Workspace Header -->
+    <rect x="0" y="0" width="330" height="48" rx="12" fill="#0C201A" />
+    <text x="20" y="28" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="700" fill="#F1F5F9">Workspace Telemetry</text>
+    <rect x="235" y="16" width="75" height="18" rx="9" fill="#064E3B" />
+    <text x="272" y="28" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" font-weight="600" fill="#34D399">REAL-TIME</text>
 
-    <!-- Metrics Row -->
-    <g transform="translate(18, 58)">
-      <!-- Metric Box 1: Total Responses Counter (48,290 -> 48,291) -->
+    <!-- Metric Row -->
+    <g transform="translate(20, 68)">
+      <!-- Metric 1: Total Responses -->
       <g>
-        <rect width="192" height="66" rx="9" fill="#061813" stroke="#133D31" stroke-width="0.8" />
-        <path d="M 9 1 L 183 1" stroke="url(#glass-rim-gleam)" stroke-width="1" stroke-linecap="round" />
-        <text x="14" y="20" font-family="ui-monospace, monospace" font-size="9" font-weight="700" fill="#94A3B8" letter-spacing="0.8">TOTAL RESPONSES</text>
-        
-        <!-- Old Counter Number (48,290) flips out -->
-        <text x="14" y="49" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" font-weight="900" fill="#FFFFFF" class="counter-num-old">48,290</text>
-        <!-- New Counter Number (48,291) flips in -->
-        <text x="14" y="49" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" font-weight="900" fill="#34D399" class="counter-num-new">48,291</text>
-        
-        <!-- Live +1 Badge -->
-        <g class="live-badge-anim" transform="translate(116, 28)">
-          <rect width="64" height="22" rx="11" fill="#064E3B" stroke="#34D399" stroke-width="1" />
-          <circle cx="10" cy="11" r="3" fill="#34D399" />
-          <text x="20" y="14.5" font-family="ui-monospace, monospace" font-size="9" font-weight="800" fill="#FFFFFF">+1 LIVE</text>
-        </g>
+        <text x="0" y="12" font-family="sans-serif" font-size="10" font-weight="600" fill="#94A3B8">TOTAL RESPONSES</text>
+        <text class="counter-val" x="0" y="36" font-family="sans-serif" font-size="20" font-weight="800" fill="#FFFFFF">48,290</text>
       </g>
-
-      <!-- Metric Box 2: Real-time NPS Score -->
-      <g transform="translate(206, 0)">
-        <rect width="196" height="66" rx="9" fill="#061813" stroke="#133D31" stroke-width="0.8" />
-        <path d="M 9 1 L 187 1" stroke="url(#glass-rim-gleam)" stroke-width="1" stroke-linecap="round" />
-        <text x="14" y="20" font-family="ui-monospace, monospace" font-size="9" font-weight="700" fill="#F59E0B" letter-spacing="0.8">REAL-TIME NPS</text>
-        <text x="14" y="49" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" font-weight="900" fill="#FFFFFF">+74.2</text>
-        
-        <rect x="100" y="30" width="84" height="20" rx="10" fill="#072B20" stroke="#10B981" stroke-width="0.8" />
-        <text x="142" y="43" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="8.5" font-weight="700" fill="#6EE7B7">★ PROMOTER</text>
+      <!-- Metric 2: Live NPS -->
+      <g transform="translate(150, 0)">
+        <text x="0" y="12" font-family="sans-serif" font-size="10" font-weight="600" fill="#94A3B8">BRANCH NPS</text>
+        <text x="0" y="36" font-family="sans-serif" font-size="20" font-weight="800" fill="#34D399">+74.2</text>
       </g>
     </g>
 
-    <!-- Incoming Response Live Activity Feed -->
-    <g transform="translate(18, 136)">
-      <g>
-        <circle cx="4" cy="5" r="3" fill="#34D399" class="ambient-beacon" />
-        <text x="14" y="9" font-family="ui-monospace, monospace" font-size="9.5" font-weight="700" fill="#94A3B8">INCOMING TELEMETRY STREAM (BLR • BOM • DEL • HYD)</text>
-      </g>
-
-      <!-- Cascading New Record Row (Triggered on submit with Lenis fluid ease) -->
-      <g class="cascading-row-anim" transform="translate(0, 18)">
-        <rect width="402" height="44" rx="8" fill="#0A2C21" stroke="#34D399" stroke-width="1.4" />
-        <path d="M 8 1 L 394 1" stroke="#FFFFFF" stroke-opacity="0.75" stroke-width="1.2" stroke-linecap="round" />
-        <circle cx="16" cy="22" r="5" fill="#10B981" />
-        <circle cx="16" cy="22" r="2" fill="#FFFFFF" />
-        
-        <text x="30" y="19" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="800" fill="#FFFFFF">BLR Flagship • Patient #9042</text>
-        <text x="30" y="33" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#6EE7B7">Score 10 • "Fast Consultation" • Indiranagar Hub</text>
-        
-        <rect x="330" y="12" width="60" height="20" rx="5" fill="#047857" stroke="#34D399" stroke-width="0.8" />
-        <text x="360" y="25" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.5" font-weight="800" fill="#FFFFFF">JUST NOW</text>
-      </g>
-
-      <!-- Prior Row 1: BOM South -->
-      <g transform="translate(0, 70)">
-        <rect width="402" height="38" rx="7" fill="#051712" stroke="#123B2F" stroke-width="0.8" />
-        <circle cx="16" cy="19" r="4" fill="#38BDF8" />
-        <text x="30" y="17" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" font-weight="600" fill="#CBD5E1">BOM South • Lead #9041</text>
-        <text x="30" y="30" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9" fill="#64748B">Score 9 • Mumbai BKC Hub • 14s ago</text>
-        <text x="350" y="24" font-family="ui-monospace, monospace" font-size="8.5" fill="#64748B">RESOLVED</text>
-      </g>
+    <!-- NPS Breakdown Mini Bar -->
+    <g transform="translate(20, 126)">
+      <rect x="0" y="0" width="290" height="6" rx="3" fill="#1F3C34" />
+      <rect x="0" y="0" width="220" height="6" rx="3" fill="#10B981" />
+      <rect x="222" y="0" width="50" height="6" fill="#F59E0B" />
+      <rect x="274" y="0" width="16" height="6" rx="3" fill="#EF4444" />
+      <text x="0" y="20" font-family="ui-monospace, monospace" font-size="9" fill="#6EE7B7">78% Promoters</text>
+      <text x="160" y="20" font-family="ui-monospace, monospace" font-size="9" fill="#FBBF24">18% Passives</text>
+      <text x="245" y="20" font-family="ui-monospace, monospace" font-size="9" fill="#F87171">4% Detr</text>
     </g>
 
-    <!-- ==================== STAGE 4: AUTONOMOUS ESCALATION ALERT TOAST ==================== -->
-    <g class="alert-toast-anim" transform="translate(18, 260)" filter="url(#toast-elevation-shadow)">
-      <!-- Toast Glassmorphic Card -->
-      <rect width="402" height="114" rx="11" fill="#061F18" stroke="#34D399" stroke-width="1.6" />
-      <!-- Chamfered Specular Highlight -->
-      <path d="M 12 1 L 390 1" stroke="url(#glass-rim-gleam)" stroke-width="2" stroke-linecap="round" />
-      
-      <!-- Toast Header with Live Latency Badge -->
-      <g transform="translate(16, 15)">
-        <circle cx="9" cy="9" r="8" fill="#10B981" />
-        <path d="M 6 9 L 8.5 11.5 L 12.5 6.5" stroke="#040907" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-        
-        <text x="24" y="13" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11.5" font-weight="800" fill="#34D399">AUTONOMOUS ESCALATION DISPATCHED</text>
-        
-        <!-- 8.4ms Latency Badge -->
-        <g class="latency-badge-anim" transform="translate(294, -2)">
-          <rect width="76" height="20" rx="10" fill="#064E3B" stroke="#34D399" stroke-width="1" />
-          <circle cx="10" cy="10" r="3" fill="#6EE7B7" />
-          <text x="44" y="13.5" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.5" font-weight="800" fill="#6EE7B7">8.4ms LAT</text>
-        </g>
-      </g>
+    <!-- Dynamic Alert Dispatch Box (Animated Slide In) -->
+    <g class="alert-toast" transform="translate(16, 175)" filter="url(#toast-shadow)">
+      <rect width="298" height="92" rx="8" fill="#0D2721" stroke="#34D399" stroke-width="1.2" />
 
-      <!-- Divider line -->
-      <line x1="16" y1="42" x2="386" y2="42" stroke="#134739" stroke-width="0.8" />
+      <!-- Notification Header -->
+      <circle cx="20" cy="22" r="7" fill="#10B981" />
+      <text x="17" y="25" font-family="sans-serif" font-size="9" font-weight="900" fill="#052E24">⚡</text>
+      <text x="34" y="26" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="700" fill="#6EE7B7">INSTANT ALERT TRIGGERED</text>
+      <text x="250" y="26" font-family="ui-monospace, monospace" font-size="9" fill="#94A3B8">just now</text>
 
-      <!-- Toast Body Payload -->
-      <g transform="translate(16, 56)">
-        <!-- Target Dispatches: WhatsApp + Slack -->
-        <g>
-          <text x="0" y="10" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" fill="#E2E8F0">Routing Targets:</text>
-          
-          <!-- WhatsApp Badge -->
-          <g transform="translate(86, -3)">
-            <rect width="138" height="18" rx="4" fill="#064E3B" stroke="#22C55E" stroke-width="0.8" />
-            <circle cx="10" cy="9" r="4" fill="#22C55E" />
-            <text x="20" y="12" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9" font-weight="700" fill="#ECFDF5">WhatsApp Branch Mgr</text>
-          </g>
+      <!-- Alert Payload -->
+      <text x="16" y="48" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" font-weight="600" fill="#FFFFFF">VIP Patient Feedback — BLR #04</text>
+      <text x="16" y="64" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#94A3B8">NPS: 10/10 • Tags: Dr. Ramanathan, Zero Wait</text>
 
-          <!-- Slack Badge -->
-          <g transform="translate(230, -3)">
-            <rect width="112" height="18" rx="4" fill="#1E1E38" stroke="#818CF8" stroke-width="0.8" />
-            <circle cx="10" cy="9" r="4" fill="#818CF8" />
-            <text x="20" y="12" font-family="ui-monospace, monospace" font-size="8.5" font-weight="700" fill="#E0E7FF">Slack #vip-alerts</text>
-          </g>
-        </g>
+      <!-- Channel Badges -->
+      <rect x="16" y="72" width="70" height="14" rx="4" fill="#064E3B" />
+      <text x="51" y="82" text-anchor="middle" font-family="sans-serif" font-size="8" font-weight="700" fill="#34D399">WhatsApp Sent</text>
+      <rect x="92" y="72" width="60" height="14" rx="4" fill="#143A31" />
+      <text x="122" y="82" text-anchor="middle" font-family="sans-serif" font-size="8" font-weight="600" fill="#5EEAD4">Slack Sync</text>
+      <rect x="158" y="72" width="65" height="14" rx="4" fill="#143A31" />
+      <text x="190" y="82" text-anchor="middle" font-family="sans-serif" font-size="8" font-weight="600" fill="#93C5FD">CRM Enriched</text>
+    </g>
 
-        <!-- Action / Payload detail -->
-        <text x="0" y="32" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#94A3B8">Payload: <tspan fill="#F59E0B" font-weight="700">★ 10 Promoter VIP</tspan> • Instant Referral review pipeline initiated</text>
-        
-        <!-- Cryptographic verification hash -->
-        <text x="0" y="47" font-family="ui-monospace, monospace" font-size="8.5" fill="#34D399">HMAC: sha256_b48f...c91a • STATUS: 200 OK • HTTP/2</text>
-      </g>
+    <!-- Super-Admin Readiness Pill -->
+    <g transform="translate(20, 290)">
+      <rect width="290" height="26" rx="6" fill="#0A1C17" stroke="#163E32" stroke-width="1" />
+      <circle cx="16" cy="13" r="3.5" fill="#10B981" />
+      <text x="26" y="17" font-family="ui-monospace, monospace" font-size="9" fill="#94A3B8">Advisory Lock: <tspan fill="#34D399">Active</tspan> • Worker Queue: <tspan fill="#34D399">Healthy</tspan></text>
     </g>
   </g>
 </svg>

@@ -1,373 +1,152 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 400" width="100%" height="100%" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 300" width="100%" height="100%" fill="none">
   <defs>
-    <!-- Background & Aura Gradients -->
-    <radialGradient id="bi-mark-aura" cx="50%" cy="50%" r="55%">
-      <stop offset="0%" stop-color="#10B981" stop-opacity="0.35" />
-      <stop offset="45%" stop-color="#059669" stop-opacity="0.12" />
-      <stop offset="85%" stop-color="#040907" stop-opacity="0.02" />
-      <stop offset="100%" stop-color="#020605" stop-opacity="0" />
+    <radialGradient id="mark-glow" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0.3" />
+      <stop offset="50%" stop-color="#059669" stop-opacity="0.1" />
+      <stop offset="100%" stop-color="#071310" stop-opacity="0" />
     </radialGradient>
-    <radialGradient id="bi-core-beacon" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#FFFFFF" />
-      <stop offset="30%" stop-color="#6EE7B7" />
-      <stop offset="70%" stop-color="#10B981" stop-opacity="0.6" />
-      <stop offset="100%" stop-color="#047857" stop-opacity="0" />
-    </radialGradient>
-
-    <!-- Spearhead Facet Gradients -->
-    <linearGradient id="bi-facet-left" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#D1FAE5" />
-      <stop offset="25%" stop-color="#6EE7B7" />
-      <stop offset="65%" stop-color="#10B981" />
+    <linearGradient id="blade-grad-1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6EE7B7" />
+      <stop offset="60%" stop-color="#10B981" />
       <stop offset="100%" stop-color="#047857" />
     </linearGradient>
-    <linearGradient id="bi-facet-right" x1="100%" y1="0%" x2="0%" y2="100%">
+    <linearGradient id="blade-grad-2" x1="100%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#34D399" />
-      <stop offset="40%" stop-color="#059669" />
-      <stop offset="80%" stop-color="#064E3B" />
+      <stop offset="70%" stop-color="#059669" />
       <stop offset="100%" stop-color="#022C22" />
     </linearGradient>
-    <linearGradient id="bi-facet-base-left" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#059669" />
-      <stop offset="100%" stop-color="#022C22" />
-    </linearGradient>
-    <linearGradient id="bi-facet-base-right" x1="100%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#047857" />
-      <stop offset="100%" stop-color="#011B14" />
-    </linearGradient>
-
-    <!-- Glass Rim Gleams & Borders -->
-    <linearGradient id="bi-glass-rim" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#34D399" stop-opacity="0.6" />
-      <stop offset="40%" stop-color="#10B981" stop-opacity="0.2" />
-      <stop offset="100%" stop-color="#059669" stop-opacity="0.45" />
-    </linearGradient>
-    <linearGradient id="bi-spear-sheen" x1="0%" y1="0%" x2="100%" y2="0%">
+    <linearGradient id="orbit-grad" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#10B981" stop-opacity="0" />
-      <stop offset="50%" stop-color="#FFFFFF" stop-opacity="0.9" />
+      <stop offset="50%" stop-color="#38BDF8" stop-opacity="0.8" />
       <stop offset="100%" stop-color="#10B981" stop-opacity="0" />
     </linearGradient>
-    <linearGradient id="bi-laser-divider" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#10B981" stop-opacity="0.05" />
-      <stop offset="25%" stop-color="#34D399" stop-opacity="0.75" />
-      <stop offset="50%" stop-color="#38BDF8" stop-opacity="0.95" />
-      <stop offset="75%" stop-color="#10B981" stop-opacity="0.75" />
-      <stop offset="100%" stop-color="#059669" stop-opacity="0.05" />
-    </linearGradient>
 
-    <!-- Technical Drafting Blueprint Grid Pattern -->
-    <pattern id="bi-blueprint-subgrid" width="20" height="20" patternUnits="userSpaceOnUse">
-      <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#0E2D24" stroke-width="0.5" stroke-opacity="0.5" />
-      <circle cx="20" cy="20" r="0.75" fill="#1C5E4B" fill-opacity="0.6" />
-    </pattern>
-    <pattern id="bi-blueprint-majorgrid" width="100" height="100" patternUnits="userSpaceOnUse">
-      <rect width="100" height="100" fill="url(#bi-blueprint-subgrid)" />
-      <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#164D3D" stroke-width="1" stroke-opacity="0.7" />
-      <circle cx="100" cy="100" r="1.5" fill="#34D399" fill-opacity="0.7" />
-    </pattern>
-
-    <!-- Glow & Refraction Filters -->
-    <filter id="bi-emblem-glow" x="-40%" y="-40%" width="180%" height="180%">
+    <filter id="core-glow" x="-50%" y="-50%" width="200%" height="200%">
       <feGaussianBlur stdDeviation="6" result="blur" />
-      <feMerge>
-        <feMergeNode in="blur" />
-        <feMergeNode in="SourceGraphic" />
-      </feMerge>
-    </filter>
-    <filter id="bi-laser-glow" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="3" result="glow" />
-      <feMerge>
-        <feMergeNode in="glow" />
-        <feMergeNode in="SourceGraphic" />
-      </feMerge>
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
     </filter>
 
     <style>
-      @keyframes bi-blueprint-draft {
-        0% { stroke-dashoffset: 720; opacity: 0.2; }
-        40% { stroke-dashoffset: 0; opacity: 1; }
-        85%, 100% { stroke-dashoffset: 0; opacity: 0.85; }
+      @keyframes stroke-draw {
+        0% { stroke-dashoffset: 450; opacity: 0.2; }
+        50% { stroke-dashoffset: 0; opacity: 1; }
+        100% { stroke-dashoffset: 0; opacity: 1; }
       }
-      @keyframes bi-compass-spin-cw {
+      @keyframes orbit-spin {
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
       }
-      @keyframes bi-compass-spin-ccw {
+      @keyframes orbit-counter-spin {
         0% { transform: rotate(360deg); }
         100% { transform: rotate(0deg); }
       }
-      @keyframes bi-emblem-breathe {
-        0%, 100% { transform: translateY(0px) scale(1); filter: drop-shadow(0 0 14px rgba(16, 185, 129, 0.4)); }
-        50% { transform: translateY(-3px) scale(1.028); filter: drop-shadow(0 0 28px rgba(52, 211, 153, 0.85)); }
+      @keyframes blade-pulse {
+        0%, 100% { transform: scale(1); filter: drop-shadow(0 0 12px rgba(16, 185, 129, 0.35)); }
+        50% { transform: scale(1.02); filter: drop-shadow(0 0 24px rgba(52, 211, 153, 0.7)); }
       }
-      @keyframes bi-beacon-pulse {
-        0%, 100% { opacity: 0.4; transform: scale(0.9); }
-        50% { opacity: 1; transform: scale(1.25); }
-      }
-      @keyframes bi-caliper-flash {
-        0%, 100% { opacity: 0.55; }
-        50% { opacity: 1; }
-      }
-      @keyframes bi-text-sheen {
-        0% { transform: translateX(-180px); }
-        100% { transform: translateX(360px); }
+      @keyframes beam-spark {
+        0%, 100% { opacity: 0.2; transform: scaleY(0.7); }
+        50% { opacity: 0.85; transform: scaleY(1.3); }
       }
 
-      .bi-draft-line {
-        stroke-dasharray: 720;
-        animation: bi-blueprint-draft 6s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+      .stroke-anim {
+        stroke-dasharray: 450;
+        animation: stroke-draw 4.5s ease-in-out infinite;
       }
-      .bi-caliper-cw {
-        transform-origin: 215px 205px;
-        animation: bi-compass-spin-cw 24s linear infinite;
+      .orbit-cw {
+        transform-origin: 180px 150px;
+        animation: orbit-spin 14s linear infinite;
       }
-      .bi-caliper-ccw {
-        transform-origin: 215px 205px;
-        animation: bi-compass-spin-ccw 18s linear infinite;
+      .orbit-ccw {
+        transform-origin: 180px 150px;
+        animation: orbit-counter-spin 10s linear infinite;
       }
-      .bi-emblem-core {
-        transform-origin: 215px 205px;
-        animation: bi-emblem-breathe 4.5s ease-in-out infinite;
+      .blade-group {
+        transform-origin: 180px 150px;
+        animation: blade-pulse 4s ease-in-out infinite;
       }
-      .bi-beacon {
-        transform-origin: 215px 205px;
-        animation: bi-beacon-pulse 2s ease-in-out infinite;
-      }
-      .bi-callout {
-        animation: bi-caliper-flash 3.5s ease-in-out infinite;
+      .spark-line {
+        transform-origin: 180px 150px;
+        animation: beam-spark 3s ease-in-out infinite;
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .bi-draft-line, .bi-caliper-cw, .bi-caliper-ccw, .bi-emblem-core, .bi-beacon, .bi-callout {
+        .stroke-anim, .orbit-cw, .orbit-ccw, .blade-group, .spark-line {
           animation: none !important;
         }
       }
     </style>
   </defs>
 
-  <!-- Frame Canvas -->
-  <rect width="940" height="400" rx="16" fill="#020605" />
-  <rect width="940" height="400" rx="16" fill="url(#bi-blueprint-majorgrid)" />
-  <rect width="940" height="400" rx="16" stroke="#163E32" stroke-width="1.2" />
+  <!-- Background Base -->
+  <rect width="800" height="300" rx="14" fill="#08110F" />
+  <rect width="800" height="300" rx="14" stroke="#16382E" stroke-width="1.2" />
 
-  <!-- Technical Header HUD -->
-  <g transform="translate(32, 24)">
-    <circle cx="6" cy="6" r="4" fill="#10B981" class="bi-beacon" />
-    <text x="18" y="10" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="800" fill="#34D399" letter-spacing="1.2">BRAND ANATOMY &amp; GEOMETRIC SYNTHESIS</text>
-    <text x="350" y="10" font-family="ui-monospace, monospace" font-size="10" fill="#64748B">SPEC_REV: 05 • CARTESIAN_LATTICE: LOCKED • ANGLE_OF_THRUST: 54.7° • TOLERANCE: ±0.002mm</text>
+  <!-- Background Glow behind Mark -->
+  <circle cx="180" cy="150" r="130" fill="url(#mark-glow)" />
+
+  <!-- Animated Telemetry Coordinates Circles -->
+  <g class="orbit-cw">
+    <circle cx="180" cy="150" r="105" stroke="#1A4A3C" stroke-width="1" stroke-dasharray="3, 8" />
+    <circle cx="180" cy="45" r="3.5" fill="#34D399" />
+    <circle cx="180" cy="255" r="3" fill="#38BDF8" />
   </g>
-
-  <!-- Laser Blueprint Divider Beam -->
-  <line x1="424" y1="50" x2="424" y2="376" stroke="url(#bi-laser-divider)" stroke-width="1.5" filter="url(#bi-laser-glow)" />
-  <g transform="translate(424, 70)">
-    <circle cx="0" cy="0" r="3" fill="#38BDF8" />
-    <circle cx="0" cy="70" r="2" fill="#10B981" />
-    <circle cx="0" cy="140" r="2" fill="#34D399" />
-    <circle cx="0" cy="210" r="2" fill="#38BDF8" />
-    <circle cx="0" cy="280" r="3" fill="#10B981" />
+  <g class="orbit-ccw">
+    <circle cx="180" cy="150" r="85" stroke="#1F5A49" stroke-width="1.2" stroke-dasharray="6, 14" opacity="0.7" />
+    <circle cx="95" cy="150" r="2.5" fill="#F59E0B" />
+    <circle cx="265" cy="150" r="3" fill="#6EE7B7" />
   </g>
 
-  <!-- ==================== LEFT CHAMBER: PRECISION BLUEPRINT & CALIPERS ==================== -->
-  <!-- Ambient Core Aura -->
-  <circle cx="215" cy="205" r="145" fill="url(#bi-mark-aura)" />
+  <!-- Vertical Telemetry Calibration Line -->
+  <line x1="180" y1="20" x2="180" y2="280" stroke="#12362B" stroke-width="1" stroke-dasharray="4, 4" class="spark-line" />
+  <line x1="50" y1="150" x2="310" y2="150" stroke="#12362B" stroke-width="1" stroke-dasharray="4, 4" opacity="0.4" />
 
-  <!-- Caliper Calibrations & Degree Rings (Rotating) -->
-  <g class="bi-caliper-cw">
-    <circle cx="215" cy="205" r="136" stroke="#123C30" stroke-width="1" stroke-dasharray="2, 6" />
-    <circle cx="215" cy="69" r="3.5" fill="#34D399" />
-    <circle cx="215" cy="341" r="3.5" fill="#38BDF8" />
-    <circle cx="79" cy="205" r="2" fill="#10B981" />
-    <circle cx="351" cy="205" r="2" fill="#10B981" />
-  </g>
-  <g class="bi-caliper-ccw">
-    <circle cx="215" cy="205" r="114" stroke="#195443" stroke-width="1.2" stroke-dasharray="6, 12" opacity="0.8" />
-    <circle cx="134" cy="124" r="2.5" fill="#F59E0B" />
-    <circle cx="296" cy="286" r="2.5" fill="#A78BFA" />
-    <circle cx="296" cy="124" r="2.5" fill="#6EE7B7" />
-    <circle cx="134" cy="286" r="2.5" fill="#38BDF8" />
-  </g>
+  <!-- Spearhead Emblem Choreography -->
+  <g class="blade-group">
+    <!-- Outer Contour Drawn by Laser Stroke -->
+    <polygon points="180,65 245,150 180,218 115,150" fill="none" stroke="url(#blade-grad-1)" stroke-width="2" class="stroke-anim" />
 
-  <!-- Cartesian Coordinate Grid Axis & Ticks -->
-  <g stroke="#184A3B" stroke-width="0.8">
-    <line x1="55" y1="205" x2="375" y2="205" stroke-dasharray="3, 3" />
-    <line x1="215" y1="55" x2="215" y2="355" stroke-dasharray="3, 3" />
-    <!-- Vernier Hash Marks along X Axis -->
-    <line x1="115" y1="200" x2="115" y2="210" />
-    <line x1="165" y1="202" x2="165" y2="208" />
-    <line x1="265" y1="202" x2="265" y2="208" />
-    <line x1="315" y1="200" x2="315" y2="210" />
-    <!-- Vernier Hash Marks along Y Axis -->
-    <line x1="210" y1="105" x2="220" y2="105" />
-    <line x1="212" y1="155" x2="218" y2="155" />
-    <line x1="212" y1="255" x2="218" y2="255" />
-    <line x1="210" y1="305" x2="220" y2="305" />
+    <!-- Left Wing Facet (Form Geometry) -->
+    <polygon points="180,75 125,150 180,205 162,150" fill="url(#blade-grad-2)" opacity="0.9" />
+
+    <!-- Right Wing Facet (Spear Thrust Geometry) -->
+    <polygon points="180,75 235,150 180,205 198,150" fill="url(#blade-grad-1)" opacity="0.95" />
+
+    <!-- Center Spine & Penetration Arrow -->
+    <polygon points="180,72 190,150 180,185 170,150" fill="#ECFDF5" opacity="0.9" />
+
+    <!-- Central Telemetry Dot -->
+    <circle cx="180" cy="150" r="4.5" fill="#FFFFFF" filter="url(#core-glow)" />
   </g>
 
-  <!-- Blueprint Dynamic Construction Stroke-Dashoffset -->
-  <g class="bi-draft-line" stroke="#34D399" stroke-width="1.4" fill="none">
-    <!-- Rhomboid Envelope & Kinetic Rays -->
-    <polygon points="215,95 298,205 215,315 132,205" stroke-dasharray="8, 6" opacity="0.85" />
-    <!-- Golden Thrust Vector Triangle -->
-    <polygon points="215,95 285,205 145,205" stroke="#38BDF8" stroke-width="1" stroke-dasharray="4, 4" opacity="0.7" />
-    <!-- Radial Focal Rays -->
-    <line x1="132" y1="205" x2="298" y2="205" stroke="#34D399" stroke-width="1.2" opacity="0.6" />
-    <line x1="215" y1="95" x2="215" y2="315" stroke="#34D399" stroke-width="1.2" opacity="0.6" />
-    <!-- Tangent Construction Arcs -->
-    <path d="M 180,155 A 50,50 0 0,1 250,155" stroke="#10B981" stroke-width="0.8" stroke-dasharray="2, 4" />
-  </g>
-
-  <!-- Assembled Core 3D Spearhead Emblem -->
-  <g class="bi-emblem-core" filter="url(#bi-emblem-glow)">
-    <!-- Top Left Facet -->
-    <polygon points="215,115 213,205 145,205" fill="url(#bi-facet-left)" opacity="0.96" />
-    <!-- Bottom Left Facet -->
-    <polygon points="215,295 213,205 145,205" fill="url(#bi-facet-base-left)" opacity="0.88" />
-    <!-- Top Right Facet -->
-    <polygon points="215,115 217,205 285,205" fill="url(#bi-facet-right)" opacity="0.96" />
-    <!-- Bottom Right Facet -->
-    <polygon points="215,295 217,205 285,205" fill="url(#bi-facet-base-right)" opacity="0.92" />
-    
-    <!-- Central Specular Ridge Spine -->
-    <line x1="215" y1="110" x2="215" y2="300" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" />
-    
-    <!-- Transverse Structural Caliper Line -->
-    <line x1="145" y1="205" x2="285" y2="205" stroke="#6EE7B7" stroke-width="1" stroke-opacity="0.6" />
-    
-    <!-- Center Optical Sensor Centroid -->
-    <circle cx="215" cy="205" r="9" fill="url(#bi-core-beacon)" />
-    <circle cx="215" cy="205" r="5" fill="#FFFFFF" />
-    <circle cx="215" cy="205" r="2.5" fill="#10B981" />
-  </g>
-
-  <!-- Precision Caliper Annotation Callouts -->
-  <g class="bi-callout" transform="translate(68, 126)">
-    <rect width="78" height="22" rx="4" fill="#061B14" stroke="#165441" stroke-width="1" />
-    <text x="39" y="15" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.5" font-weight="700" fill="#34D399">θ = 54.7°</text>
-    <!-- Pointer Line -->
-    <line x1="78" y1="11" x2="108" y2="11" stroke="#165441" stroke-width="0.8" />
-    <circle cx="108" cy="11" r="1.5" fill="#34D399" />
-  </g>
-  <g class="bi-callout" transform="translate(276, 280)">
-    <rect width="90" height="22" rx="4" fill="#061B20" stroke="#144C5E" stroke-width="1" />
-    <text x="45" y="15" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.5" font-weight="700" fill="#38BDF8">ΔX = 140.0mm</text>
-    <line x1="0" y1="11" x2="-24" y2="11" stroke="#144C5E" stroke-width="0.8" />
-    <circle cx="-24" cy="11" r="1.5" fill="#38BDF8" />
-  </g>
-  <g class="bi-callout" transform="translate(215, 342)">
-    <text x="0" y="0" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#6EE7B7" letter-spacing="0.5">ORIGIN_DATUM [215.0, 205.0] • R_SWEEP = 78.4mm</text>
-  </g>
-
-  <!-- ==================== RIGHT CHAMBER: TYPOGRAPHIC SYNTHESIS & CHROMATIC SIGNATURE ==================== -->
-  <g transform="translate(450, 52)">
-    <!-- Master Brand Lockup -->
-    <g>
-      <text x="0" y="36" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="34" font-weight="900" fill="#FFFFFF" letter-spacing="3.5">
-        FORMSPEAR
-      </text>
-      <circle cx="264" cy="27" r="5" fill="#10B981" class="bi-beacon" />
-      <text x="282" y="32" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#34D399" letter-spacing="1">TM</text>
-      
-      <!-- Sub-label -->
-      <text x="0" y="52" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#94A3B8" letter-spacing="1.2">
-        THE ZERO-FRAMEWORK FEEDBACK OPERATING SYSTEM
-      </text>
+  <!-- Typography & Brand Hierarchy Lockup -->
+  <g transform="translate(330, 85)">
+    <!-- Brand Tagline Badge -->
+    <g transform="translate(0, 0)">
+      <rect x="0" y="0" width="168" height="22" rx="11" fill="#0E241F" stroke="#1F5646" stroke-width="1" />
+      <text x="14" y="15" font-family="ui-monospace, monospace" font-size="9.5" font-weight="700" fill="#34D399" letter-spacing="1">BRAND ANATOMY</text>
+      <circle cx="152" cy="11" r="3" fill="#10B981" />
     </g>
 
-    <!-- Structural Exposition: FORM vs SPEAR Glass Cards -->
-    <g transform="translate(0, 68)">
-      <!-- FORM [Structure] Card -->
-      <g transform="translate(0, 0)">
-        <rect width="218" height="88" rx="8" fill="#051813" stroke="url(#bi-glass-rim)" stroke-width="1.2" />
-        <rect x="0" y="0" width="218" height="1" fill="#6EE7B7" fill-opacity="0.4" />
-        <!-- Badge -->
-        <rect x="12" y="12" width="130" height="18" rx="3" fill="#0B2B21" />
-        <circle cx="20" cy="21" r="3" fill="#10B981" />
-        <text x="28" y="24" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="800" fill="#34D399" letter-spacing="0.8">FORM [Structure]</text>
-        <!-- Body -->
-        <text x="12" y="44" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" font-weight="600" fill="#E2E8F0">Cartesian question schema, 23</text>
-        <text x="12" y="58" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" font-weight="500" fill="#CBD5E1">primitives &amp; deterministic DAG logic.</text>
-        <text x="12" y="74" font-family="ui-monospace, monospace" font-size="9" fill="#64748B">STATE: RIGID • PREREQ: ZERO</text>
-      </g>
+    <!-- Wordmark -->
+    <text x="0" y="62" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif" font-size="42" font-weight="900" fill="#FFFFFF" letter-spacing="2">
+      Formspear
+    </text>
 
-      <!-- SPEAR [Velocity] Card -->
-      <g transform="translate(232, 0)">
-        <rect width="224" height="88" rx="8" fill="#041820" stroke="#165166" stroke-width="1.2" />
-        <rect x="0" y="0" width="224" height="1" fill="#38BDF8" fill-opacity="0.4" />
-        <!-- Badge -->
-        <rect x="12" y="12" width="134" height="18" rx="3" fill="#0A2834" />
-        <circle cx="20" cy="21" r="3" fill="#38BDF8" />
-        <text x="28" y="24" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="800" fill="#38BDF8" letter-spacing="0.8">SPEAR [Velocity]</text>
-        <!-- Body -->
-        <text x="12" y="44" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" font-weight="600" fill="#E2E8F0">Kinetic trajectory: &lt;1ms ingestion,</text>
-        <text x="12" y="58" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10.5" font-weight="500" fill="#CBD5E1">sub-12ms multi-channel alerts.</text>
-        <text x="12" y="74" font-family="ui-monospace, monospace" font-size="9" fill="#64748B">DISPATCH: IMMEDIATE (&lt;12ms)</text>
-      </g>
-    </g>
+    <!-- Descriptor -->
+    <text x="0" y="94" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="600" fill="#6EE7B7" letter-spacing="0.8">
+      PRECISION ARCHITECTURE FOR ENTERPRISE FEEDBACK
+    </text>
 
-    <!-- Chromatic Signature Palette (5 Color Swatches) -->
-    <g transform="translate(0, 172)">
-      <text x="0" y="12" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#64748B" letter-spacing="1">CHROMATIC SIGNATURE &amp; COLOR MATRIX</text>
-      
-      <!-- Swatch 1: Obsidian -->
-      <g transform="translate(0, 22)">
-        <rect width="86" height="38" rx="5" fill="#020605" stroke="#143D32" stroke-width="1" />
-        <circle cx="14" cy="19" r="4.5" fill="#020605" stroke="#475569" stroke-width="1.2" />
-        <text x="25" y="17" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9" font-weight="700" fill="#F8FAFC">OBSIDIAN</text>
-        <text x="25" y="29" font-family="ui-monospace, monospace" font-size="8" fill="#94A3B8">#020605</text>
-      </g>
+    <text x="0" y="122" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12.5" font-weight="400" fill="#94A3B8">
+      Spearhead velocity: collect, categorize, and act on multi-branch signals in real time.
+    </text>
 
-      <!-- Swatch 2: Emerald -->
-      <g transform="translate(93, 22)">
-        <rect width="86" height="38" rx="5" fill="#042017" stroke="#10B981" stroke-width="1" />
-        <circle cx="14" cy="19" r="4.5" fill="#10B981" />
-        <text x="25" y="17" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9" font-weight="700" fill="#F8FAFC">EMERALD</text>
-        <text x="25" y="29" font-family="ui-monospace, monospace" font-size="8" fill="#6EE7B7">#10B981</text>
-      </g>
-
-      <!-- Swatch 3: Cyan -->
-      <g transform="translate(186, 22)">
-        <rect width="86" height="38" rx="5" fill="#051E28" stroke="#38BDF8" stroke-width="1" />
-        <circle cx="14" cy="19" r="4.5" fill="#38BDF8" />
-        <text x="25" y="17" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9" font-weight="700" fill="#F8FAFC">CYAN</text>
-        <text x="25" y="29" font-family="ui-monospace, monospace" font-size="8" fill="#7DD3FC">#38BDF8</text>
-      </g>
-
-      <!-- Swatch 4: Amber -->
-      <g transform="translate(279, 22)">
-        <rect width="86" height="38" rx="5" fill="#241B08" stroke="#F59E0B" stroke-width="1" />
-        <circle cx="14" cy="19" r="4.5" fill="#F59E0B" />
-        <text x="25" y="17" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9" font-weight="700" fill="#F8FAFC">AMBER</text>
-        <text x="25" y="29" font-family="ui-monospace, monospace" font-size="8" fill="#FCD34D">#F59E0B</text>
-      </g>
-
-      <!-- Swatch 5: Violet -->
-      <g transform="translate(372, 22)">
-        <rect width="84" height="38" rx="5" fill="#15122B" stroke="#818CF8" stroke-width="1" />
-        <circle cx="14" cy="19" r="4.5" fill="#818CF8" />
-        <text x="25" y="17" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9" font-weight="700" fill="#F8FAFC">VIOLET</text>
-        <text x="25" y="29" font-family="ui-monospace, monospace" font-size="8" fill="#C7D2FE">#818CF8</text>
-      </g>
-    </g>
-
-    <!-- DecoyINDIA Creator Signature & Architecture Seal -->
-    <g transform="translate(0, 252)">
-      <rect width="456" height="66" rx="6" fill="#04120E" stroke="#123B2F" stroke-width="1" />
-      <!-- Signature Icon Emblem -->
-      <g transform="translate(14, 16)">
-        <polygon points="12,2 22,18 12,32 2,18" fill="#06281E" stroke="#10B981" stroke-width="1.2" />
-        <polygon points="12,6 18,18 12,28 6,18" fill="#10B981" />
-        <circle cx="12" cy="18" r="2.5" fill="#FFFFFF" />
-      </g>
-      <!-- Signature Text -->
-      <text x="46" y="26" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" font-weight="800" fill="#FFFFFF" letter-spacing="1">
-        ENGINEERED BY DecoyINDIA • ARCHITECT: SUBHAM JENA
-      </text>
-      <text x="46" y="42" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="500" fill="#34D399">
-        Core Infrastructure Fleet: 14 Active Hubs (BLR • BOM • DEL • HYD)
-      </text>
-      <text x="46" y="56" font-family="ui-monospace, monospace" font-size="9" fill="#64748B">
-        AUTH_DIGEST: SHA256(DecoyINDIA-Formspear-2026) • ZERO EXTERNAL DEPENDENCIES
-      </text>
+    <!-- Specifications Micro-Grid -->
+    <g transform="translate(0, 142)">
+      <text x="0" y="12" font-family="ui-monospace, monospace" font-size="10.5" fill="#64748B">ASPECT: <tspan fill="#CBD5E1">Vector SVG</tspan></text>
+      <text x="120" y="12" font-family="ui-monospace, monospace" font-size="10.5" fill="#64748B">CORE: <tspan fill="#34D399">Dynamic SMIL+CSS</tspan></text>
+      <text x="270" y="12" font-family="ui-monospace, monospace" font-size="10.5" fill="#64748B">CANVAS: <tspan fill="#CBD5E1">Adaptive Contrast</tspan></text>
     </g>
   </g>
 </svg>
