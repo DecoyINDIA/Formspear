@@ -1,0 +1,14 @@
+{
+  "name": "formspear-readme-art",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Reproducible render pipeline for the Formspear README exhibition (deterministic canvas scenes -> animated WebP).",
+  "type": "module",
+  "scripts": {
+    "render": "node render.mjs",
+    "lattice": "node lattice/generate.mjs"
+  },
+  "dependencies": {
+    "puppeteer-core": "^24.0.0"
+  }
+}

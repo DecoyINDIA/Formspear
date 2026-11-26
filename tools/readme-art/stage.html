@@ -1,0 +1,30 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Formspear README art stage</title>
+<style>html,body{margin:0;background:#06100d}canvas{display:block}</style>
+<canvas id="c"></canvas>
+<script src="engine/engine.js"></script>
+<script src="engine/kit.js"></script>
+<script>
+  window.SCENES = {};
+  window.registerScene = (id, def) => { window.SCENES[id] = def; };
+</script>
+<script src="scenes/_loader.js"></script>
+<script>
+  (async () => {
+    const id = new URLSearchParams(location.search).get('scene');
+    const def = window.SCENES[id];
+    const c = document.getElementById('c');
+    c.width = def.w; c.height = def.h;
+    const ctx = c.getContext('2d');
+    if (document.fonts) { try { await document.fonts.load('600 40px Bahnschrift'); await document.fonts.load('12px "Cascadia Mono"'); } catch (e) {} }
+    const S = new FS.Scene3D(ctx, def.w, def.h, def.scene || {});
+    S.img = {};
+    await Promise.all(Object.entries(def.assets || {}).map(([k, src]) => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(); im.onerror = () => rej(new Error('asset ' + src)); im.src = src; S.img[k] = im; })));
+    if (def.init) def.init(ctx, S);
+    window.__def = { w: def.w, h: def.h, fps: def.fps, dur: def.dur, poster: def.poster };
+    window.renderAt = (t) => { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, def.w, def.h); def.draw(ctx, t, S); };
+    window.canvasPng = () => c.toDataURL('image/png');
+    window.__ready = true;
+  })();
+</script>

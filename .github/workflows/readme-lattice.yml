@@ -1,0 +1,44 @@
+name: README Living Lattice
+
+# Regenerates the Living Lattice artwork (assets/readme/art/living-lattice.svg) and the
+# numeric table in README.md from official GitHub API data, every six hours.
+# History is append-only in assets/readme/metrics/snapshots.jsonl. If the API fails or is
+# rate-limited the generator reuses the last verified snapshot and fabricates nothing.
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: readme-lattice
+  cancel-in-progress: false
+
+jobs:
+  lattice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Generate lattice from verified repository metrics
+        run: node tools/readme-art/lattice/generate.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+      - name: Commit changes (only when metrics changed)
+        run: |
+          if git diff --quiet -- assets/readme README.md; then
+            echo "No metric changes; nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/readme/art/living-lattice.svg assets/readme/metrics README.md
+          git commit -m "chore(readme): refresh Living Lattice metrics snapshot [skip ci]"
+          git push

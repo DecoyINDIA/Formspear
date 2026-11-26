@@ -10,3 +10,7 @@ tmp/
 coverage/
 npm-debug.log*
 *.tmp
+
+# README art render scratch
+tools/readme-art/out/
+tools/readme-art/dbg.mjs

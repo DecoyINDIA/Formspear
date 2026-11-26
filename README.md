@@ -1,237 +1,53 @@
 <p align="center">
-  <img src="assets/readme/hero-cinematic.svg" alt="Formspear Cinematic Hero Banner" width="100%" />
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="assets/readme/art/static/hero.webp">
+    <img src="assets/readme/art/hero.webp" alt="Animated architectural sculpture: scattered modular fragments align on a grid, assemble into a twisted tower, then resolve into the Formspear emblem beside the wordmark FORMSPEAR and the statement ORDER FROM COMPLEXITY." width="100%">
+  </picture>
 </p>
 
 <p align="center">
-  <a href="#quick-start"><img src="https://img.shields.io/badge/Runtime-Node.js_%3E%3D20-10B981?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js >= 20" /></a>
-  <a href="#system-architecture--data-engine"><img src="https://img.shields.io/badge/Architecture-Dual--Store_(RAM%20%2B%20PostgreSQL)-38BDF8?style=for-the-badge&logo=postgresql&logoColor=white" alt="Dual Store" /></a>
-  <a href="#validated-performance-benchmarks"><img src="https://img.shields.io/badge/Respondent_Bundle-9.8_KB_Gzip-A78BFA?style=for-the-badge&logo=speedtest&logoColor=white" alt="Respondent Bundle" /></a>
-  <a href="#production-deployment-position"><img src="https://img.shields.io/badge/Deploy-Railway_Ready-818CF8?style=for-the-badge&logo=railway&logoColor=white" alt="Railway Ready" /></a>
-  <a href="#quality-verification--automated-gates"><img src="https://img.shields.io/badge/Benchmark-100k_Responses_Tested-F59E0B?style=for-the-badge&logo=speedtest&logoColor=white" alt="100k Responses Tested" /></a>
-  <a href="#license"><img src="https://img.shields.io/badge/License-MIT-34D399?style=for-the-badge" alt="MIT License" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-34D399?style=flat-square" alt="MIT license"></a>
+  <a href=".github/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/DecoyINDIA/Formspear/ci.yml?branch=main&style=flat-square&label=CI&color=10B981" alt="CI status"></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/node-%E2%89%A520-10B981?style=flat-square" alt="Node.js 20 or newer"></a>
+  <a href="#14--deployment-and-availability"><img src="https://img.shields.io/badge/deploy-Railway%20%C2%B7%20self--managed-047857?style=flat-square" alt="Railway or self-managed deployment"></a>
+</p>
+
+<h1 align="center">FORMSPEAR</h1>
+<p align="center"><b>ORDER FROM COMPLEXITY</b><br><sub>Forms, surveys and feedback operations on a single zero-framework Node.js process.</sub></p>
+
+<p align="center">
+  <a href="#03--start-building"><b>Start building</b></a> ·
+  <a href="docs/ARCHITECTURE.md">Architecture</a> ·
+  <a href="docs/API.md">API</a> ·
+  <a href="docs/DEPLOYMENT.md">Deployment</a> ·
+  <a href="docs/readme-art/ANIMATION_INVENTORY.md">About the artwork</a>
 </p>
 
 ---
 
-<p align="center">
-  <img src="assets/readme/metrics-ribbon.svg" alt="Formspear Verified Telemetry Ribbon" width="100%" />
-</p>
+## 01 — Order from Complexity
 
----
+Feedback arrives as fragments: a rating here, a sentence there, a file, a date, a phone number from one branch of one clinic. On their own they are noise. **Formspear is an instrument for turning that noise into structure** — you design the form, the rules that shape it, and the records it produces, and the system keeps the structure intact from the first answer to the last report.
 
-## Executive Summary
+The animations in this README are the argument in motion. Each is a deterministic render built from the product's own vocabulary: real question types, real rule actions, real directories, real screenshots, real repository statistics. Where a scene is illustrative it says so on the frame.
 
-**Formspear** (internally *FeedbackOS*) is a high-performance feedback operations platform engineered on a zero-framework Node.js 20 runtime. It is designed specifically for multi-branch service networks—clinics, coaching academies, retail chains, and customer experience consultancies—that require immediate feedback capture, branch attribution, automated escalation dispatching, and executive PDF reporting without the latency, bloated bundles, and subscription tax of legacy survey software.
+<br>
 
-Conventional survey products treat customer submissions as passive rows in a database. Formspear operates as a **closed-loop feedback operating system**:
+## 02 — Meet Formspear
 
-1. **Lightweight Edge Capture:** Deploys across ultra-lean mobile PWAs (`/s/:slug`, 9.8 KB gzip), website embeds (`/embed.js`), in-app SDKs (`/sdk.js`), and branded dynamic QR codes.
-2. **Sub-Millisecond Ingestion:** In-memory synchronous collection engine processes incoming submissions with `<1.2ms` execution latency during peak customer arrival bursts.
-3. **Automated Escalation Router:** Dispatches real-time WhatsApp, Slack, Teams, and HMAC-signed webhook alerts the moment a negative rating or VIP lead is recorded.
-4. **Relational Resilience:** Persists state through 5ms debounced shadow diffs into PostgreSQL relational tables protected by single-writer advisory locks.
+Formspear (internally **FeedbackOS**) is a full-stack forms, surveys, feedback, analytics, AI-insight, billing and operations platform. It is written for service networks — clinics, academies, retail and consultancies — that need to capture feedback in many places, attribute it to a branch, escalate the bad moments quickly, and report on the rest.
 
-<p align="center">
-  <img src="assets/readme/divider-pulse.svg" width="100%" />
-</p>
+- **Capture** through a lean public respondent runtime (`/s/:slug`), a website embed (`public/embed.js`) and an in-app SDK (`public/sdk.js`).
+- **Structure** answers against a survey schema with 23 question types, multi-page forms and rule-based logic.
+- **Act** with alerts (WhatsApp, Slack, Microsoft Teams, email), HMAC-signed outbound webhooks and AI summaries.
+- **Operate** with workspaces, team roles, API keys, branded surveys, billing (Stripe, Razorpay) and an admin readiness report.
 
-## Brand Identity & Geometric Anatomy
+The respondent bundle (`survey.html` + `survey.js` + `styles.css`) is **9,803 bytes gzipped**, enforced by `npm run performance:budget` against a 20,480-byte budget.
 
-Formspear embodies the synthesis of structural discipline (**Form**) and directional velocity (**Spear**).
+<br>
 
-<p align="center">
-  <img src="assets/readme/brand-identity.svg" alt="Formspear Brand Identity &amp; Geometric Anatomy" width="100%" />
-</p>
+## 03 — Start Building
 
-### The Core Tension Solved
-
-| Architectural Dimension | Legacy Survey Tools (Typeform, SurveyMonkey) | Formspear FeedbackOS |
-| :--- | :--- | :--- |
-| **Runtime Footprint** | Heavy front-end bundles (200KB–1MB+), third-party trackers | **Zero external web framework** (`node:http`), vanilla client (<10KB gzip) |
-| **Storage Paradigm** | Database-per-call ORM overhead (100–300ms latency) | **Dual-Store Architecture** (RAM state + PostgreSQL shadow diffs) |
-| **Multi-Branch Attribution** | Monolithic survey buckets; manual branch tagging | **Native branch/location dimensions** (`BLR`, `BOM`, `DEL`, `HYD`) |
-| **Alert Velocity** | Batch emails or polling-based Zapier/Make webhooks (minutes delay) | **Sub-12ms event router** to WhatsApp Cloud API, Slack, & webhooks |
-| **File Security** | Direct uploads to public cloud buckets uninspected | **Zero-Trust Quarantine Pipeline** with EICAR antivirus hook |
-| **Offline Resilience** | Browser refresh loses unfinished survey progress | **Partial autosave, resume tokens, & crash reload recovery** |
-| **Infrastructure Cost** | Per-response billing tiers and complex multi-tier SaaS | **Single Node.js process** with predictable RAM and compute footprint |
-
-<p align="center">
-  <img src="assets/readme/divider-pulse.svg" width="100%" />
-</p>
-
-## Product in Action
-
-Watch how Formspear ingests a live public submission, performs zero-trust validation, updates the operator dashboard, and dispatches an instant escalation alert in real time:
-
-<p align="center">
-  <img src="assets/readme/product-in-action.svg" alt="Formspear Product in Action Simulation" width="100%" />
-</p>
-
-### Authentic Production Interface Evidence
-
-Formspear includes an operational single-page application dashboard and a standalone mobile respondent runtime. Captured directly from the automated visual regression pipeline:
-
-<table align="center" width="100%">
-  <tr>
-    <td width="50%" align="center" valign="top">
-      <b>Operator Analytics &amp; Real-Time Dashboard</b><br />
-      <sub>Comparative branch NPS leaderboards, response volumes, and sentiment tracking.</sub><br /><br />
-      <img src="assets/readme/desktop-dashboard.png" alt="Desktop Dashboard Screenshot" width="100%" />
-    </td>
-    <td width="50%" align="center" valign="top">
-      <b>Interactive Builder with Undo / Redo History</b><br />
-      <sub>23 question types, visual skip logic, multi-page grouping, and bounded undo stack.</sub><br /><br />
-      <img src="assets/readme/desktop-builder.png" alt="Desktop Builder Screenshot" width="100%" />
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" align="center" valign="top">
-      <b>Multi-Tenant App Shell &amp; Workspace Navigation</b><br />
-      <sub>Agency portfolio view, team roles, billing subscriptions, and API keys.</sub><br /><br />
-      <img src="assets/readme/desktop-app-shell.png" alt="Desktop App Shell Screenshot" width="100%" />
-    </td>
-    <td width="50%" align="center" valign="top">
-      <b>Mobile Public Survey Respondent Runtime</b><br />
-      <sub>Instant loading (9.8 KB gzip), touch-optimized ratings, autosave, and multi-language support.</sub><br /><br />
-      <img src="assets/readme/mobile-public-survey.png" alt="Mobile Public Survey Screenshot" width="70%" />
-    </td>
-  </tr>
-</table>
-
-<p align="center">
-  <img src="assets/readme/divider-pulse.svg" width="100%" />
-</p>
-
-## Core Engineering Capabilities
-
-Four dedicated architectural engines drive Formspear's operational loop:
-
-<p align="center">
-  <img src="assets/readme/feature-showcase.svg" alt="Formspear Core Capabilities Matrix" width="100%" />
-</p>
-
-### 1. Dynamic Branching & Conditional Logic Engine
-- **23 Question Types:** Net Promoter Score (NPS), CSAT rating, multi-select, matrix grid, file upload, digital signature capture, date/time, and ranked choice.
-- **Forward Skip Logic:** Dynamically skip intermediate pages or jump straight to conclusion screens based on real-time answer rules.
-- **Cycle-Free Rule Graph:** Client and server-side validation guarantee branching logic never enters infinite loops or unresolved states.
-- **Multi-Language Support:** Instant localization via `?lang=` query parameters with deterministic translation fallbacks.
-
-### 2. Multi-Branch Telemetry & Geospatial Attribution
-- **Location Pinning:** Attaches physical branch ID, city, device type, and source campaign to every submission.
-- **Comparative Benchmarking:** Real-time cross-branch leaderboards identify high-performing locations versus branches requiring operational coaching.
-- **Drop-Off Analytics:** Visual funnel analysis highlights exact question abandonment rates across mobile and desktop.
-
-### 3. Zero-Trust File Quarantine Pipeline
-- **Scan-Before-Store Policy:** Ingested files are quarantined in temporary memory buffers prior to storage persistence.
-- **Antivirus Hook:** Integrated EICAR heuristic signature verification and local MIME denylists block malicious uploads.
-- **Object Storage Integration:** AWS S3 and Cloudflare R2 compatible storage via a hand-rolled SigV4 client signer.
-
-### 4. Real-Time Alert & Integration Hub
-- **Instant Escalation:** Trigger rules evaluate ratings in `<12ms`, dispatching WhatsApp messages to branch managers.
-- **Team Notifications:** Native Slack, Microsoft Teams, and email dispatch with exponential retry queues.
-- **Cryptographic Webhooks:** Outgoing webhooks signed with HMAC-SHA256 tokens and immutable delivery attempt audit logs.
-
-<p align="center">
-  <img src="assets/readme/divider-pulse.svg" width="100%" />
-</p>
-
-## System Architecture & Data Engine
-
-Formspear is built around a single-process, zero-framework Node.js runtime that achieves extreme throughput by decoupling in-memory request processing from relational background persistence.
-
-<p align="center">
-  <img src="assets/readme/architecture-flow.svg" alt="Formspear System Architecture &amp; Data Engine" width="100%" />
-</p>
-
-### Architectural Layers
-
-```text
-[ Client Edge ] ───────► [ Zero-Framework Gateway ] ──────► [ In-Memory Datastore ]
- PWA / Embed / SDK         node:http / Security / Auth         36 Collections (<1ms)
-                                     │                                  │
-                                     ▼                                  ▼ (5ms diff batch)
-                           [ Job Dispatcher ]              [ PostgreSQL Relational ]
-                           processDueJobs() / BullMQ         Shadow Diff / Advisory Lock
-                                     │
-                                     ▼
-                           [ External Providers ]
-                           OpenAI / S3 / WhatsApp / Stripe
-```
-
-### Module Boundaries
-
-- `src/server.js`: HTTP composition root, request routing, session security, and persistence lifecycle.
-- `src/production-config.js`: Strict fail-closed environment contract ensuring all secrets are validated at boot.
-- `src/security.js`: Timing-safe password verification, token hashing, CSRF defenses, and HTTP-only cookie headers.
-- `src/repos/`: Repository boundary decoupling high-volume collections (`responses`, `jobs`, `auditLogs`) into direct SQL persistence.
-- `src/routes/`: Focused domain route controllers:
-  - `src/routes/responses.js`: Filtered response listings, record mutations, and single-record PDF exports.
-  - `src/routes/analytics.js`: Comparative NPS calculations, funnel drops, and cross-survey benchmarks.
-  - `src/routes/ai-summary.js`: Honest LLM theme clustering, sentiment classification, and executive report synthesis.
-  - `src/routes/billing.js`: Stripe & Razorpay checkout, customer portal, and GST/tax-aware invoices.
-  - `src/routes/admin-readiness.js`: Protected production readiness audits without credential leakage.
-- `public/builder-history.js`: Pure, tested undo/redo state stack for the visual survey editor.
-- `public/survey.html` & `public/survey.js`: Isolated public respondent runtime (<10KB gzip) with zero dashboard dependencies.
-- `public/app.js`: Single-page operator application and dashboard composition root.
-
-> [!IMPORTANT]
-> **Single-Writer Posture**: Formspear is architected with a single writer process protected by a PostgreSQL advisory lock (`pg_try_advisory_lock`). Scale the web tier to 1 replica (`railway.json` `numReplicas: 1`). Background jobs, scheduled sweeps, and webhook retries run reliably in-process or can be routed to BullMQ.
-
-<p align="center">
-  <img src="assets/readme/divider-pulse.svg" width="100%" />
-</p>
-
-## Quality Verification & Automated Gates
-
-Formspear enforces a rigorous local verification gate covering unit tests, migrations, relational PostgreSQL backfill, and high-concurrency benchmarks:
-
-```bash
-# 1. Syntax & Migration Integrity Checks
-npm run check
-npm run migrations:check
-
-# 2. End-to-End HTTP Suite (59 suites covering full SaaS lifecycle)
-npm test
-
-# 3. High-Concurrency Submission & Dashboard Pagination Smoke
-npm run performance:smoke
-npm run performance:budget
-
-# 4. Atomic Backup & Restore Verification
-npm run backup:smoke
-
-# 5. Visual Regression & Headless Chrome Smoke
-npm run visual:smoke
-```
-
-<p align="center">
-  <img src="assets/readme/interactive-radar.svg" alt="Formspear Interactive Diagnostic Radar" width="100%" />
-</p>
-
-### Validated Performance Benchmarks
-
-- **100 Concurrent Submissions / Second:** Zero dropped packets, memory remains flat, synchronous collection update in `<1.2ms`.
-- **9.8 KB Gzip Respondent Bundle:** Public respondent runtime (`survey.html` + `survey.js` + `styles.css`) is 9,803 bytes gzipped—well under the 20 KB mobile performance budget.
-- **100,000 Response Pagination:** Dashboard queries with date, branch, and sentiment filtering complete under `191ms`.
-- **Relational Shadow Diff:** Compares 36 in-memory collections and issues minimal SQL upserts within a 5ms debounce window.
-
-<p align="center">
-  <img src="assets/readme/divider-pulse.svg" width="100%" />
-</p>
-
-## Developer & Operator Lifecycle
-
-<p align="center">
-  <img src="assets/readme/technical-workflow.svg" alt="Formspear Developer &amp; Operator Lifecycle" width="100%" />
-</p>
-
-### Quick Start
-
-#### Prerequisites
-- **Node.js 20.x** or newer (LTS recommended)
-- **npm** or compatible package manager
-- Optional: PostgreSQL 15+ and Redis (for production cutover)
-
-#### 1. Clone & Boot Locally
 ```bash
 git clone https://github.com/DecoyINDIA/Formspear.git
 cd Formspear
@@ -239,161 +55,224 @@ npm install
 npm start
 ```
 
-Open your browser at `http://localhost:4173`. The initial account created automatically inherits Super Admin privileges. For immediate testing, the signup screen is pre-configured with:
-- **Email:** `admin@feedbackos.local`
-- **Password:** `FeedbackOS123`
+Open <http://localhost:4173>. The first account you create becomes the platform super-admin for that install. Copy `.env.example` to `.env` to configure keys; production start-up is fail-closed and requires PostgreSQL (see [deployment](#14--deployment-and-availability)).
 
-#### 2. Configure Environment Variables
-```bash
-# On Linux / macOS
-cp .env.example .env
+<table align="center">
+  <tr>
+    <td width="50%" valign="top"><img src="assets/readme/desktop-builder.png" alt="The Formspear survey builder: question list, question editor and publish settings." width="100%"><br><sub><b>Survey builder</b> — real capture from the visual smoke pipeline.</sub></td>
+    <td width="50%" valign="top"><img src="assets/readme/desktop-dashboard.png" alt="The Formspear operator dashboard command center with survey and response counters." width="100%"><br><sub><b>Operator dashboard</b> — empty-state capture, no seeded demo data.</sub></td>
+  </tr>
+</table>
 
-# On Windows PowerShell
-Copy-Item .env.example .env
-```
+<br>
 
-Key environment configuration variables:
+## 04 — The Form Architect
 
-```ini
-# Core Configuration
-APP_URL=http://localhost:4173
-PORT=4173
-NODE_ENV=development
-
-# Cryptographic Keys (generate with crypto.randomBytes(32).toString('hex'))
-ENCRYPTION_KEY=your_64_char_hex_encryption_key
-IP_HASH_SALT=your_random_ip_hash_salt
-WEBHOOK_SIGNING_SECRET=your_webhook_hmac_secret
-CRON_SECRET=your_scheduled_cron_secret
-
-# Production Persistence (Optional for local dev)
-DATABASE_URL=postgres://user:password@localhost:5432/formspear
-REDIS_URL=redis://localhost:6379
-
-# External Provider Integrations (Optional)
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4o-mini
-STRIPE_SECRET_KEY=sk_test_...
-RAZORPAY_KEY_ID=rzp_test_...
-RAZORPAY_KEY_SECRET=...
-```
+A form is a structure before it is a screen. Each question type is built here as its own specimen, snapped into a vertical structure, and then the concept resolves into the real survey builder.
 
 <p align="center">
-  <img src="assets/readme/divider-pulse.svg" width="100%" />
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="assets/readme/art/static/form-architect.webp">
+    <img src="assets/readme/art/form-architect.webp" alt="Geometric specimens of form fields assemble into a vertical form structure which turns to face the viewer and resolves into three depth layers of the real Formspear survey builder." width="100%">
+  </picture>
 </p>
 
-## REST API Reference
+<br>
 
-Formspear exposes an enterprise-grade REST API accessible via scoped Bearer tokens created in the workspace settings.
+## 05 — Components of Possibility
 
-### Authentication
-```http
-GET /api/v1/surveys HTTP/1.1
-Host: localhost:4173
-Authorization: Bearer fo_live_xxxxxxxxxxxxxxxxxxxxxxxx
-Accept: application/json
-```
-
-### Core API Endpoints
-
-| Method | Endpoint | Description | Scope Required |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/v1/surveys` | List all active workspace surveys | `surveys:read` |
-| `POST` | `/api/v1/surveys` | Create survey draft with question schema | `surveys:write` |
-| `GET` | `/api/v1/surveys/:id/responses` | List responses with filters (branch, date, NPS) | `responses:read` |
-| `POST` | `/s/:slug/submit` | Public endpoint for submitting responses | Public |
-| `POST` | `/s/:slug/autosave` | Autosave partial survey state with resume token | Public |
-| `GET` | `/api/v1/surveys/:id/analytics` | Aggregated NPS, funnels, drop-off, & ratings | `analytics:read` |
-| `GET` | `/api/v1/surveys/:id/ai-summary` | LLM-generated theme clusters & sentiment quotes | `ai:read` |
-| `POST` | `/api/v1/webhooks` | Register signed webhook notification target | `webhooks:write` |
-| `GET` | `/admin/readiness` | Super-admin production readiness report | Super Admin |
+The builder supports **23 question types**: `short_text`, `long_text`, `email`, `phone`, `url`, `number`, `single_choice`, `multiple_choice`, `dropdown`, `yes_no`, `rating`, `nps`, `csat`, `ces`, `star_rating`, `emoji_rating`, `date`, `time`, `consent`, `hidden`, `section`, `statement` and `file_upload` (the list lives in `QUESTION_TYPES`, `src/server.js`). Six studies, six different constructions:
 
 <p align="center">
-  <img src="assets/readme/divider-pulse.svg" width="100%" />
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="assets/readme/art/static/components.webp">
+    <img src="assets/readme/art/components.webp" alt="Six animated geometric studies: short text built letter by letter, single and multiple choice, a date grid with a travelling wave, layered file upload, NPS columns grouped into bands, and an expanding dropdown." width="100%">
+  </picture>
 </p>
 
-## Production Deployment Position
+<br>
 
-Formspear includes a complete production deployment configuration designed for Railway, Render, or self-hosted Docker environments.
+## 06 — The Logic Machine
 
-### Deployment Files
-- `railway.json`: Defines build configuration, health checks (`/health`), and guarantees `numReplicas: 1`.
-- `Procfile`: Web process entry point (`web: node src/server.js`).
-- `migrations/0001_initial_postgres.sql`: Comprehensive 39-table schema baseline with 13 optimized indexes.
-
-### Pre-Launch Verification Checklist
-1. **Database:** Attach managed PostgreSQL via `DATABASE_URL`. Run `npm run migrations:check`.
-2. **Advisory Lock:** Confirm single writer instance (`numReplicas: 1`).
-3. **Storage:** Provide S3/R2 credentials for quarantine file handling.
-4. **Queue:** Set `REDIS_URL` to enable BullMQ job distribution across the web process.
-5. **Observability:** Supply Sentry DSN or PostHog host for exception telemetry.
-
-Refer to [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) and [`docs/LAUNCH_CHECKLIST.md`](docs/LAUNCH_CHECKLIST.md) for full deployment instructions.
+Surveys adapt. Rules read an answer and act on the structure: `show_question`, `skip_to_question`, `assign_tag`, `trigger_alert`, `set_hidden_field`, `calculate_score`, `end_survey` and `redirect` are the engine's actions. Publishing validates the graph — skip logic must point to a **later** question, and circular paths are refused.
 
 <p align="center">
-  <img src="assets/readme/divider-pulse.svg" width="100%" />
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="assets/readme/art/static/logic-machine.webp">
+    <img src="assets/readme/art/logic-machine.webp" alt="A rule graph in space: a low NPS score lights a path that reveals a follow-up question and an alert; a high score withdraws those branches and a long arc skips to the final statement; a backwards rule is refused with the message Circular logic paths are blocked." width="100%">
+  </picture>
 </p>
 
-## Repository Structure
+<sub>The score thresholds shown are an illustrative rule set; the action names and the refusal message are the engine's own.</sub>
+
+<br>
+
+## 07 — Information Becomes Structure
+
+Start from the real public survey. Its three answers peel away as fragments, are typed, pass the server-side `validateAnswers` gate on submit, and settle as response records. The stream volume is illustrative; the stages are the product's.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="assets/readme/art/static/information-structure.webp">
+    <img src="assets/readme/art/information-structure.webp" alt="The real mobile survey sheds its email, rating and free-text answers as typed tokens that pass a validation gate, one invalid submission is rejected, accepted answers settle into a stack of response records, and the scene resolves into the real operator dashboard." width="100%">
+  </picture>
+</p>
+
+<br>
+
+## 08 — Precision by Design
+
+Four checks the engine really performs: required answers are validated on submit; choice questions need at least two options; skip logic must point to a later question; circular logic paths are blocked. The deviation readout is illustrative geometry, not a measurement.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="assets/readme/art/static/precision.webp">
+    <img src="assets/readme/art/precision.webp" alt="A stack of misaligned bars snaps onto a grid one by one while a deviation figure falls to zero and four verified validation rules are checked off." width="100%">
+  </picture>
+</p>
+
+<br>
+
+## 09 — The Workflow Continuum
+
+The dashboard's own *first insight path* is four steps: **create from template → publish → collect a response → review the insight.** One camera move through the real interface captures, composed as a product tour.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="assets/readme/art/static/workflow-continuum.webp">
+    <img src="assets/readme/art/workflow-continuum.webp" alt="A camera travels along a glowing data path through four real Formspear screens: the builder, the Publish action, the mobile respondent survey and the operator dashboard." width="100%">
+  </picture>
+</p>
+
+<br>
+
+## 10 — Engineering Beneath the Surface
+
+One Node.js process, no web framework. The system is layered from the browser edge down to external providers; every box below corresponds to a file or boundary in this repository.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="assets/readme/art/static/engineering.webp">
+    <img src="assets/readme/art/engineering.webp" alt="An exploded isometric architecture of seven layers, from external providers up to the client edge, with a request path lighting each layer in turn." width="100%">
+  </picture>
+</p>
 
 ```text
-├── src/
-│   ├── server.js                     # HTTP server, composition root, persistence adapter
-│   ├── production-config.js          # Fail-closed environment contracts
-│   ├── security.js                   # Timing-safe auth, crypto, and security headers
-│   ├── repos/                        # Repository layer for high-volume collections
-│   │   ├── audit-logs-repo.js        # Append-only audit logs persistence
-│   │   ├── jobs-repo.js              # Durable job queue persistence
-│   │   └── responses-repo.js         # Relational response storage
-│   └── routes/                       # Modular, context-injected route controllers
-│       ├── admin-readiness.js        # Protected operations health audits
-│       ├── ai-summary.js             # LLM sentiment & theme clustering
-│       ├── analytics.js              # Multi-branch NPS & funnel benchmarks
-│       ├── auth-credentials.js       # Rate-limited auth & recovery flows
-│       ├── billing.js                # Stripe/Razorpay invoices & portals
-│       └── responses.js              # Response filtering & PDF exports
-├── public/
-│   ├── index.html                    # App shell
-│   ├── app.js                        # Single-page dashboard
-│   ├── builder-history.js            # Independent undo/redo history engine
-│   ├── survey.html                   # Isolated respondent runtime shell
-│   ├── survey.js                     # Lean respondent client (<10KB gzip)
-│   ├── styles.css                    # Responsive dark/light theme CSS
-│   ├── embed.js                      # Website iframe embed script
-│   └── sdk.js                        # In-app event trigger & targeting SDK
-├── assets/
-│   └── readme/                       # Original SVG animations & visual assets
-├── migrations/
-│   ├── 0001_initial_postgres.sql     # 39-table relational baseline
-│   └── 0002_add_missing_fields.sql   # Relational parity migration
-├── scripts/
-│   ├── performance-smoke.js          # High-concurrency load benchmark
-│   ├── performance-budget.js         # Gzip asset size enforcement
-│   ├── verify-migrations.js          # Static SQL migration gate
-│   └── backup-restore-smoke.js       # Checksum-verified JSON backup smoke
-├── tests/
-│   └── server.test.js                # 59 passing end-to-end HTTP test suites
-└── docs/                             # Architecture specs, audits, & runbooks
+public/  (survey.html · survey.js · app.js · embed.js · sdk.js)
+   │
+src/server.js  — node:http composition root · src/security.js · src/production-config.js
+   │
+src/routes/    — analytics · ai-summary · responses · billing · survey-lifecycle · auth-credentials · admin-readiness
+src/lib/       — client-ip · features · http-body · outbound · static-assets
+   │
+persistence    — JSON store (development) · PostgreSQL (production, migrations/0001, 0002)
+jobs           — in-process queue · optional Redis / BullMQ
+   │
+providers      — SMTP · WhatsApp · Slack · Teams · Stripe · Razorpay · OpenAI · S3-compatible storage
 ```
 
-<p align="center">
-  <img src="assets/readme/divider-pulse.svg" width="100%" />
-</p>
+> [!IMPORTANT]
+> Formspear runs as a **single writer**: one web process owns PostgreSQL and the job consumer (`numReplicas: 1` in `railway.json`). Redis is optional and only changes the queue transport. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+<br>
+
+## 11 — Connected by Design
+
+Only integrations that exist in `src/server.js`: signed webhooks (event `response.completed`, HMAC-SHA256), Slack, Microsoft Teams, WhatsApp alerts, SMTP email, Stripe, Razorpay, OpenAI-backed summaries and S3-compatible file storage.
 
 <p align="center">
-  <a href="#quick-start">
-    <img src="assets/readme/closing-cta.svg" alt="Ready to Spearhead Your Feedback Intelligence?" width="100%" />
-  </a>
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="assets/readme/art/static/integrations.webp">
+    <img src="assets/readme/art/integrations.webp" alt="The extruded Formspear emblem at the centre of a ring of nine integration points, each a distinct geometric glyph, with event packets travelling outward along curved connections." width="100%">
+  </picture>
 </p>
 
-<p align="center">
-  <a href="docs/API.md"><b>API Documentation</b></a> •
-  <a href="docs/ARCHITECTURE.md"><b>Architecture Guide</b></a> •
-  <a href="docs/DEPLOYMENT.md"><b>Deployment Runbook</b></a> •
-  <a href="docs/SECURITY_AND_PRIVACY.md"><b>Security &amp; Privacy</b></a> •
-  <a href="docs/OPERATIONS_RUNBOOK.md"><b>Operations Runbook</b></a>
-</p>
+<br>
+
+## 12 — Open by Design
+
+Formspear is released under the **MIT License**. The license text grants the right to *use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies*. The scene opens a closed shell onto the real top-level directories — `public/`, `src/`, `migrations/`, `scripts/`, `tests/`, `docs/` — and docks a module of your own.
 
 <p align="center">
-  <sub>Formspear • Precision Enterprise Feedback OS • Released under the MIT License</sub>
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="assets/readme/art/static/open-by-design.webp">
+    <img src="assets/readme/art/open-by-design.webp" alt="A closed shell opens, its six panels peeling away to reveal the repository's top-level directories as separate blocks, which recombine and accept a new amber module while the MIT license rights appear as a list." width="100%">
+  </picture>
 </p>
+
+<br>
+
+## 13 — The Living Lattice
+
+This sculpture is **regenerated from official GitHub data every six hours** by [`readme-lattice.yml`](.github/workflows/readme-lattice.yml). One cube is one commit, one tower is one week, an empty socket is a real zero. Nothing is invented, smoothed or back-filled; the history is append-only in [`assets/readme/metrics/snapshots.jsonl`](assets/readme/metrics/snapshots.jsonl).
+
+<p align="center">
+  <img src="assets/readme/art/living-lattice.svg" alt="Isometric sculpture of repository history: one tower per week of commits, an empty socket for stars and forks, a dashed layer for releases not yet published, and a language footprint ribbon, beside the exact numbers listed in the table below." width="100%">
+</p>
+
+<!-- LATTICE:START -->
+| Metric | Value | What it measures |
+| :-- | --: | :-- |
+| Stars | **0** | Repository stars (not users) |
+| Forks | **0** | Forks of the repository |
+| Contributors | **1** | GitHub accounts with commits |
+| Releases | **0** | Published GitHub releases (0 release-asset downloads, 0 tags) |
+| Commits | **43** | Commits on `main` |
+| Weeks drawn | **23** | One tower per ISO week since the first commit in the window |
+| Snapshot | 2026-11-26 | Official GitHub API; history in `assets/readme/metrics/snapshots.jsonl` |
+<!-- LATTICE:END -->
+
+<sub>Stars are repository stars, not users. Release downloads are release-asset downloads, not installations. The repository has no published releases yet, so no download figure is drawn.</sub>
+
+<br>
+
+## 14 — Deployment and Availability
+
+Documented paths only. There is **no Dockerfile** in this repository, so none is claimed. Production start-up requires PostgreSQL and a validated environment (`src/production-config.js`).
+
+<p align="center">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="assets/readme/art/static/deployment.webp">
+    <img src="assets/readme/art/deployment.webp" alt="Three platforms — local, Railway and any Node 20 host — each assemble the same layered structure and light a beacon, with their documented commands typed beneath." width="100%">
+  </picture>
+</p>
+
+| Where | How | Notes |
+| :-- | :-- | :-- |
+| **Local** | `npm install` → `npm start` | <http://localhost:4173>, JSON store for development |
+| **Railway** | `railway.json` + `Procfile` (`web: node src/server.js`) | NIXPACKS build, health check `/api/health`, `numReplicas: 1`, attach PostgreSQL via `DATABASE_URL` |
+| **Any Node ≥ 20 host** | `node src/server.js` | Provide PostgreSQL and the production environment; see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) and [`docs/LAUNCH_CHECKLIST.md`](docs/LAUNCH_CHECKLIST.md) |
+
+<br>
+
+## 15 — Release Evolution
+
+Formspear has **no tagged releases yet**, so there is no release timeline to draw and none is fabricated. The development history is the lattice above: the first commit landed on 2026-06-28 and every commit since is a cube. When the first release is published, the lattice gains its first layer automatically.
+
+<br>
+
+## 16 — Documentation and Community
+
+| Read | |
+| :-- | :-- |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Runtime boundaries, persistence, verification boundary |
+| [`docs/API.md`](docs/API.md) | HTTP and API reference |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Deployment runbook, PostgreSQL, Redis, storage |
+| [`docs/SECURITY_AND_PRIVACY.md`](docs/SECURITY_AND_PRIVACY.md) | Security and privacy notes |
+| [`docs/OPERATIONS_RUNBOOK.md`](docs/OPERATIONS_RUNBOOK.md) | Operating the service |
+| [`docs/readme-art/`](docs/readme-art/ANIMATION_INVENTORY.md) | Creative direction, storyboards, review log, known limitations of the artwork |
+
+Verification gates: `npm run check`, `npm run migrations:check`, `npm test` (59 test cases across 31 files), `npm run performance:smoke`, `npm run performance:budget`, `npm run backup:smoke`, `npm run visual:smoke`. Issues and discussion happen on the [GitHub repository](https://github.com/DecoyINDIA/Formspear/issues).
+
+<br>
+
+## 17 — The Perfect Structure
+
+<p align="center">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="assets/readme/art/static/perfect-structure.webp">
+    <img src="assets/readme/art/perfect-structure.webp" alt="Shards of the Formspear emblem spiral in around a ring of question specimens and response records, fuse into an extruded emblem joined to the ring by data pathways, and the wordmark FORMSPEAR assembles from sliced fragments above the statement ORDER FROM COMPLEXITY." width="100%">
+  </picture>
+</p>
+
+<p align="center"><sub>Formspear · MIT License · The artwork in this README is generated from <a href="tools/readme-art">tools/readme-art</a> and is reproducible with <code>node render.mjs</code>.</sub></p>
