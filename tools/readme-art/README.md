@@ -21,7 +21,7 @@ Requirements: Node ≥ 20, ffmpeg with libwebp, a Chromium-family browser (set `
 cd tools/readme-art && npm install
 node render.mjs                      # all scenes -> assets/readme/art/*.webp (+ static/*.webp posters)
 node render.mjs hero --preview 2,6,11.5   # PNG previews in out/preview (no encode)
-node render.mjs hero --q 30 --fps 20 --width 880   # tune delivery size
+node render.mjs hero --q 46 --fps 24 --width 1280  # tune delivery size (defaults: 24 fps, 1280 px, q 70)
 node render.mjs --sheet 6            # storyboard contact sheets -> docs/readme-art/storyboards
 node lattice/generate.mjs            # Living Lattice from the GitHub API (uses GITHUB_TOKEN if set)
 node verify.mjs                      # README compatibility + budget gate

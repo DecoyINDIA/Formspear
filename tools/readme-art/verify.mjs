@@ -8,8 +8,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
-const PER_ASSET_KB = Number(process.env.PER_ASSET_KB || 5200);
-const TOTAL_KB = Number(process.env.TOTAL_KB || 36000);
+const PER_ASSET_KB = Number(process.env.PER_ASSET_KB || 13000);
+const TOTAL_KB = Number(process.env.TOTAL_KB || 70000);
 let failed = 0, total = 0;
 const fail = (m) => { failed++; console.error('FAIL', m); };
 

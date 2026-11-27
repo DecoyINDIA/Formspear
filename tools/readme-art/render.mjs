@@ -18,9 +18,9 @@ const ids = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].
 const preview = flag('preview', null);
 const sheet = flag('sheet', null); // --sheet 6 -> storyboard contact sheet (jpg) in docs/readme-art/storyboards
 // Delivery budget: tuned so every README animation stays GitHub-friendly. Override with --q/--fps/--width.
-const ENC = { default: { fps: 20, q: 42 }, hero: { fps: 20, q: 32 }, 'information-structure': { fps: 20, q: 36 }, 'perfect-structure': { fps: 20, q: 38 }, components: { fps: 20, q: 40 } };
+const ENC = { default: { fps: 24, q: 70 }, hero: { fps: 24, q: 46 } };
 const quality = flag('q', null);
-const outWidth = Number(flag('width', 880));
+const outWidth = Number(flag('width', 1280));
 const fpsOverride = flag('fps', null);
 const enc = (id) => ({ ...ENC.default, ...(ENC[id] || {}) });
 const outDir = path.join(repo, 'assets', 'readme', 'art');
@@ -88,7 +88,7 @@ for (const id of targets) {
   const total = Math.round(def.dur * def.fps);
   const outW = Math.min(outWidth, def.w);
   const dest = path.join(outDir, `${id}.webp`);
-  await ff(['-f', 'image2pipe', '-framerate', String(def.fps), '-c:v', 'png', '-i', '-', '-vf', `scale=${outW}:-2:flags=lanczos`, '-c:v', 'libwebp_anim', '-lossless', '0', '-q:v', String(quality || enc(id).q), '-compression_level', '6', '-preset', 'drawing', '-loop', '0', dest], async (stdin) => {
+  await ff(['-f', 'image2pipe', '-framerate', String(def.fps), '-c:v', 'png', '-i', '-', '-vf', `scale=${outW}:-2:flags=lanczos`, '-c:v', 'libwebp_anim', '-lossless', '0', '-q:v', String(quality || enc(id).q), '-compression_level', '6', '-preset', 'picture', '-loop', '0', dest], async (stdin) => {
     for (let i = 0; i < total; i++) {
       await page.evaluate((tt) => window.renderAt(tt), i / def.fps);
       const buf = b64(await page.evaluate('window.canvasPng()'));
