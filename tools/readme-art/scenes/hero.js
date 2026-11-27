@@ -235,10 +235,20 @@
   }
 
   window.__hero = { mods, pose, tower, emblemCells };
+  // Delivery clock: the 14 s choreography plays in 9 s. Entropy, alignment and
+  // construction are compressed most; the readable wordmark hold keeps ~1.7 s.
+  // Endpoints map 0->0 and OUT->DUR, so the loop stays seamless.
+  const OUT = 9.0;
+  const RETIME = [[0, 0], [1.0, 2.0], [2.4, 4.0], [3.9, 6.6], [5.4, 9.2], [6.5, 10.8], [8.2, 12.6], [OUT, DUR]];
+  const sceneTime = (u) => {
+    for (let i = 1; i < RETIME.length; i++) if (u <= RETIME[i][0]) { const [a0, b0] = RETIME[i - 1], [a1, b1] = RETIME[i]; return b0 + ((u - a0) / (a1 - a0)) * (b1 - b0); }
+    return DUR;
+  };
   registerScene("hero", {
-    w: W, h: H, fps: FPS, dur: DUR, poster: 12.2,
+    w: W, h: H, fps: FPS, dur: OUT, poster: 7.6,
     scene: { fogNear: 22, fogFar: 70, fogMax: 0.85 },
-    draw(ctx, t, S) {
+    draw(ctx, u, S) {
+      const t = sceneTime(u);
       // backdrop: matte ground tone + soft key-light pool
       ctx.fillStyle = css(P.ground); ctx.fillRect(0, 0, W, H);
       const g = ctx.createRadialGradient(W * 0.5, H * 0.46, 40, W * 0.5, H * 0.5, W * 0.7);
@@ -328,7 +338,7 @@
       drawWordmark(ctx, t);
 
       const st = stageAt(t);
-      FS.frame(ctx, W, H, t, DUR, { fig: 'FIG. 01 — THE EMERGENCE OF ORDER', caption: `${String(T_STAGE.indexOf(st) + 1).padStart(2, '0')} ${st[0]} — ${st[3].toUpperCase()}` });
+      FS.frame(ctx, W, H, u, OUT, { fig: 'FIG. 01 — THE EMERGENCE OF ORDER', caption: `${String(T_STAGE.indexOf(st) + 1).padStart(2, '0')} ${st[0]} — ${st[3].toUpperCase()}` });
     },
   });
 })();

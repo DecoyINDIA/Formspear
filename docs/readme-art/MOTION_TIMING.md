@@ -2,7 +2,7 @@
 
 Times are seconds on the scene clock (the on-frame `T+` readout). All scenes are pure functions of time and loop seamlessly. Delivery frame rate is 24 fps (see [ANIMATION_INVENTORY.md](ANIMATION_INVENTORY.md)); sources are authored against continuous time, so they re-render at any rate with `--fps`.
 
-## FIG. 01 — The Emergence of Order · 14.0 s loop · Level 5
+## FIG. 01 — The Emergence of Order · 9.0 s delivered loop (14.0 s scene clock below, retimed in hero.js) · Level 5
 
 | t | Beat | Mechanics |
 | :-- | :-- | :-- |
