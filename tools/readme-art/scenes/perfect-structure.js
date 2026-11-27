@@ -4,7 +4,7 @@
  * (left facet / right facet / spine) fractured into shards that spiral in,
  * docking onto a plinth ring of the README's own artefacts (question
  * specimens + response records), joined by pulsing data pathways, then the
- * wordmark assembles from sliced typographic fragments.
+ * exhibition closes on a colophon of four verified facts (not the hero wordmark).
  */
 (function () {
   const { E, P, v, css, lerp, seg, clamp, TAU, track, wrapPI } = FS;
@@ -58,8 +58,36 @@
       pitch: track(t, [[0, 0.3], [6, 0.34], [9, 0.24], [13, 0.2]]),
       dist: track(t, [[0, 36], [3, 40], [8, 34], [10.5, 31], [13, 30.5]]),
       fov: 0.62,
-      shift: track(t, [[0, [0, 0]], [9, [0, -34]], [13, [0, -34]]]),
+      shift: track(t, [[0, [0, 0]], [9, [0, -66]], [13, [0, -66]]]),
     };
+  }
+
+  /* Closing colophon: unlike the hero's wordmark reveal, the exhibition ends on
+     four verified facts that each slide out of the ground ring as a ruled column. */
+  const FACTS = [
+    ['23', 'QUESTION TYPES', 'QUESTION_TYPES · src/server.js'],
+    ['node:http', 'NO WEB FRAMEWORK', 'src/server.js'],
+    ['/s/', 'PUBLIC SURVEY ROUTE', 'served by the same process'],
+    ['MIT', 'LICENSE', 'use · copy · modify · distribute'],
+  ];
+  function colophon(ctx, t) {
+    const out = 1 - E.smooth(seg(t, 12.3, 13)), y = 600, cw = 250, x0 = 640 - (cw * FACTS.length) / 2;
+    const rule = E.io3(seg(t, 8.2, 9.2));
+    { const g = ctx.createLinearGradient(0, y - 90, 0, y - 40); g.addColorStop(0, 'rgba(8,17,15,0)'); g.addColorStop(1, `rgba(8,17,15,${0.92 * rule * out})`); ctx.fillStyle = g; ctx.fillRect(0, y - 90, W, 50); ctx.fillStyle = `rgba(8,17,15,${0.92 * rule * out})`; ctx.fillRect(0, y - 40, W, H - y + 40); }
+    ctx.strokeStyle = css(P.e500, 0.8 * out); ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(640 - (cw * 2) * rule, y - 52); ctx.lineTo(640 + (cw * 2) * rule, y - 52); ctx.stroke();
+    FACTS.forEach(([big, label, src], i) => {
+      const e = E.out5(seg(t, 8.6 + i * 0.22, 9.8 + i * 0.22)), x = x0 + i * cw + 18;
+      if (e <= 0) return;
+      ctx.fillStyle = css(P.e400, e * out); ctx.fillRect(x - 18, y - 52, 2, 92 * e);
+      ctx.save(); ctx.beginPath(); ctx.rect(x - 4, y - 46, cw - 20, 52); ctx.clip();
+      FS.text(ctx, big, x, y + (1 - e) * 50, { size: 38, weight: 700, color: css(i === 3 ? P.e300 : P.bone), alpha: out });
+      ctx.restore();
+      FS.text(ctx, label, x, y + 22, { size: 12, mono: true, weight: 600, color: css(P.e300), alpha: e * out, spacing: 2 });
+      FS.text(ctx, src, x, y + 40, { size: 11, mono: true, color: css(P.e100), alpha: e * out * 0.55 });
+    });
+    const end = E.smooth(seg(t, 10.4, 11.0)) * out;
+    FS.text(ctx, 'END OF EXHIBITION', 1246, 76, { size: 12, mono: true, color: css(P.e100), alpha: end * 0.7, align: 'right', spacing: 4 });
   }
 
   function wordmark(ctx, t) {
@@ -148,11 +176,11 @@
       }
       S.flush();
       FS.vignette(ctx, W, H, 0.6);
-      wordmark(ctx, t);
+      colophon(ctx, t);
 
       const fade = Math.max(1 - E.smooth(seg(t, 0, 0.6)), E.smooth(seg(t, 12.3, 13)));
       if (fade > 0) { ctx.fillStyle = css(P.ground, fade); ctx.fillRect(0, 0, W, H); }
-      const cap = t < 3 ? '01 COMPONENTS ARRIVE FROM EVERY CHAPTER' : t < 7 ? '02 THE EMBLEM ASSEMBLES FROM FRAGMENTS' : t < 9.5 ? '03 THE STRUCTURE IS COMPLETE' : '04 FORMSPEAR — ORDER FROM COMPLEXITY';
+      const cap = t < 3 ? '01 COMPONENTS ARRIVE FROM EVERY CHAPTER' : t < 7 ? '02 THE EMBLEM ASSEMBLES FROM FRAGMENTS' : t < 9.5 ? '03 THE STRUCTURE IS COMPLETE' : '04 COLOPHON — FOUR FACTS THE STRUCTURE STANDS ON';
       FS.frame(ctx, W, H, t, DUR, { fig: 'FIG. 13 — THE PERFECT STRUCTURE', caption: cap });
     },
   });

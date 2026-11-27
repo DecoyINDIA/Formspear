@@ -19,8 +19,8 @@ Times are seconds on the scene clock (the on-frame `T+` readout). All scenes are
 ## FIG. 02 — The Form Architect · 12 s · Level 5
 0–1.7 specimens drift (labelled with real type names) · 1.7–5.9 assembly, 0.36 s stagger, anticipation + damped settle, slot outline lights 0.6 s ahead, arrival ring · 6.6–7.4 flatten, camera yaw →0 · 7.0–8.2 masked strip reveal of the real builder · 8.6–9.8 three planes separate in depth with callouts · 10.4–11.4 planes rejoin.
 
-## FIG. 03 — Components of Possibility · 12 s · Level 4
-Six independent 6 s loops (offset by 0.7 s each): typographic construction · selection/branching · temporal wave · layered upload · banded NPS · expanding dropdown.
+## FIG. 03 — Components of Possibility · 14 s seamless loop · Level 4
+Seven 2.0 s slots (short_text → single_choice → multiple_choice → date → nps → file_upload → dropdown → back to short_text). Each slot: 0.0–0.6 s the shared pool of 36 blocks morphs from the previous form (11 ms stagger per block, arc lift, colour cross-fade); 0.55–2.0 s the form's own micro-interaction (typing, travelling selection, checks, calendar wave, NPS pick, upload, unfold). Title mask-rises 0.15–0.75 s and exits in the last 0.3 s. Camera orbits once per loop (yaw ±0.22).
 
 ## FIG. 04 — The Logic Machine · 12 s · Level 5
 0–1.4 structure rises · 1.6–2.5 input slider 6→4 · 2.4–5.2 detractor path (show_question + trigger_alert), unneeded branch withdraws · 5.0–6.0 input 4→9 · 6.0–8.5 promoter path (skip arc) · 8.7–11.1 backwards rule grows, is refused (✕), retracts.
@@ -32,7 +32,7 @@ Six independent 6 s loops (offset by 0.7 s each): typographic construction · se
 0–1.2 structure fades in · 1.2–3.4 dimension lines · 3.6–6.3 nine bars snap (0.28 s stagger) · 3.0/5.0/7.0/9.0 each rule checks off · 7.0–8.6 forward-only arrow.
 
 ## FIG. 07 — The Workflow Continuum · 12 s · Level 4
-Stages at 0.6 / 3.6 / 6.6 / 9.4 s; camera dollies and pushes in 1.5 s per stage; the data path draws 0.8→9.6 s.
+0.1–0.7 plate · 0.4–2.7 five question blocks fly in and dock (0.32 s stagger) · 2.8–3.6 publish ring opens · 3.0–4.6 survey travels to stage 2 · 3.5–4.4 rows compress · 4.3–5.0 sealed slab, `GET /s/<slug>` tag 4.8 · 5.8–6.8 three devices rise, links draw 6.6–7.6 · 7.2–9.4 nine answers fly back (0.17 s apart) · 9.0–10.2 travel to stage 4 · 10.0–11.1 answers settle into three NPS bands · 11.5–12 release. Rail light follows the object.
 
 ## FIG. 08 — Engineering Beneath the Surface · 12 s · Level 4
 0–1 collapsed · 0.9–3.4 layers explode (bottom first) · 2.2–4.0 modules rise · 5.2–11 a request path lights client → server → routes → store → jobs → providers (0.95 s per hop).
@@ -47,4 +47,4 @@ Shell opens 1.6–3.8 · modules separate 3.8–5.4 · recombine 6.0–8.0 · ne
 Platforms arrive at 1.4 / 3.0 / 4.6; three blocks drop in 0.6 s apart; beacon lights; commands type at 38 cps.
 
 ## FIG. 13 — The Perfect Structure · 13 s · Level 5
-0–1.2 dark · 1.2–4.4 plinth ring items glide in on arcs · 3.0–7.0 emblem shards spiral in (distance-ordered) · 7.0–8.6 sweep of light, ground ripple · 8.2–10.8 wordmark assembles from sliced fragments · 10.8–12.3 hold.
+0–1.2 dark · 1.2–4.4 plinth ring items glide in on arcs · 3.0–7.0 emblem shards spiral in (distance-ordered) · 7.0–8.6 sweep of light, ground ripple · 8.2–9.2 colophon rule draws · 8.6–10.5 four fact columns rise (0.22 s stagger) · 10.4 END OF EXHIBITION · 10.8–12.3 hold.

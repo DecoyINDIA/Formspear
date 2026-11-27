@@ -39,7 +39,7 @@
     scene: { fogNear: 34, fogFar: 90, fogMax: 0.5 },
     draw(ctx, t, S) {
       KIT.bg(ctx, W, H);
-      S.setCamera({ target: [0, 7.2, 0], yaw: track(t, [[0, 0.55], [6, 0.8], [12, 0.62]]), pitch: track(t, [[0, 0.32], [6, 0.38], [12, 0.34]]), dist: 46, fov: 0.6, shift: [-50, -6] });
+      S.setCamera({ target: [0, 7.2, 0], yaw: track(t, [[0, 0.55], [6, 0.8], [12, 0.62]]), pitch: track(t, [[0, 0.32], [6, 0.38], [12, 0.34]]), dist: 50, fov: 0.6, shift: [-90, 18] });
       S.begin();
       KIT.floor(S, 0.2, t, 22, 1.6, 0.18);
       const active = (t - 5.2) / 0.95; // index into PATH being highlighted
@@ -78,11 +78,19 @@
         const hot = PATH.some(([id], pi) => id === L.id && t > 5.2 + pi * 0.95 && t < 5.2 + pi * 0.95 + 1.6);
         FS.text(ctx, L.title, p[0] - 14, p[1] + 4, { size: 13, mono: true, weight: 600, color: css(hot ? P.e300 : P.e100), alpha: a * (hot ? 1 : 0.7), align: 'right', spacing: 1.4 });
         if (L.note) if (L.li > 1) FS.text(ctx, L.note, p[0] - 14, p[1] + 20, { size: 11, mono: true, color: css(P.e100), alpha: a * 0.5, align: 'right', spacing: 0.6 });
-        if (!hot) return;
-        L.mods.forEach((m) => {
-          const q = S.project([m.cx, y + 0.1, 0.95]); if (!q) return;
-          FS.text(ctx, m.name, q[0], q[1] + 12, { size: 11, mono: true, color: css(P.e100), alpha: a * 0.85, align: 'center' });
-        });
+      });
+      // one leader-line label for the module the request is crossing, in a fixed right-hand column
+      PATH.forEach(([id, k], pi) => {
+        const t0 = 5.2 + pi * 0.95, la = E.smooth(seg(t, t0, t0 + 0.3)) * (1 - E.smooth(seg(t, t0 + 1.1, t0 + 1.4)));
+        if (la <= 0.01) return;
+        const c = centres[`${id}:${k}`], L = layout.find((x) => x.id === id), m = L.mods[k];
+        const q = S.project(c); if (!q) return;
+        const lx = 980, ly = q[1];
+        ctx.save(); ctx.globalAlpha = la; ctx.strokeStyle = css(P.e300, 0.9); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(lx - 10, ly); ctx.stroke();
+        ctx.fillStyle = css(P.e300); ctx.beginPath(); ctx.arc(q[0], q[1], 3, 0, TAU); ctx.fill(); ctx.restore();
+        FS.text(ctx, m.name, lx, ly + 5, { size: 15, mono: true, weight: 600, color: css(P.bone), alpha: la });
+        FS.text(ctx, `${String(pi + 1).padStart(2, '0')} / ${PATH.length} · ${L.title.split('  ')[0]}`, lx, ly + 23, { size: 11, mono: true, color: css(P.e300), alpha: la * 0.8, spacing: 1 });
       });
       KIT.loopFade(ctx, W, H, t, DUR);
       FS.vignette(ctx, W, H, 0.55);

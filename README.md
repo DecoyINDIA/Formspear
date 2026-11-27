@@ -81,12 +81,12 @@ A form is a structure before it is a screen. Each question type is built here as
 
 ## 05 — Components of Possibility
 
-The builder supports **23 question types**: `short_text`, `long_text`, `email`, `phone`, `url`, `number`, `single_choice`, `multiple_choice`, `dropdown`, `yes_no`, `rating`, `nps`, `csat`, `ces`, `star_rating`, `emoji_rating`, `date`, `time`, `consent`, `hidden`, `section`, `statement` and `file_upload` (the list lives in `QUESTION_TYPES`, `src/server.js`). Six studies, six different constructions:
+The builder supports **23 question types**: `short_text`, `long_text`, `email`, `phone`, `url`, `number`, `single_choice`, `multiple_choice`, `dropdown`, `yes_no`, `rating`, `nps`, `csat`, `ces`, `star_rating`, `emoji_rating`, `date`, `time`, `consent`, `hidden`, `section`, `statement` and `file_upload` (the list lives in `QUESTION_TYPES`, `src/server.js`). One pool of 36 blocks rebuilds itself into seven of them, in turn:
 
 <p align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="assets/readme/art/static/components.webp">
-    <img src="assets/readme/art/components.webp" alt="Six animated geometric studies: short text built letter by letter, single and multiple choice, a date grid with a travelling wave, layered file upload, NPS columns grouped into bands, and an expanding dropdown." width="100%">
+    <img src="assets/readme/art/components.webp" alt="One set of 36 blocks continuously rearranges itself into seven question types: short text typed as solid letters, single choice with a travelling selection, multiple choice boxes checking one by one, a date grid with a wave, NPS bars in three bands, a layered file upload with a rising arrow, and a dropdown that unfolds. A list of all 23 declared types highlights the current one." width="100%">
   </picture>
 </p>
 
@@ -135,12 +135,12 @@ Four checks the engine really performs: required answers are validated on submit
 
 ## 09 — The Workflow Continuum
 
-The dashboard's own *first insight path* is four steps: **create from template → publish → collect a response → review the insight.** One camera move through the real interface captures, composed as a product tour.
+The dashboard's own *first insight path* is four steps: **create from template → publish → collect a response → review the insight.** Here one survey object travels a single rail and changes state at each step; the response values are illustrative.
 
 <p align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="assets/readme/art/static/workflow-continuum.webp">
-    <img src="assets/readme/art/workflow-continuum.webp" alt="A camera travels along a glowing data path through four real Formspear screens: the builder, the Publish action, the mobile respondent survey and the operator dashboard." width="100%">
+    <img src="assets/readme/art/workflow-continuum.webp" alt="Along one glowing rail, question blocks assemble into a survey, compress through a ring into a sealed published slab labelled GET /s/&lt;slug&gt;, link out to three respondent devices whose answers fly back, and the answers settle into three NPS bands." width="100%">
   </picture>
 </p>
 
@@ -153,7 +153,7 @@ One Node.js process, no web framework. The system is layered from the browser ed
 <p align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="assets/readme/art/static/engineering.webp">
-    <img src="assets/readme/art/engineering.webp" alt="An exploded isometric architecture of seven layers, from external providers up to the client edge, with a request path lighting each layer in turn." width="100%">
+    <img src="assets/readme/art/engineering.webp" alt="An exploded isometric architecture of seven layers, from external providers up to the client edge, with a request path lighting each layer in turn while a single leader-line label names the module it is crossing." width="100%">
   </picture>
 </p>
 
@@ -271,7 +271,7 @@ Verification gates: `npm run check`, `npm run migrations:check`, `npm test` (59 
 <p align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="assets/readme/art/static/perfect-structure.webp">
-    <img src="assets/readme/art/perfect-structure.webp" alt="Shards of the Formspear emblem spiral in around a ring of question specimens and response records, fuse into an extruded emblem joined to the ring by data pathways, and the wordmark FORMSPEAR assembles from sliced fragments above the statement ORDER FROM COMPLEXITY." width="100%">
+    <img src="assets/readme/art/perfect-structure.webp" alt="Shards of the Formspear emblem spiral in around a ring of question specimens and response records, fuse into an extruded emblem joined to the ring by data pathways, and the exhibition closes on a ruled colophon of four facts: 23 question types, node:http with no web framework, the /s/ public survey route, and the MIT license." width="100%">
   </picture>
 </p>
 

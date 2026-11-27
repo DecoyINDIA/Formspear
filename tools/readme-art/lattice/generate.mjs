@@ -103,11 +103,11 @@ const COL = { top: ['#F2EDE1', '#6EE7B7', '#F7BC5B'], left: ['#B9B3A4', '#0E9F6E
 const items = []; // painter's-sorted at the end
 const add = (key, z, svg) => items.push({ key, z, svg });
 
-function cube(x, y, z, kind, delay, cls = 'c') {
-  const P8 = (dx, dy, dz) => iso(x + dx, y + dy, z + dz);
+function cube(x, y, z, kind, delay, cls = 'c', u = 1) {
+  const P8 = (dx, dy, dz) => iso(x + dx * u, y + dy * u, z + dz * u);
   const f = (arr, fill) => `<polygon points="${poly(arr)}" fill="${fill}"/>`;
   const svg = `<g class="${cls}" style="animation-delay:${delay.toFixed(2)}s">${f([P8(0, 0, 1), P8(1, 0, 1), P8(1, 1, 1), P8(0, 1, 1)], COL.top[kind])}${f([P8(0, 1, 1), P8(1, 1, 1), P8(1, 1, 0), P8(0, 1, 0)], COL.left[kind])}${f([P8(1, 0, 1), P8(1, 1, 1), P8(1, 1, 0), P8(1, 0, 0)], COL.right[kind])}</g>`;
-  add(x + y, z, svg);
+  add(x + y + u, z, svg);
 }
 const tile = (x, y, dashed) => {
   const q = [iso(x, y, 0), iso(x + 1, y, 0), iso(x + 1, y + 1, 0), iso(x, y + 1, 0)];
@@ -118,7 +118,9 @@ const tile = (x, y, dashed) => {
 const weeks = cur.weekly;
 const nW = Math.max(weeks.length, 1);
 const maxC = Math.max(1, ...weeks.map((w) => w[1]));
-const per = maxC > 90 ? Math.ceil(maxC / 90) : 1; // commits per drawn cube (1 unless one week is very large)
+// each week is a 2x2-footprint tower of half-size cubes: 4 commits per layer, still exactly 1 cube = 1 commit
+const per = maxC > 360 ? Math.ceil(maxC / 360) : 1; // commits per drawn cube (1 unless one week is enormous)
+const CU = 0.5;
 const COLS = 8, GAP = 1.45;
 const posOf = (i) => [(i % COLS) * GAP, Math.floor(i / COLS) * GAP];
 const rowsN = Math.ceil(nW / COLS);
@@ -141,7 +143,10 @@ for (let i = 0; i < nW; i++) { const [x, y] = posOf(i); tile(x, y, false); }
 const now = weeks.length - 1;
 weeks.forEach(([, n], i) => {
   const [x, y] = posOf(i); const h = Math.ceil(n / per);
-  for (let z = 0; z < h; z++) cube(x, y, z, i === now && z === h - 1 ? 2 : (n === maxC ? 1 : (i % 2 ? 1 : 0)), 0.3 + i * 0.05 + z * 0.03);
+  for (let j = 0; j < h; j++) {
+    const L = Math.floor(j / 4), q = j % 4;
+    cube(x + (q % 2) * CU, y + Math.floor(q / 2) * CU, L * CU, i === now && j === h - 1 ? 2 : (n === maxC ? 1 : (i % 2 ? 1 : 0)), 0.3 + i * 0.05 + L * 0.06, 'c', CU);
+  }
 });
 // contributor arms: one long slab per GitHub account, behind the skyline
 const arms = Math.min(cur.contributors, 6);
@@ -152,7 +157,7 @@ const sx = plinthW + 0.9;
 if (cur.stars > 0) for (let z = 0; z < Math.min(cur.stars, 30); z++) cube(sx, 0, z, 1, 1.2 + z * 0.04); else tile(sx, 0, true);
 if (cur.forks > 0) for (let f = 0; f < Math.min(cur.forks, 12); f++) cube(sx, GAP * (f + 1), 0, 0, 1.4 + f * 0.05); else tile(sx, GAP, true);
 // releases: horizontal layers above the skyline (none yet -> dashed layer outline)
-const topZ = Math.ceil(maxC / per) + 2;
+const topZ = Math.ceil(Math.ceil(maxC / per) / 4) * CU + 1.5;
 const layer = (z, dashed) => {
   const q = [iso(-0.3, -0.3, z), iso(plinthW + 0.3, -0.3, z), iso(plinthW + 0.3, rowsN * GAP, z), iso(-0.3, rowsN * GAP, z)];
   add(2000, z, `<polygon points="${poly(q)}" fill="${dashed ? 'none' : '#38BDF8'}" fill-opacity="${dashed ? 0 : 0.22}" stroke="#38BDF8" stroke-opacity="${dashed ? 0.5 : 0.85}" stroke-width=".03" ${dashed ? 'stroke-dasharray=".14 .14"' : ''}/>`);
@@ -189,7 +194,11 @@ rows.forEach(([kk, v, sub], i) => {
   panel += `<text x="${px}" y="${y}" class="lab">${kk}</text><text x="${px + 380}" y="${y + 6}" class="num" text-anchor="end">${fmt(v)}</text><text x="${px}" y="${y + 18}" class="sub">${esc(sub)}</text><line x1="${px}" x2="${px + 380}" y1="${y + 30}" y2="${y + 30}" stroke="#16382E"/>`;
 });
 const ly = 500; panel += `<text x="${px}" y="${ly - 16}" class="k">LANGUAGES · GITHUB BYTE SHARE</text>`;
-let lxp = px; legend.slice(0, 4).forEach((l) => { panel += `<rect x="${lxp}" y="${ly - 4}" width="9" height="9" fill="${l.col}"/><text x="${lxp + 15}" y="${ly + 5}" class="sub">${esc(l.name)} ${l.pct.toFixed(1)}%</text>`; lxp += 22 + (l.name.length + 6) * 7; });
+let lxp = px, lyy = ly; legend.slice(0, 6).forEach((l) => {
+  const w = 24 + (l.name.length + 6) * 7.3;
+  if (lxp + w > px + 395 && lxp > px) { lxp = px; lyy += 20; }
+  panel += `<rect x="${lxp}" y="${lyy - 4}" width="9" height="9" fill="${l.col}"/><text x="${lxp + 15}" y="${lyy + 5}" class="sub">${esc(l.name)} ${l.pct < 0.1 ? '&lt;0.1' : l.pct.toFixed(1)}%</text>`; lxp += w;
+});
 
 const alt = `Living Lattice. Snapshot ${day}. ${cur.stars} stars, ${cur.forks} forks, ${cur.contributors} contributor(s), ${cur.releases} releases, ${cur.commitsTotal} commits. ${unitPerCube.toLowerCase()}, one tower per week over the last ${weeks.length} weeks.`;
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-labelledby="t d">
@@ -208,11 +217,11 @@ text{font-family:'Cascadia Mono',Consolas,'Courier New',monospace}
 </style></defs>
 <rect width="${W}" height="${H}" fill="#08110F"/><rect width="${W}" height="${H}" fill="url(#g)"/>
 <text x="46" y="52" class="k">FIG. 11 — THE LIVING LATTICE</text>
-<text x="46" y="72" class="sub">${unitPerCube} · 1 TOWER = 1 WEEK · EMPTY SOCKET = ZERO, NOT HIDDEN</text>
+<text x="46" y="72" class="sub">${unitPerCube} · 4 PER LAYER · 1 TOWER = 1 WEEK · EMPTY SOCKET = ZERO, NOT HIDDEN</text>
 <g transform="translate(${tx.toFixed(2)} ${ty.toFixed(2)}) scale(${k.toFixed(3)})">
 ${bodyRaw}
 </g>
-${lab(iso(sx + 1, 0.5, 0), 'STARS', 14, 4)}${lab(iso(sx + 1, GAP + 0.5, 0), 'FORKS', 14, 4)}${lab(iso(0, -1.6, 0), 'CONTRIBUTORS', -120, -10)}${lab(iso(0, rowsN * GAP + 0.6, 0), 'LANGUAGE FOOTPRINT', -30, 30)}${cur.releases === 0 ? lab(iso(plinthW + 0.3, -0.3, topZ), 'RELEASES · 0', 10, 4) : ''}
+${lab(iso(sx + 1, 0.5, 0), `STARS · ${fmt(cur.stars)}`, 16, -6)}${lab(iso(sx + 1, GAP + 1, 0), `FORKS · ${fmt(cur.forks)}`, 16, 14)}${lab(iso(0, -1.6, 0), 'CONTRIBUTORS', -120, -10)}${lab(iso(-0.3, rowsN * GAP + 0.6, 0), 'LANGUAGE FOOTPRINT', -58, -16)}${cur.releases === 0 ? lab(iso(plinthW + 0.3, -0.3, topZ), 'RELEASES · 0', 10, 4) : ''}
 ${panel}
 </svg>
 `;

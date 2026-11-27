@@ -19,11 +19,11 @@
   const BM = [MAT.bone, MAT.emerald, MAT.bone2];
 
   function typed(ctx, lines, x, y, t0, t, o = {}) {
-    const cps = 38; let tt = Math.max(0, (t - t0) * cps);
+    const cps = 90; let tt = Math.max(0, (t - t0) * cps);
     lines.forEach((ln, i) => {
       const n = Math.min(ln.length, Math.floor(tt)); tt = Math.max(0, tt - ln.length - 3);
       if (n <= 0) return;
-      FS.text(ctx, (ln.startsWith('→') ? '' : '') + ln.slice(0, n), x, y + i * 20, { size: 13.5, mono: true, color: css(ln.startsWith('→') ? P.e300 : P.e100), alpha: (o.alpha ?? 1) * 0.9 });
+      FS.text(ctx, (ln.startsWith('→') ? '' : '') + ln.slice(0, n), x, y + i * 21, { size: 15, mono: true, color: css(ln.startsWith('→') ? P.e300 : P.e100), alpha: (o.alpha ?? 1) * 0.9 });
     });
   }
 
@@ -69,7 +69,7 @@
         const p = S.project([e.x - 5, 0, 3.9]); if (!p) return;
         const a = E.smooth(seg(t, e.t0, e.t0 + 0.7)) * (1 - E.smooth(seg(t, 11.0, 11.6)));
         FS.text(ctx, e.title, p[0], p[1] + 46, { size: 20, weight: 700, color: css(P.bone), alpha: a });
-        FS.text(ctx, e.sub.toUpperCase(), p[0], p[1] + 66, { size: 10.5, mono: true, color: css(P.e300), alpha: a * 0.85, spacing: 1.8 });
+        FS.text(ctx, e.sub.toUpperCase(), p[0], p[1] + 66, { size: 12, mono: true, color: css(P.e300), alpha: a * 0.85, spacing: 1.8 });
         typed(ctx, e.cmds, p[0], p[1] + 96, e.t0 + 1.2, t, { alpha: a });
       });
       KIT.loopFade(ctx, W, H, t, DUR);

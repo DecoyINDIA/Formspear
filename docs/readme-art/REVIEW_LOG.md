@@ -32,6 +32,17 @@ No unsupported claims were found. Remaining automatic-rejection concerns raised:
 
 Workflow title now bound to camera position; engineering module labels only on the lit layer; integrations label clutter and event line moved to a safe area; components tiles given different periods; information-structure credit line moved off the footer; lattice cubes flattened and labels moved. A further independent pass was not run.
 
+## Cycle 4 — overall 71/100
+
+Rebuilt before scoring: *components* (one pool of 36 blocks morphing through 7 question types, seamless loop, real `QUESTION_TYPES` index), *workflow-continuum* (one survey object transforming along a rail: create → publish → collect → review; no screenshots), *engineering* (one leader-line label per hop in a fixed column), *open-by-design* (ring layout with an empty docking bay, backplated labels), *perfect-structure* (ends on a four-fact colophon instead of repeating the hero wordmark).
+Reviewer: **Claude Sonnet** (the builder this cycle was Claude Opus). A Fable pass was attempted first and failed for lack of usage credits.
+Scores: hero 80, perfect-structure 80, engineering 78, workflow 76, components 74, precision 74, open 72, form-architect 68, integrations 66, deployment 66, lattice 64, information 63, logic 62. **No automatic-rejection conditions.**
+Spot-checks held (23 types, `numReplicas: 1`, no Dockerfile, lattice equals `snapshots.jsonl`). The reviewer's "32 test files" note was checked and rejected: `tests/` holds 31 test files plus a `helpers/` directory, so "31 files" stands.
+
+## Cycle 5 — applied after the cycle-4 score, not re-scored
+
+Living Lattice: each week is now a 2×2-footprint tower of half-size cubes (still exactly 1 cube = 1 commit, 4 per layer), labels moved off the skyline, STARS/FORKS carry their values, the language legend wraps instead of clipping, shares under 0.1 % print as `<0.1%`. Integrations: camera pulled back and raised, every label on a backplate, labels of nodes behind the core placed above their glyph. Deployment: commands type at 90 cps (complete within ~0.7 s) and are set larger.
+
 ## Honest status
 
-Score at last independent measurement: **61/100**, below the 95 target. Not done: a transformation-based rebuild of *workflow-continuum* and *components*, label leader-line layouts for *engineering*/*open-by-design*, and differentiating the closing scene's ending from the hero's. These are the next work items; see [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
+Score at last independent measurement: **71/100**, still below the 95 target. Remaining defects named by the reviewer and not fixed: the light, full-frame UI screenshots at the end of *information-structure* and *form-architect* break the dark palette; *logic-machine* is sparse with small type; *open-by-design*'s licence list sits apart from the sculpture; the 23-type index in *components* is set small. See [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).

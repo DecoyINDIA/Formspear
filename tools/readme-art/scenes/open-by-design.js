@@ -20,7 +20,8 @@
     ['docs/', 'paper', [2.4, 0.8, 1.6], [0, 0.4, -4.4]],
   ];
   // second configuration (recombined)
-  const CONF2 = [[-5.5, 0.8, 0], [0, 1.2, 4.2], [5.5, 0.5, 0], [-2.6, 0.6, -4.6], [2.6, 0.7, -4.6], [0, 0.7, 0]];
+  // a ring with the centre left empty: the docking bay for a module of your own
+  const CONF2 = [[-5.4, 0.8, 0], [-2.7, 1.2, 4.7], [2.7, 0.5, 4.7], [5.4, 0.6, 0], [2.7, 0.7, -4.7], [-2.7, 0.4, -4.7]];
   const SHELL = [
     { n: [0, 1, 0], p: [0, 4.0, 0], s: [8.4, 0.16, 8.4] }, { n: [1, 0, 0], p: [4.2, 2.0, 0], s: [0.16, 4.0, 8.4] }, { n: [-1, 0, 0], p: [-4.2, 2.0, 0], s: [0.16, 4.0, 8.4] },
     { n: [0, 0, 1], p: [0, 2.0, 4.2], s: [8.4, 4.0, 0.16] }, { n: [0, 0, -1], p: [0, 2.0, -4.2], s: [8.4, 4.0, 0.16] },
@@ -61,7 +62,7 @@
         const pos = [lerp(14, 0, nw), 0.6 + Math.sin(Math.PI * nw) * 3, lerp(8, 0, nw)];
         S.box({ c: pos, s: [2.0, 1.2, 2.0], mat: MAT.amber, emit: P.e100, emitK: 0.2 * (1 - nw), rot: [0, (1 - nw) * 3, 0] });
         // connectors into neighbours
-        for (const k of [0, 1, 2]) {
+        for (const k of [0, 1, 2, 3, 4, 5]) {
           const to = CONF2[k], pts = bez([0, 1.4, 0], [to[0] * 0.3, 3.4, to[2] * 0.3], [to[0] * 0.7, 3.4, to[2] * 0.7], [to[0] * 1.15, to[1] + 0.9, to[2] * 1.15], 18);
           S.line({ pts: slicePoly(pts, 0, E.io3(seg(t, 9.0, 10.0))), color: P.amber, alpha: 0.8, w: 1.6, glow: true });
         }
@@ -73,7 +74,10 @@
         const pos = [lerp(a[0], to[0] * 1.15, recomb), lerp(a[1], to[1], recomb) + Math.sin(Math.PI * recomb) * 2.0, lerp(a[2], to[2] * 1.15, recomb)];
         const p = S.project([pos[0], pos[1] + size[1] / 2 + 0.4, pos[2]]); if (!p) return;
         const al = E.smooth(seg(t, 4.2 + i * 0.08, 4.8 + i * 0.08)) * (1 - E.smooth(seg(t, 11.0, 11.5)));
-        FS.text(ctx, name, p[0], p[1] - 6, { size: 12, mono: true, weight: 600, color: css(P.e100), alpha: al, align: 'center', spacing: 1.2 });
+        const tw = FS.measure(ctx, name, { size: 13, mono: true, weight: 600, spacing: 1.2 });
+        ctx.fillStyle = css(P.ground, 0.78 * al); ctx.fillRect(p[0] - tw / 2 - 7, p[1] - 24, tw + 14, 22);
+        ctx.fillStyle = css(P.e400, al); ctx.fillRect(p[0] - tw / 2 - 7, p[1] - 24, 2, 22);
+        FS.text(ctx, name, p[0], p[1] - 8, { size: 13, mono: true, weight: 600, color: css(P.bone), alpha: al, align: 'center', spacing: 1.2 });
       });
       // MIT rights, typed
       RIGHTS.forEach((r, i) => {

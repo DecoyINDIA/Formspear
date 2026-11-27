@@ -41,7 +41,7 @@
     scene: { fogNear: 34, fogFar: 90, fogMax: 0.5 },
     draw(ctx, t, S) {
       KIT.bg(ctx, W, H);
-      S.setCamera({ target: [0, 3.2, 0], yaw: track(t, [[0, -0.5], [6, 0.1], [12, 0.6]]), pitch: track(t, [[0, 0.5], [12, 0.46]]), dist: 39, fov: 0.6, shift: [0, -4] });
+      S.setCamera({ target: [0, 3.2, 0], yaw: track(t, [[0, -0.5], [6, 0.1], [12, 0.6]]), pitch: track(t, [[0, 0.62], [12, 0.58]]), dist: 47, fov: 0.6, shift: [0, -22] });
       S.begin();
       KIT.floor(S, 0.1, t, 22, 1.6, 0.16);
       // orbit rings
@@ -73,13 +73,16 @@
         }
       });
       S.flush();
+      const coreZ = (S.project([0, 0, 0]) || [0, 0, 1e9])[2];
       NODES.forEach((n, i) => {
         const a = E.smooth(seg(t, n.t0 + 0.5, n.t0 + 1.2)) * (1 - E.smooth(seg(t, 11.0, 11.6)));
         const p = S.project([n.pos[0], 0, n.pos[2]]); if (!p) return;
-        const out = Math.cos(n.a) >= 0 ? 1 : -1;
-        FS.text(ctx, n.name.toUpperCase(), p[0], p[1] + 34, { size: 13, mono: true, color: css(P.e100), alpha: a * 0.9, align: 'center', spacing: 1.2 });
-        if (n.note && false) FS.text(ctx, n.note, p[0], p[1] + 50, { size: 12, mono: true, color: css(P.e300), alpha: a * 0.85, align: 'center', spacing: 1 });
-        void out;
+        // nodes behind the core label above their glyph, nodes in front label below; every label sits on a backplate
+        const behind = p[2] > coreZ, ly = behind ? p[1] - 30 : p[1] + 38, label = n.name.toUpperCase();
+        const tw = FS.measure(ctx, label, { size: 13, mono: true, spacing: 1.2 });
+        ctx.fillStyle = css(P.ground, 0.8 * a); ctx.fillRect(p[0] - tw / 2 - 8, ly - 15, tw + 16, 21);
+        ctx.fillStyle = css(P.e400, a); ctx.fillRect(p[0] - tw / 2 - 8, ly - 15, 2, 21);
+        FS.text(ctx, label, p[0], ly, { size: 13, mono: true, color: css(P.bone), alpha: a, align: 'center', spacing: 1.2 });
       });
       const ev = E.smooth(seg(t, 4.0, 4.6)) * (1 - E.smooth(seg(t, 9.8, 10.6)));
       FS.text(ctx, 'EVENT  response.completed', 640, 96, { size: 13, mono: true, color: css(P.e300), alpha: ev, align: 'center', spacing: 2 });
